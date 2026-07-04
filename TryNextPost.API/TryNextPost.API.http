@@ -1,0 +1,6 @@
+@TryNextPost.API_HostAddress = http://localhost:5297
+
+GET {{TryNextPost.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

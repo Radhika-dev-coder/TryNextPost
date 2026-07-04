@@ -1,0 +1,24 @@
+#Build results
+
+bin/
+obj/
+out/
+
+#Visual Studio files
+
+.vs/
+*.user
+*.suo
+*.sln.docstates
+
+
+# Environment / Secrets
+appsettings.Development.json
+.env
+
+# Test Results
+TestResults/
+
+# OS files
+.DS_Store
+Thumbs.db
