@@ -8,7 +8,7 @@ namespace TryNextPost.Domain.Enums
 {
     public enum ShipmentType
     {
-        Forward,
-        Reverse
+        Forward = 1,
+        Reverse = 2
     }
 }

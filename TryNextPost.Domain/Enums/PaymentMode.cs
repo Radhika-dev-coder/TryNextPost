@@ -8,8 +8,8 @@ namespace TryNextPost.Domain.Enums
 {
     public enum PaymentMode
     {
-        COD,
-        Prepaid
+        COD = 1,
+        Prepaid = 2
     }
 
 }

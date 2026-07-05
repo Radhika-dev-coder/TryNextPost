@@ -12,7 +12,10 @@ namespace TryNextPost.Domain.Entities
     public class CompanyInfo : BaseDbModel
     {
             [Key]
-            public string CompanyId { get; set; } = Guid.NewGuid().ToString();
+            public long CompanyId { get; set; } 
             public string Name { get; set; } = string.Empty;
+
+            public ICollection<Seller>? Sellers { get; set; }
+        public ICollection<Address> Addresses { get; set; }
     }
 }

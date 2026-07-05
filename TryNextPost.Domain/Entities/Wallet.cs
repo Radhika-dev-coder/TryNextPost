@@ -1,16 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Transactions;
+using System.ComponentModel.DataAnnotations;
 using TryNextPost.Domain.Common;
 
 namespace TryNextPost.Domain.Entities
 {
     public class Wallet : BaseDbModel
     {
-        public string WalletId { get; set; } = Guid.NewGuid().ToString();
+        [Key]
+        public long WalletId { get; set; } 
 
         // 🔗 FK → User (only ID, no navigation to Identity)
         public string UserId { get; set; } = string.Empty;

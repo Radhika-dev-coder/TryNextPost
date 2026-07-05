@@ -8,12 +8,12 @@ namespace TryNextPost.Domain.Enums
 {
     public enum OrderStatus
     {
-            Pending,
-            Confirmed,
-            Packed,
-            Shipped,
-            Delivered,
-            Cancelled,
-            RTO
+            Pending = 1,
+            Confirmed = 2,
+            Packed = 3,
+            Shipped = 4,
+            Delivered = 5,
+            Cancelled = 6,
+            RTO = 7
     }
 }

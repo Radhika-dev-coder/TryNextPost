@@ -8,9 +8,9 @@ namespace TryNextPost.Domain.Enums
 {
     public enum NdrStatus
     {
-        Pending,
-        ReattemptScheduled,
-        Delivered,
-        Cancelled
+        Pending = 1,
+        ReattemptScheduled = 2,
+        Delivered = 3,
+        Cancelled = 4
     }
 }

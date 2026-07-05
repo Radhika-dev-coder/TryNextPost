@@ -1,32 +1,44 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TryNextPost.Domain.Common;
 using TryNextPost.Domain.Enums;
 
 namespace TryNextPost.Domain.Entities
 {
-    public class Shipment
+    public class Shipment : BaseDbModel
     {
+        [Key]
         public long ShipmentId { get; set; }
 
+        // 🔗 FK → Order
         public long OrderId { get; set; }
         public Order? Order { get; set; }
 
-        public int CourierId { get; set; }
+        // 🔗 FK → Courier
+        public long CourierId { get; set; }
         public Courier? Courier { get; set; }
 
-        public string AwbNumber { get; set; } = string.Empty;
-
+        public long AwbNumber { get; set; }
         public ShipmentType ShipmentType { get; set; }
 
-        public string PickupAddressId { get; set; } = string.Empty;
+        // 🔹 Pickup — seller/warehouse ka address, FK to Address table
+        public long PickupAddressId { get; set; }
         public Address? PickupAddress { get; set; }
 
-        public string DeliveryAddressId { get; set; } = string.Empty;
-        public Address? DeliveryAddress { get; set; }
+        // 🔹 Delivery — customer ka address, EMBEDDED (snapshot, no FK)
+        public string DeliveryCustomerName { get; set; } = string.Empty;
+        public string DeliveryMobile { get; set; } = string.Empty;
+        public string DeliveryAddressLine1 { get; set; } = string.Empty;
+        public string? DeliveryAddressLine2 { get; set; }
+        public string DeliveryCity { get; set; } = string.Empty;
+        public string DeliveryState { get; set; } = string.Empty;
+        public string DeliveryPincode { get; set; } = string.Empty;
+        public string DeliveryCountry { get; set; } = string.Empty;
 
         public decimal Weight { get; set; }
         public decimal Length { get; set; }
@@ -35,10 +47,9 @@ namespace TryNextPost.Domain.Entities
 
         public ShipmentStatus Status { get; set; } = ShipmentStatus.Created;
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime? UpdatedAt { get; set; }
-
         // Tracking list
         public ICollection<ShipmentTracking>? TrackingHistory { get; set; }
+        public ICollection<NDR>? NDRs { get; set; }   
+        public ICollection<RTO>? RTOs { get; set; }
     }
 }

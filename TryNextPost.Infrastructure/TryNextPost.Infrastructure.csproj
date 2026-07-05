@@ -24,8 +24,4 @@
     <ProjectReference Include="..\TryNextPost.Domain\TryNextPost.Domain.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Repository\" />
-  </ItemGroup>
-
 </Project>

@@ -8,8 +8,8 @@ namespace TryNextPost.Domain.Enums
 {
     public enum SettlementStatus
     {
-        Pending,
-        Settled,
-        Failed
+        Pending = 1,
+        Settled = 2,
+        Failed = 3,
     }
 }

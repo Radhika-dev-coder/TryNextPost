@@ -11,16 +11,16 @@ namespace TryNextPost.Infrastructure.Seeder
 {
     public static class IdentitySeeder
     {
-        public static async Task SeedAsync(UserManager<ApplicationUser> userManager,RoleManager<ApplicaitonRole> roleManager)
+        public static async Task SeedAsync(UserManager<ApplicationUser> userManager,RoleManager<ApplicationRole> roleManager)
         {
             if (!await roleManager.RoleExistsAsync(RoleEnum.SuperAdmin.ToString()))
-                await roleManager.CreateAsync(new ApplicaitonRole { Name=RoleEnum.SuperAdmin.ToString()});
+                await roleManager.CreateAsync(new ApplicationRole { Name=RoleEnum.SuperAdmin.ToString()});
        
             if (!await roleManager.RoleExistsAsync(RoleEnum.Admin.ToString()))
-                await roleManager.CreateAsync(new ApplicaitonRole { Name=RoleEnum.Admin.ToString()});
+                await roleManager.CreateAsync(new ApplicationRole { Name=RoleEnum.Admin.ToString()});
        
             if (!await roleManager.RoleExistsAsync(RoleEnum.Seller.ToString()))
-                await roleManager.CreateAsync(new ApplicaitonRole { Name=RoleEnum.Seller.ToString()});
+                await roleManager.CreateAsync(new ApplicationRole { Name=RoleEnum.Seller.ToString()});
 
             var superAdmin = await userManager.FindByEmailAsync("SuperAdmin@yopmail.com");
             if(superAdmin == null)

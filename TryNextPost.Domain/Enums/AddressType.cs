@@ -9,9 +9,9 @@ namespace TryNextPost.Domain.Enums
     public enum AddressType
     {
 
-        SellerPickup,
-        CustomerShipping,
-        CustomerBilling
+        SellerPickup =1,
+        CustomerShipping = 2,
+        CustomerBilling = 3
     
 }
 }

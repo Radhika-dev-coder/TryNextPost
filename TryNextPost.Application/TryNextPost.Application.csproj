@@ -22,10 +22,4 @@
     <ProjectReference Include="..\TryNextPost.Domain\TryNextPost.Domain.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="DTO\" />
-    <Folder Include="Services\Interface\" />
-    <Folder Include="Services\Class\" />
-  </ItemGroup>
-
 </Project>

@@ -8,9 +8,9 @@ namespace TryNextPost.Domain.Enums
 {
     public enum RtoStatus
     {
-        Initiated,
-        InTransit,
-        DeliveredToSeller,
-        Cancelled
+        Initiated = 1,
+        InTransit = 2,
+        DeliveredToSeller = 3,
+        Cancelled = 4
     }
 }
