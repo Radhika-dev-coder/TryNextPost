@@ -5,6 +5,9 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using TryNextPost.API.Middlewares;
 using TryNextPost.Application.IServices;
+using TryNextPost.Application.IServices.Class;
+using TryNextPost.Application.IServices.Interface;
+using TryNextPost.Application.Services.Interface;
 using TryNextPost.Domain.IRepository;
 using TryNextPost.Infrastructure.AppDbContexts;
 using TryNextPost.Infrastructure.Identity;
@@ -37,7 +40,11 @@ builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 #endregion
 
 #region  DI
-
+builder.Services.AddScoped<IIdentityService, IdentityService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IUserSessionRepository, UserSessionRepository>();
 #endregion
 
 #region  JWT
@@ -111,7 +118,7 @@ builder.Services.AddScoped<IAuthService,AuthService>();
 builder.Services.AddScoped<ISellerRepository, SellerRepository>();
 #endregion
 
-
+builder.Services.AddMemoryCache();
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 //builder.Services.AddOpenApi();

@@ -12,8 +12,8 @@ using TryNextPost.Infrastructure.AppDbContexts;
 namespace TryNextPost.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260704082600_InitialTableCreate")]
-    partial class InitialTableCreate
+    [Migration("20260706060745_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -153,10 +153,7 @@ namespace TryNextPost.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("CompanyId")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<long?>("CompanyId1")
+                    b.Property<long>("CompanyId")
                         .HasColumnType("bigint");
 
                     b.Property<string>("Country")
@@ -199,7 +196,7 @@ namespace TryNextPost.Infrastructure.Migrations
 
                     b.HasKey("AddressId");
 
-                    b.HasIndex("CompanyId1");
+                    b.HasIndex("CompanyId");
 
                     b.HasIndex("Pincode");
 
@@ -217,9 +214,11 @@ namespace TryNextPost.Infrastructure.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("CodSettlementId"));
 
                     b.Property<decimal>("CodAmount")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("CollectedAmount")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("CreatedAt")
@@ -331,6 +330,7 @@ namespace TryNextPost.Infrastructure.Migrations
                         .HasColumnType("bit");
 
                     b.Property<decimal?>("MaxWeightLimit")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<bool>("SupportsCOD")
@@ -505,6 +505,7 @@ namespace TryNextPost.Infrastructure.Migrations
                         .HasColumnType("int");
 
                     b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -548,6 +549,7 @@ namespace TryNextPost.Infrastructure.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<decimal>("Price")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("ProductName")
@@ -666,7 +668,7 @@ namespace TryNextPost.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("SellerId"));
 
-                    b.Property<long>("CompanyId")
+                    b.Property<long?>("CompanyId")
                         .HasColumnType("bigint");
 
                     b.Property<DateTime?>("CreatedAt")
@@ -720,6 +722,7 @@ namespace TryNextPost.Infrastructure.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<decimal>("Breadth")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<long>("CourierId")
@@ -763,12 +766,14 @@ namespace TryNextPost.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("Height")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<bool?>("IsActive")
                         .HasColumnType("bit");
 
                     b.Property<decimal>("Length")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<long>("OrderId")
@@ -790,6 +795,7 @@ namespace TryNextPost.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("Weight")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("ShipmentId");
@@ -856,6 +862,7 @@ namespace TryNextPost.Infrastructure.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("TxnId"));
 
                     b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("CreatedAt")
@@ -902,6 +909,46 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.ToTable("Transactions");
                 });
 
+            modelBuilder.Entity("TryNextPost.Domain.Entities.UserSession", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ExpiryAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("IpAddress")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("JwtToken")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserSessions");
+                });
+
             modelBuilder.Entity("TryNextPost.Domain.Entities.Wallet", b =>
                 {
                     b.Property<long>("WalletId")
@@ -911,6 +958,7 @@ namespace TryNextPost.Infrastructure.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("WalletId"));
 
                     b.Property<decimal>("Balance")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("CreatedAt")
@@ -1067,9 +1115,6 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<long?>("SellerId")
-                        .HasColumnType("bigint");
-
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("bit");
 
@@ -1092,8 +1137,6 @@ namespace TryNextPost.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex")
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
-
-                    b.HasIndex("SellerId");
 
                     b.ToTable("AspNetUsers", (string)null);
                 });
@@ -1152,8 +1195,10 @@ namespace TryNextPost.Infrastructure.Migrations
             modelBuilder.Entity("TryNextPost.Domain.Entities.Address", b =>
                 {
                     b.HasOne("TryNextPost.Domain.Entities.CompanyInfo", "Company")
-                        .WithMany()
-                        .HasForeignKey("CompanyId1");
+                        .WithMany("Addresses")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("TryNextPost.Infrastructure.Identity.ApplicationUser", null)
                         .WithMany("Addresses")
@@ -1261,11 +1306,10 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.HasOne("TryNextPost.Domain.Entities.CompanyInfo", "Company")
                         .WithMany("Sellers")
                         .HasForeignKey("CompanyId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("TryNextPost.Infrastructure.Identity.ApplicationUser", null)
-                        .WithOne()
+                        .WithOne("Seller")
                         .HasForeignKey("TryNextPost.Domain.Entities.Seller", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1322,17 +1366,19 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.Navigation("Wallet");
                 });
 
-            modelBuilder.Entity("TryNextPost.Infrastructure.Identity.ApplicationUser", b =>
+            modelBuilder.Entity("TryNextPost.Domain.Entities.UserSession", b =>
                 {
-                    b.HasOne("TryNextPost.Domain.Entities.Seller", "Seller")
+                    b.HasOne("TryNextPost.Infrastructure.Identity.ApplicationUser", null)
                         .WithMany()
-                        .HasForeignKey("SellerId");
-
-                    b.Navigation("Seller");
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("TryNextPost.Domain.Entities.CompanyInfo", b =>
                 {
+                    b.Navigation("Addresses");
+
                     b.Navigation("Sellers");
                 });
 
@@ -1375,6 +1421,8 @@ namespace TryNextPost.Infrastructure.Migrations
             modelBuilder.Entity("TryNextPost.Infrastructure.Identity.ApplicationUser", b =>
                 {
                     b.Navigation("Addresses");
+
+                    b.Navigation("Seller");
                 });
 #pragma warning restore 612, 618
         }

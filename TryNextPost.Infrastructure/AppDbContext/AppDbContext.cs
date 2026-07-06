@@ -30,6 +30,7 @@ namespace TryNextPost.Infrastructure.AppDbContexts
         public DbSet<Seller> Sellers => Set<Seller>();
         public DbSet<CompanyInfo> Companies => Set<CompanyInfo>();
 
+        public DbSet<UserSession> UserSessions => Set<UserSession>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -201,6 +202,14 @@ namespace TryNextPost.Infrastructure.AppDbContexts
             modelBuilder.Entity<RolePermission>()
                 .HasIndex(rp => new { rp.RoleId, rp.PermissionId })
                 .IsUnique();
+
+            //---------------UserSession------------------//
+
+            modelBuilder.Entity<UserSession>()
+           .HasOne<ApplicationUser>()
+           .WithMany()
+           .HasForeignKey(us => us.UserId)
+           .OnDelete(DeleteBehavior.Cascade);
 
             // =========================
             // 🔥 INDEXES
