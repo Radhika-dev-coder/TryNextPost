@@ -6,11 +6,8 @@ using System.Threading.Tasks;
 
 namespace TryNextPost.Application.DTO.Auth
 {
-    public class ReponseDto
+    public class ForgotPasswordRequest
     {
-        public int Id { get; set; }
-        public string Name { get; set; }
         public string Email { get; set; }
-        public string Phone { get; set; }
     }
 }

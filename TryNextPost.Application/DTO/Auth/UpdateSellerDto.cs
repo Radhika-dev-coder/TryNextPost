@@ -6,7 +6,10 @@ using System.Threading.Tasks;
 
 namespace TryNextPost.Application.DTO.Auth
 {
-    public class LoginDto
+    public class UpdateSellerDto
     {
+        public string? FullName { get; set; }
+        public string? PhoneNumber { get; set; }
+
     }
 }
