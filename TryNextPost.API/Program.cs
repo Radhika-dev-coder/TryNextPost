@@ -45,6 +45,10 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IUserSessionRepository, UserSessionRepository>();
+builder.Services.AddScoped<IIdentityService, IdentityService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ISellerRepository, SellerRepository>();
+builder.Services.AddScoped<ISmsService, SmsService>();
 #endregion
 
 #region  JWT
@@ -76,6 +80,17 @@ builder.Services.AddAuthentication(options =>
 
         IssuerSigningKey = new SymmetricSecurityKey(keyBytes)
     };
+});
+#endregion
+
+#region AddAuthorization
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("SellerAccess", policy =>
+        policy.RequireRole("Seller", "SuperAdmin"));
+
+    options.AddPolicy("AdminAccess", policy =>
+        policy.RequireRole("Admin", "SuperAdmin"));
 });
 #endregion
 
@@ -112,11 +127,7 @@ builder.Services.AddSwaggerGen(options =>
 
 #endregion
 
-#region Services
-builder.Services.AddScoped<IIdentityService, IdentityService>();
-builder.Services.AddScoped<IAuthService,AuthService>();
-builder.Services.AddScoped<ISellerRepository, SellerRepository>();
-#endregion
+
 
 builder.Services.AddMemoryCache();
 builder.Services.AddControllers();

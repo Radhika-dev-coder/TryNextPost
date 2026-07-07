@@ -47,5 +47,41 @@ namespace TryNextPost.Infrastructure.Service
 
             await smtp.SendMailAsync(mail);
         }
+
+        public async Task SendWelcomeEmail(string email, string fullName)
+        {
+            var smtpHost = _config["Smtp:Host"];
+            var smtpPort = int.Parse(_config["Smtp:Port"]);
+            var senderEmail = _config["Smtp:SenderEmail"];
+            var senderName = _config["Smtp:SenderName"];
+            var password = _config["Smtp:Password"];
+
+            var body = $@"
+                <div style='font-family: Arial, sans-serif; padding: 20px;'>
+                    <h2 style='color: #2E86C1;'>Welcome to TryNextPost, {fullName}! 🎉</h2>
+                    <p>Congratulations! Your registration was successful.</p>
+                    <p>You can now log in and start using your account.</p>
+                    <br/>
+                    <p>Thank you for choosing <strong>TryNextPost</strong>.</p>
+                    <p style='color: gray; font-size: 12px;'>This is an automated message, please do not reply.</p>
+                </div>";
+
+            var mail = new MailMessage
+            {
+                From = new MailAddress(senderEmail, senderName),
+                Subject = "Welcome to TryNextPost — Registration Successful!",
+                Body = body,
+                IsBodyHtml = true
+            };
+            mail.To.Add(email);
+
+            using var smtp = new SmtpClient(smtpHost, smtpPort)
+            {
+                Credentials = new NetworkCredential(senderEmail, password),
+                EnableSsl = true
+            };
+
+            await smtp.SendMailAsync(mail);
+        }
     }
 }

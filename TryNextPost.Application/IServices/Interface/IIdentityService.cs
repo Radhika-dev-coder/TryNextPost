@@ -20,5 +20,11 @@ namespace TryNextPost.Application.Services.Interface
         Task<ResponseSellerDto> GetUserByEmailAsync(string email);
 
         Task<IdentityResultModel> ResetPasswordAsync(string email, string newPassword);
+
+        Task<bool> CheckPhoneExistsAsyns(string Mobile);
+        Task<ResponseSellerDto> GetUserByPhoneAsync(string Mobile);
+
+        Task<List<string>> GetUserRolesAsync(string UserId);
+
     }
 }

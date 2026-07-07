@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 
 namespace TryNextPost.Application.DTO.Auth
 {
-    public class LoginRequest
+    public class VerifyPhoneOtpRequest
     {
-        public string Email { get; set; }
-        public string Password { get; set; }
+        public string Mobile {  get; set; }
+        public string Otp { get; set; }
         public string DeviceId { get; set; }
     }
 }

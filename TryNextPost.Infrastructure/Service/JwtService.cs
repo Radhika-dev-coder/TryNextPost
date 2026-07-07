@@ -48,15 +48,20 @@ namespace TryNextPost.Infrastructure.Service
         }
 
 
-        public string GenerateToken(string userId, string email)
+        public string GenerateToken(string userId, string email , List<string> roles)
         {
             var jwtKey = _config["Jwt:Key"];
             Console.WriteLine("JWT KEY: " + (jwtKey ?? "NULL"));
-            var claims = new[]
+            var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, userId),
                 new Claim(ClaimTypes.Email, email)
             };
+
+            foreach(var role in roles)
+            {
+                claims.Add(new Claim(ClaimTypes.Role, role));
+            }
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
