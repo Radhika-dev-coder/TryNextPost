@@ -6,9 +6,8 @@ using System.Threading.Tasks;
 
 namespace TryNextPost.Application.IServices.Interface
 {
-    public interface IEmailService
+    public interface ISmsService
     {
-        Task SendOtpEmail(string email, string otp);
-        Task SendWelcomeEmail(string email, string fullName);
+        Task SendOtpSms(String PhoneNumber, string Otp);
     }
 }

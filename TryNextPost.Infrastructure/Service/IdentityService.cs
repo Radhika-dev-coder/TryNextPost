@@ -28,6 +28,12 @@ namespace TryNextPost.Infrastructure.Service
             return user != null;
         }
 
+        public async Task<bool> CheckPhoneExistsAsyns(string Mobile)
+        {
+            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber ==  Mobile);
+            return user != null;
+        }
+
         public async Task<IdentityResultModel> CreateUserAsync(string email, string password, string fullName, string mobile)
         {
             var existingEmailUser = await _userManager.FindByEmailAsync(email);
@@ -120,6 +126,29 @@ namespace TryNextPost.Infrastructure.Service
                 FullName = user.FullName,
                 PhoneNumber = user.PhoneNumber
             };
+        }
+
+        public async Task<ResponseSellerDto> GetUserByPhoneAsync(string Mobile)
+        {
+            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == Mobile);
+            if (user == null) return null;
+
+            return new ResponseSellerDto
+            {
+                UserId = user.Id,
+                Email = user.Email,
+                FullName = user.FullName,
+                PhoneNumber = user.PhoneNumber
+            };
+        }
+
+        public async Task<List<string>> GetUserRolesAsync(string UserId)
+        {
+            var user = await _userManager.FindByIdAsync(UserId);
+            if (user == null) return new List<string>();
+
+            var roles = await _userManager.GetRolesAsync(user);
+            return roles.ToList();
         }
 
         public async Task<IdentityResultModel> ResetPasswordAsync(string email, string newPassword)

@@ -6,6 +6,7 @@ using TryNextPost.Application.DTO;
 using TryNextPost.Application.DTO.Auth;
 using TryNextPost.Application.IServices;
 using TryNextPost.Application.Services.Interface;
+using RegisterRequest = TryNextPost.Application.DTO.Auth.RegisterRequest;
 using LoginRequest = TryNextPost.Application.DTO.Auth.LoginRequest;
 
 namespace TryNextPost.API.Controllers
@@ -21,37 +22,6 @@ namespace TryNextPost.API.Controllers
         {
             _authService = authService;
         }
-        [HttpPost("Register")]
-        public async Task<IActionResult> Register(SellerDto dto)
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(new
-                {
-                    Success = false,
-                    message = "Invalid Request Data",
-                    errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)
-                });
-            }
-            var result = await _authService.RegisterAsync(dto);
-            if (!result.Success)
-            {
-                return Conflict(new
-                {
-                    Success = false,
-                    messag = result.Message,
-                    errors = result.Errors
-                });
-            }
-
-            return Ok(new
-            {
-                Success = true,
-                message = "User Registered Successfully",
-                data = result.Data
-            });
-
-        }
 
         [HttpPost("check-email")]
         public async Task<IActionResult> CheckEmail(string email)
@@ -61,11 +31,12 @@ namespace TryNextPost.API.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login(LoginRequest request)
+        public async Task<IActionResult> Login([FromBody]LoginRequest request)
         {
             try
             {
-                var result = await _authService.LoginAsync(request);
+                var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+                var result = await _authService.LoginAsync(request,ip);
                 return Ok(result);
             }
             catch (UnauthorizedAccessException ex)
@@ -74,13 +45,27 @@ namespace TryNextPost.API.Controllers
             }
         }
 
-        [HttpPost("verify-login-otp")]
-        public async Task<IActionResult> VerifyLoginOtp(VerifyOtpRequest request)
+        [HttpPost("check-phone")]
+        public async Task<IActionResult> CheckPhone([FromQuery] string mobile)
+        {
+            var exists = await _authService.CheckPhoneAsync(mobile);
+            return Ok(new { exists });
+        }
+
+        [HttpPost("send-phone-otp")]
+        public async Task<IActionResult> SendPhoneOtp([FromBody] SendPhoneOtpRequest request)
+        {
+            var message = await _authService.SendPhoneOtpAsync(request);
+            return Ok(new { message });
+        }
+
+        [HttpPost("verify-phone-otp")]
+        public async Task<IActionResult> VerifyPhoneOtp([FromBody] VerifyPhoneOtpRequest request)
         {
             try
             {
-                var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
-                var result = await _authService.VerifyOtpAsync(request, ipAddress);
+                var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+                var result = await _authService.VerifyPhoneOtpAsync(request, ip);
                 return Ok(result);
             }
             catch (UnauthorizedAccessException ex)
@@ -89,24 +74,23 @@ namespace TryNextPost.API.Controllers
             }
         }
 
-
-        [HttpPost("resend-otp")]
-        public async Task<IActionResult> ResendOtp([FromBody] ResendOtpRequest request)
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
             try
             {
-                var result = await _authService.ResendOtpAsync(request);
+                var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+                var result = await _authService.RegisterAsync(request, ip);
                 return Ok(result);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return BadRequest(new { message = ex.Message });
             }
             catch (InvalidOperationException ex)
             {
-                return StatusCode(429, new { message = ex.Message });
+                return BadRequest(new { message = ex.Message });
             }
         }
+
+
+
 
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] TryNextPost.Application.DTO.Auth.ForgotPasswordRequest request)
@@ -143,5 +127,36 @@ namespace TryNextPost.API.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        //[HttpPost("send-otp")]
+        //public async Task<IActionResult> SendOtp([FromBody] ResendOtpRequest request)
+        //{
+        //    try
+        //    {
+        //        var result = await _authService.SendOtpAsync(request);
+        //        return Ok(result);
+        //    }
+        //    catch (InvalidOperationException ex)
+        //    {
+        //        return StatusCode(429, new { message = ex.Message });
+        //    }
+        //}
+
+        //[HttpPost("verify-otp")]
+        //public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpRequest request)
+        //{
+        //    try
+        //    {
+        //        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+        //        var result = await _authService.VerifyOtpAsync(request, ipAddress);
+        //        return Ok(result);
+        //    }
+        //    catch (UnauthorizedAccessException ex)
+        //    {
+        //        return BadRequest(new { message = ex.Message });
+        //    }
+        //}
+
+
     }
 }
