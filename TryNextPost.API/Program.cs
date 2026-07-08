@@ -127,7 +127,18 @@ builder.Services.AddSwaggerGen(options =>
 
 #endregion
 
-
+#region cors
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        policy =>
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        });
+});
+#endregion
 
 builder.Services.AddMemoryCache();
 builder.Services.AddControllers();
