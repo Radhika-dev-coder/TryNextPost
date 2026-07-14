@@ -57,7 +57,7 @@ namespace TryNextPost.Infrastructure.AppDbContexts
             // 🔥 ORDER → SELLER
             // =========================
             modelBuilder.Entity<Order>()
-                .HasOne<Seller>()
+                .HasOne(o => o.Seller)
                 .WithMany()
                 .HasForeignKey(o => o.SellerId)
                 .OnDelete(DeleteBehavior.Restrict);
@@ -211,6 +211,7 @@ namespace TryNextPost.Infrastructure.AppDbContexts
            .HasForeignKey(us => us.UserId)
            .OnDelete(DeleteBehavior.Cascade);
 
+
             // =========================
             // 🔥 INDEXES
             // =========================
@@ -296,6 +297,10 @@ namespace TryNextPost.Infrastructure.AppDbContexts
 
             modelBuilder.Entity<Wallet>()
                 .Property(x => x.Balance)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<Order>()
+                .Property(x => x.TotalAmount)
                 .HasPrecision(18, 2);
         }
     }

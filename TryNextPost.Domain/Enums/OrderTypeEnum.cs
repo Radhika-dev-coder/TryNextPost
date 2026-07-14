@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 
 namespace TryNextPost.Domain.Enums
 {
-    public enum AddressType
+    public enum OrderTypeEnum
     {
-        SellerPickup =1,
-        CustomerShipping = 2,
-        CustomerBilling = 3    
+        Forward = 1,
+        Reverse = 2,
+        ReverseQC = 3
     }
 }
