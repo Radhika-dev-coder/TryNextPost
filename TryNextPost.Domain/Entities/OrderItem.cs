@@ -18,6 +18,7 @@ namespace TryNextPost.Domain.Entities
         public string ProductName { get; set; } = string.Empty;
         public int Qty { get; set; }
         public decimal Price { get; set; }
+        public string? Sku { get; set; }   
 
         [NotMapped]
         public decimal TotalPrice => Qty * Price;

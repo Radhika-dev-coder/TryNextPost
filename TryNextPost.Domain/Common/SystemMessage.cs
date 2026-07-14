@@ -8,11 +8,51 @@ namespace TryNextPost.Domain.Common
 {
     public static class SystemMessage
     {
-        public static string RegisterSuccess = "Registration Successfull...";
-        public static string RegisterFaield = "Registration Faield...";
-        public static string SomethingWentWrong = "Something went Wrong...";
-        public static string NotFound = "Data Not Found...";
-        public static string RequestBodyNull = "Request Body Null...";
-        public static string RequiredId = "Id is Required...";
+        // ───── Auth Module ─────
+        public const string RegisterSuccess = "Registration successful.";
+        public const string RegisterFailed = "Registration failed.";
+        public const string InvalidCredentials = "Invalid email or password.";
+        public const string EmailNotFound = "Email not found.";
+        public const string PasswordMismatch = "Password and Confirm Password do not match.";
+        public const string LoginSuccess = "Login successful.";
+        public const string OtpSentEmail = "OTP sent to your email.";
+        public const string OtpResentEmail = "OTP resent to your email.";
+        public const string OtpSentPhone = "OTP sent to your mobile number.";
+        public const string InvalidOtp = "Invalid or expired OTP.";
+        public const string InvalidOtpFormat = "Invalid OTP format. Enter a 6-digit number.";
+        public const string PasswordResetSuccess = "Password reset successful. Please login with your new password.";
+        public const string EmailVerifiedRegistrationRequired = "Email verified. Please complete your registration.";
+        public const string PhoneVerifiedRegistrationRequired = "Phone verified. Please complete your registration.";
+        public const string UserNotFound = "User not found.";
+        public const string OtpWaitMessage = "Please wait {0} seconds before requesting another OTP.";
+
+        // ───── Seller Module ─────
+        public const string SellerNotFound = "Seller profile not found. Please complete KYC first.";
+        public const string SellerProfileIncomplete = "Please complete your seller profile.";
+
+        // ───── Address Module ─────
+        public const string AddressNotFound = "Address not found.";
+        public const string AddressAddedSuccess = "Pickup address added successfully.";
+        public const string AddressUpdatedSuccess = "Address updated successfully.";
+        public const string AddressDeletedSuccess = "Address deleted successfully.";
+
+        // ───── Order Module ─────
+        public const string OrderNotFound = "Order not found.";
+        public const string OrderCreatedSuccess = "Order created successfully.";
+        public const string OrderUpdatedSuccess = "Order updated successfully.";
+        public const string OrderFetchedSuccess = "Orders fetched successfully";
+        public const string OrderCancelledSuccess = "Order cancelled successfully.";
+        public const string OrderCannotBeEdited = "Cannot edit order once it has been shipped or processed.";
+        public const string OrderCannotBeCancelled = "Cannot cancel order once it has been shipped or processed.";
+        public const string AtLeastOneItemRequired = "At least one item is required.";
+
+        // ───── Common/Generic ─────
+        public const string SomethingWentWrong = "Something went wrong. Please try again later.";
+        public const string NotFound = "Data not found.";
+        public const string RequestBodyNull = "Request body cannot be null.";
+        public const string RequiredId = "Id is required.";
+        public const string Unauthorized = "You are not authorized to perform this action.";
+        public const string InvalidToken = "Invalid or missing authentication token.";
+        public const string ValidationFailed = "Validation failed. Please check your input.";
     }
 }

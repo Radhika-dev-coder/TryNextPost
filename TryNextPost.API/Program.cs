@@ -6,7 +6,11 @@ using System.Text;
 using TryNextPost.API.Middlewares;
 using TryNextPost.Application.IServices;
 using TryNextPost.Application.IServices.Class;
+using TryNextPost.Application.IServices.Class.Default;
+using TryNextPost.Application.IServices.Class.Order;
 using TryNextPost.Application.IServices.Interface;
+using TryNextPost.Application.IServices.Interface.Default;
+using TryNextPost.Application.IServices.Interface.IOrder;
 using TryNextPost.Application.Services.Interface;
 using TryNextPost.Domain.IRepository;
 using TryNextPost.Infrastructure.AppDbContexts;
@@ -49,6 +53,11 @@ builder.Services.AddScoped<IIdentityService, IdentityService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISellerRepository, SellerRepository>();
 builder.Services.AddScoped<ISmsService, SmsService>();
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IAddressRepository, AddressRepository>();
+builder.Services.AddScoped<IAddressService, AddressService>();
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 #endregion
 
 #region  JWT
@@ -127,16 +136,19 @@ builder.Services.AddSwaggerGen(options =>
 
 #endregion
 
+
 #region cors
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        policy =>
-        {
-            policy.AllowAnyOrigin()
-                  .AllowAnyHeader()
-                  .AllowAnyMethod();
-        });
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
 });
 #endregion
 
@@ -169,7 +181,9 @@ using (var scope = app.Services.CreateScope())
         });
     }
 
+
 app.UseHttpsRedirection();
+app.UseCors("AllowAll");
 app.UseMiddleware<ExceptionMiddleware>();
 
 app.UseAuthentication();

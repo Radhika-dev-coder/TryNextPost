@@ -10,6 +10,9 @@ namespace TryNextPost.Domain.IRepository
     public interface ISellerRepository
     {
         Task AddSellerAsync(Seller seller);
+        Task<Seller> GetByUserIdAsync(string  userId);
+
+        Task CreateSellerAsync(string UserId);
 
     }
 }

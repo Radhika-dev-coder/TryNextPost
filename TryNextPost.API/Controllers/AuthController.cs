@@ -33,16 +33,10 @@ namespace TryNextPost.API.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody]LoginRequest request)
         {
-            try
-            {
+
                 var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
                 var result = await _authService.LoginAsync(request,ip);
-                return Ok(result);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
+            return Ok(result);
         }
 
         [HttpPost("check-phone")]
@@ -62,70 +56,36 @@ namespace TryNextPost.API.Controllers
         [HttpPost("verify-phone-otp")]
         public async Task<IActionResult> VerifyPhoneOtp([FromBody] VerifyPhoneOtpRequest request)
         {
-            try
-            {
+
                 var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
                 var result = await _authService.VerifyPhoneOtpAsync(request, ip);
                 return Ok(result);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
         }
 
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
-            try
-            {
+
                 var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
                 var result = await _authService.RegisterAsync(request, ip);
                 return Ok(result);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
         }
-
-
 
 
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] TryNextPost.Application.DTO.Auth.ForgotPasswordRequest request)
         {
-            try
-            {
+
                 var result = await _authService.ForgotPasswordAsync(request);
                 return Ok(result);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return StatusCode(429, new { message = ex.Message });
-            }
         }
 
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] TryNextPost.Application.DTO.Auth.ResetPasswordRequest request)
         {
-            try
-            {
+
                 var message = await _authService.ResetPasswordAsync(request);
                 return Ok(new { message });
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
         }
 
         //[HttpPost("send-otp")]

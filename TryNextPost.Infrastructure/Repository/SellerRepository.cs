@@ -25,5 +25,23 @@ namespace TryNextPost.Infrastructure.Repository
            await _appDbContexts.SaveChangesAsync();
         }
 
+        public async Task CreateSellerAsync(string UserId)
+        {
+            var seller = new Seller
+            { 
+                UserId = UserId,
+                Status = Domain.Enums.SellerStatus.Active,
+                IsActive = true,
+                CreatedBy = "Admin",
+                CreatedAt = DateTime.UtcNow,
+            };
+            await _appDbContexts.Sellers.AddAsync(seller);
+            await _appDbContexts.SaveChangesAsync();
+        }
+
+        public async Task<Seller> GetByUserIdAsync(string userId)
+        {
+            return await _appDbContexts.Sellers.FirstOrDefaultAsync(s => s.UserId == userId);
+        }
     }
 }
