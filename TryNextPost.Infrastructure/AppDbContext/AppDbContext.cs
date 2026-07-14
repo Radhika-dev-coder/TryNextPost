@@ -29,6 +29,9 @@ namespace TryNextPost.Infrastructure.AppDbContexts
         public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
         public DbSet<Seller> Sellers => Set<Seller>();
         public DbSet<CompanyInfo> Companies => Set<CompanyInfo>();
+        public DbSet<SellerKYC> SellerKYC { get; set; }
+        public DbSet<SellerDocument> SellerDocument { get; set; }
+
 
         public DbSet<UserSession> UserSessions => Set<UserSession>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)

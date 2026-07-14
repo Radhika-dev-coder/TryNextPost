@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TryNextPost.Infrastructure.AppDbContexts;
 
@@ -11,9 +12,11 @@ using TryNextPost.Infrastructure.AppDbContexts;
 namespace TryNextPost.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260713073255_Add-New-KYC-Table")]
+    partial class AddNewKYCTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -150,7 +153,7 @@ namespace TryNextPost.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<long?>("CompanyId")
+                    b.Property<long>("CompanyId")
                         .HasColumnType("bigint");
 
                     b.Property<string>("Country")
@@ -161,12 +164,6 @@ namespace TryNextPost.Infrastructure.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Email")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("GstNumber")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool?>("IsActive")
@@ -196,9 +193,6 @@ namespace TryNextPost.Infrastructure.Migrations
 
                     b.Property<string>("UserId")
                         .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("WarehouseName")
-                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("AddressId");
 
@@ -454,22 +448,10 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.Property<long>("BillingAddressId")
                         .HasColumnType("bigint");
 
-                    b.Property<decimal>("BreadthCm")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("CodCharges")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal?>("CollectableAmount")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("CustomerCompanyName")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("CustomerMobile")
@@ -480,29 +462,8 @@ namespace TryNextPost.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<decimal>("Discount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("FinalPayableAmount")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("GstNumber")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal>("HeightCm")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<bool?>("IsActive")
                         .HasColumnType("bit");
-
-                    b.Property<bool>("IsCollectableAmountDifferent")
-                        .HasColumnType("bit");
-
-                    b.Property<decimal>("LengthCm")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int>("OrderCategory")
-                        .HasColumnType("int");
 
                     b.Property<DateTime>("OrderDate")
                         .HasColumnType("datetime2");
@@ -510,9 +471,6 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.Property<string>("OrderRef")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
-
-                    b.Property<int>("OrderType")
-                        .HasColumnType("int");
 
                     b.Property<int>("PaymentMode")
                         .HasColumnType("int");
@@ -526,9 +484,6 @@ namespace TryNextPost.Infrastructure.Migrations
 
                     b.Property<string>("ShippingAddressLine2")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal>("ShippingCharges")
-                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("ShippingCity")
                         .IsRequired()
@@ -549,9 +504,6 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
-                    b.Property<decimal>("TaxAmount")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<decimal>("TotalAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -561,12 +513,6 @@ namespace TryNextPost.Infrastructure.Migrations
 
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal>("VolumetricWeightGrams")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("WeightGrams")
-                        .HasColumnType("decimal(18,2)");
 
                     b.HasKey("OrderId");
 
@@ -612,9 +558,6 @@ namespace TryNextPost.Infrastructure.Migrations
 
                     b.Property<int>("Qty")
                         .HasColumnType("int");
-
-                    b.Property<string>("Sku")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -1391,7 +1334,9 @@ namespace TryNextPost.Infrastructure.Migrations
                 {
                     b.HasOne("TryNextPost.Domain.Entities.CompanyInfo", "Company")
                         .WithMany("Addresses")
-                        .HasForeignKey("CompanyId");
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("TryNextPost.Infrastructure.Identity.ApplicationUser", null)
                         .WithMany("Addresses")
@@ -1448,13 +1393,11 @@ namespace TryNextPost.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("TryNextPost.Domain.Entities.Seller", "Seller")
+                    b.HasOne("TryNextPost.Domain.Entities.Seller", null)
                         .WithMany()
                         .HasForeignKey("SellerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.Navigation("Seller");
                 });
 
             modelBuilder.Entity("TryNextPost.Domain.Entities.OrderItem", b =>

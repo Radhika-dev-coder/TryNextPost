@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace TryNextPost.Domain.Enums
 {
-    public enum StatusCode
+    public enum ApiStatusCode
     {
         Success = 200,
         Created = 201,
@@ -15,6 +15,7 @@ namespace TryNextPost.Domain.Enums
         Unauthorized = 401,
         Forbidden = 403,
         NotFound = 404,
+        Conflict = 409,
         InternalServerError = 500,
         BadGateway = 502,
         ServiceUnavailable = 503

@@ -15,6 +15,6 @@ namespace TryNextPost.Application.DTO.Common
         public List<string> Errors { get; set; }  
         public T Data { get; set; }
 
-        public StatusCode StatusCode { get; set; }
+        public ApiStatusCode StatusCode { get; set; }
     }
 }

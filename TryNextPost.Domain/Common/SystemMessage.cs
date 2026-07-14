@@ -8,6 +8,7 @@ namespace TryNextPost.Domain.Common
 {
     public static class SystemMessage
     {
+<<<<<<< Updated upstream
         // ───── Auth Module ─────
         public const string RegisterSuccess = "Registration successful.";
         public const string RegisterFailed = "Registration failed.";
@@ -54,5 +55,25 @@ namespace TryNextPost.Domain.Common
         public const string Unauthorized = "You are not authorized to perform this action.";
         public const string InvalidToken = "Invalid or missing authentication token.";
         public const string ValidationFailed = "Validation failed. Please check your input.";
+=======
+        public static string RegisterSuccess = "Registration Successfull...";
+        public static string RegisterFaield = "Registration Faield...";
+        public static string SomethingWentWrong = "Something went Wrong...";
+        public static string NotFound = "Data Not Found...";
+        public static string RequestBodyNull = "Request Body Null...";
+        public static string RequiredId = "Id is Required...";
+        public static string AadharInvalid = "Aadhar number is Invalid..";
+        public static string DataFound = "Data Found Succesfully..";
+        public static string UnAuthorized = "You Are UnAuthorized..";
+        public static string AlreadyKycUpdated = "KYC Already Verifeid..";
+        public static string RejectKyc = "You Kyc is Rejected. Please Contact Adminstration..";
+        public static string KycNotFound = "Seller KYC record not found..";
+        public static string KycVerified = "Seller KYC has been verified successfully..";
+        public static string KycPending = "Seller KYC verification is pending..";
+        public static string AadharOtpSend = "Aadhaar KYC OTP sent successfully..";
+        public static string AadharkycSubmitted = "Successfully Kyc Submitted..";
+        public static string InvalidOtp = "Please Enter Valid OTP..";
+
+>>>>>>> Stashed changes
     }
 }

@@ -10,7 +10,7 @@ namespace TryNextPost.Domain.Common
     {
         public string? Message { get; set; }
         public T?  Data { get; set; }
-        public string? StatusCode { get; set; }
+        public int? StatusCode { get; set; }
         public bool? Success { get; set; }
     }
 }
