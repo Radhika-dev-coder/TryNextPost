@@ -51,44 +51,6 @@ using TryNextPost.Domain.Common;
             }
 
 
-            public async Task<LoginSuccessResponse> VerifyOtpAsync(VerifyOtpRequest request, string ipAddress)
-            {
-                var (isValid, email) = _jwtService.ValidateOtpToken(request.OtpToken, request.Otp);
-                Console.WriteLine($"isValid: {isValid}, email: {email ?? "NULL"}");
-
-                if (!isValid)
-                    throw new UnauthorizedAccessException(string.Format(SystemMessage.InvalidOtp));
-
-                var user = await _identityService.GetUserByEmailAsync(email);  
-                if (user == null)
-                    throw new UnauthorizedAccessException(string.Format(SystemMessage.UserNotFound));
-
-                var roles = await _identityService.GetUserRolesAsync(user.UserId);
-                var token = _jwtService.GenerateToken(user.UserId, user.Email,roles);
-
-                var session = new UserSession
-                {
-                    UserId = user.UserId,
-                    DeviceId = request.DeviceId,
-                    IpAddress = ipAddress,
-                    JwtToken = token,
-                    CreatedAt = DateTime.UtcNow,
-                    ExpiryAt = DateTime.UtcNow.AddDays(7),
-                    IsActive = true
-                };
-
-                await _sessionRepository.AddAsync(session);
-                await _sessionRepository.SaveChangesAsync();
-
-
-                return new LoginSuccessResponse 
-                { 
-                    Message = SystemMessage.LoginSuccess,
-                    Token = token, 
-                    ExpiresAt = session.ExpiryAt
-                };
-            }
-
             public async Task<LoginSuccessResponse> LoginAsync(LoginRequest request, string ipAddress)
             {
                 var result = await _identityService.ValidateCredentialsAsync(request.Email, request.Password);
@@ -122,40 +84,7 @@ using TryNextPost.Domain.Common;
                     Roles = roles
                 };
             }
-            public async Task<LoginOtpResponse> ResendOtpAsync(ResendOtpRequest request)
-            {
-            
-                var emailExists = await _identityService.CheckEmailExistsAsync(request.Email);
 
-                if (!emailExists)
-                    throw new UnauthorizedAccessException(string.Format(SystemMessage.EmailNotFound));
-
-                var cacheKey = $"otp_resend_{request.Email}";
-                if (_cache.TryGetValue(cacheKey, out DateTime lastSentTime))
-                {
-                    var secondsSinceLastSent = (DateTime.UtcNow - lastSentTime).TotalSeconds;
-                    var waitTime = 30;
-
-                    if (secondsSinceLastSent < waitTime)
-                    {
-                        var remainingSeconds = waitTime - (int)secondsSinceLastSent;
-                        throw new InvalidOperationException(string.Format(SystemMessage.OtpWaitMessage,remainingSeconds));
-                    }
-                }
-
-                var otp = new Random().Next(100000, 999999).ToString();
-                var otpToken = _jwtService.GenerateOtpToken(request.Email, otp, DateTime.UtcNow.AddMinutes(5));
-
-                await _emailService.SendOtpEmail(request.Email, otp);
-
-                _cache.Set(cacheKey, DateTime.UtcNow, TimeSpan.FromSeconds(30));
-
-                return new LoginOtpResponse
-                {
-                    Message = SystemMessage.OtpResentEmail,
-                    OtpToken = otpToken
-                };
-            }
 
 
             public async Task<LoginOtpResponse> ForgotPasswordAsync(DTO.Auth.ForgotPasswordRequest request)
@@ -190,97 +119,33 @@ using TryNextPost.Domain.Common;
 
             public async Task<string> ResetPasswordAsync(DTO.Auth.ResetPasswordRequest request)
             {
-                if (request.NewPassword != request.ConfirmPassword)
-                    throw new InvalidOperationException(string.Format(SystemMessage.PasswordMismatch));
+            //if (request.NewPassword != request.ConfirmPassword)
+            //    throw new InvalidOperationException(string.Format(SystemMessage.PasswordMismatch));
 
-                var (isValid, email) = _jwtService.ValidateOtpToken(request.OtpToken, request.Otp);
+            //var (isValid, email) = _jwtService.ValidateOtpToken(request.OtpToken, request.Otp);
 
-                if (!isValid)
-                    throw new UnauthorizedAccessException(string.Format(SystemMessage.InvalidOtp));
+            //if (!isValid)
+            //    throw new UnauthorizedAccessException(string.Format(SystemMessage.InvalidOtp));
 
-                var result = await _identityService.ResetPasswordAsync(email, request.NewPassword);
+            //var result = await _identityService.ResetPasswordAsync(email, request.NewPassword);
 
-                if (!result.Succeeded)
-                    throw new InvalidOperationException(string.Join(", ", result.Errors));
+            //if (!result.Succeeded)
+            //    throw new InvalidOperationException(string.Join(", ", result.Errors));
 
-                return SystemMessage.PasswordResetSuccess;
-            }
+            //return SystemMessage.PasswordResetSuccess;
 
-            public async Task<LoginOtpResponse> SendOtpAsync(ResendOtpRequest request)
-            {
-                // Yaha CheckEmailExistsAsync CALL NAHI karna — email registered ho ya na ho, OTP bhejna hai dono case me
-                var cacheKey = $"otp_resend_{request.Email}";
-                if (_cache.TryGetValue(cacheKey, out DateTime lastSentTime))
-                {
-                    var secondsSinceLastSent = (DateTime.UtcNow - lastSentTime).TotalSeconds;
-                    if (secondsSinceLastSent < 30)
-                    {
-                        var remaining = 30 - (int)secondsSinceLastSent;
-                        throw new InvalidOperationException(string.Format(SystemMessage.OtpWaitMessage,remaining));
-                    }
-                }
+            var (isValid, email) = _jwtService.ValidateOtpToken(request.ResetToken, "VERIFIED");
 
-                var otp = new Random().Next(100000, 999999).ToString();
-                var otpToken = _jwtService.GenerateOtpToken(request.Email, otp, DateTime.UtcNow.AddMinutes(5));
+            if (!isValid)
+                throw new UnauthorizedAccessException("Invalid or expired reset session. Please try again.");
 
-                await _emailService.SendOtpEmail(request.Email, otp);
-                _cache.Set(cacheKey, DateTime.UtcNow, TimeSpan.FromSeconds(30));
+            var result = await _identityService.ResetPasswordAsync(email, request.NewPassword);
 
-                return new LoginOtpResponse 
-                { 
-                    Message = SystemMessage.OtpSentEmail, 
-                    OtpToken = otpToken 
-                };
-            }
+            if (!result.Succeeded)
+                throw new InvalidOperationException(string.Join(", ", result.Errors));
 
-            public async Task<OtpVerifyResponse> VerifyOtpRequest(VerifyOtpRequest request, string ipAddress)
-            {
-                var (isValid, email) = _jwtService.ValidateOtpToken(request.OtpToken, request.Otp);
-
-                if (!isValid)
-                    throw new UnauthorizedAccessException(string.Format(SystemMessage.InvalidOtp));
-
-                var isRegistered = await _identityService.CheckEmailExistsAsync(email);
-
-                if (!isRegistered)
-                {
-                    // Naya user — Dashboard nahi, Registration page bhejna hai
-                    return new OtpVerifyResponse
-                    {
-                        IsRegistered = false,
-                        Email = email,
-                        Message = SystemMessage.EmailVerifiedRegistrationRequired
-                    };
-                }
-
-                // Registered user — Login complete karo, JWT + Session banao
-                var user = await _identityService.GetUserByEmailAsync(email);
-                var roles = await _identityService.GetUserRolesAsync(user.UserId);
-                var token = _jwtService.GenerateToken(user.UserId, user.Email, roles);
-
-                var session = new UserSession
-                {
-                    UserId = user.UserId,
-                    DeviceId = request.DeviceId,
-                    IpAddress = ipAddress,
-                    JwtToken = token,
-                    CreatedAt = DateTime.UtcNow,
-                    ExpiryAt = DateTime.UtcNow.AddDays(7),
-                    IsActive = true
-                };
-
-                await _sessionRepository.AddAsync(session);
-                await _sessionRepository.SaveChangesAsync();
-
-                return new OtpVerifyResponse
-                {
-                    IsRegistered = true,
-                    Email = email,
-                    Message =SystemMessage.LoginSuccess,
-                    Token = token,
-                    ExpiresAt = session.ExpiryAt
-                };
-            }
+            return SystemMessage.PasswordResetSuccess;
+        }
 
             public async Task<bool> CheckPhoneAsync(string mobile)
             {
@@ -409,5 +274,20 @@ using TryNextPost.Domain.Common;
             }
 
             }
+
+        public async Task<VerifyForgotPasswordOtpResponse> VerifyForgotPasswordOtpAsync(VerifyForgotPasswordOtpRequest request)
+        {
+            var (isValid, email) = _jwtService.ValidateOtpToken(request.OtpToken, request.Otp);
+
+            if (!isValid)
+                throw new UnauthorizedAccessException(SystemMessage.InvalidOtp);
+            var resetToken = _jwtService.GenerateOtpToken(email, "VERIFIED", DateTime.UtcNow.AddMinutes(10));
+
+            return new VerifyForgotPasswordOtpResponse
+            {
+                Message =SystemMessage.VerifiedOtp,
+                ResetToken = resetToken
+            };
         }
+    }
     }

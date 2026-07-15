@@ -27,17 +27,10 @@ namespace TryNextPost.Application.Services.Interface
         //Call from Both Path A(Phone) and B(Email)
         Task<LoginSuccessResponse> RegisterAsync(RegisterRequest request, string ipAddress);
 
-
-        Task<LoginSuccessResponse> VerifyOtpAsync(VerifyOtpRequest request, string ipAddress);
-
         Task<LoginOtpResponse> ForgotPasswordAsync(TryNextPost.Application.DTO.Auth.ForgotPasswordRequest request);
         Task<string> ResetPasswordAsync(TryNextPost.Application.DTO.Auth.ResetPasswordRequest request);
 
-
-
-        Task<LoginOtpResponse> ResendOtpAsync(ResendOtpRequest request);
-        Task<LoginOtpResponse> SendOtpAsync(ResendOtpRequest request);
-        Task<OtpVerifyResponse> VerifyOtpRequest(VerifyOtpRequest request, string ipAddress);
+        Task<VerifyForgotPasswordOtpResponse> VerifyForgotPasswordOtpAsync(VerifyForgotPasswordOtpRequest request);
 
 
     }

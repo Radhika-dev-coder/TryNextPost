@@ -95,6 +95,7 @@ namespace TryNextPost.Application.IServices.Class.Order
                 SellerId = seller.SellerId,
                 OrderRef = orderRef,
                 OrderDate = DateTime.UtcNow,
+                Channel = "Manual",
                 TotalAmount = totalAmount,
                 FinalPayableAmount = finalPayableAmount,
 
@@ -147,16 +148,6 @@ namespace TryNextPost.Application.IServices.Class.Order
         private static string GenerateOrderRef()
         {
             return DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
-        }
-        public async Task<List<OrderDetailResponse>> GetMyOrdersAsync(string userId)
-        {
-            var seller = await _sellerRepository.GetByUserIdAsync(userId);
-            if (seller == null)
-                throw new InvalidOperationException(string.Format(SystemMessage.SellerNotFound));
-
-            var order = await _orderRepository.GetBySellerIdAsync(seller.SellerId);
-
-            return order.Select(MapToResponse).ToList();
         }
 
         public async Task<OrderDetailResponse> GetOrderByIdAsync(long OrderId, string userId)
@@ -285,6 +276,68 @@ namespace TryNextPost.Application.IServices.Class.Order
             await _orderRepository.SaveChangesAsync();
         }
 
+        public async Task<OrderListResponse> GetAllOrdersAsync(string userId, int page, int pageSize, string? statusTab)
+        {
+            var seller = await _sellerRepository.GetByUserIdAsync(userId);
+            if (seller == null)
+                throw new InvalidOperationException(SystemMessage.SellerNotFound);
 
+            OrderStatus? statusFilter = statusTab?.ToLower() switch
+            {
+                "not-shipped" => OrderStatus.Pending,
+                "booked" => OrderStatus.Confirmed,
+                "cancelled" => OrderStatus.Cancelled,
+                "fulfilled" => OrderStatus.Delivered,
+                _ => null
+            };
+
+            var orders = await _orderRepository.GetOrdersPagedAsync(seller.SellerId, page, pageSize, statusFilter);
+            var totalCount = await _orderRepository.GetOrdersCountAsync(seller.SellerId, statusFilter);
+
+            var tabCounts = new OrderTabCounts
+            {
+                AllOrders = await _orderRepository.GetOrdersCountAsync(seller.SellerId, null),
+                NotShipped = await _orderRepository.GetOrdersCountAsync(seller.SellerId, OrderStatus.Pending),
+                Booked = await _orderRepository.GetOrdersCountAsync(seller.SellerId, OrderStatus.Confirmed),
+                Cancelled = await _orderRepository.GetOrdersCountAsync(seller.SellerId, OrderStatus.Cancelled),
+                FulfilledOrders = await _orderRepository.GetOrdersCountAsync(seller.SellerId, OrderStatus.Delivered)
+            };
+
+            return new OrderListResponse
+            {
+                Orders = orders.Select(MapToListItem).ToList(),   
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize,
+                TabCounts = tabCounts
+            };
+        }
+
+        private OrderListItemResponse MapToListItem(TryNextPost.Domain.Entities.Order order)
+        {
+            var productSummary = order.OrderItems != null && order.OrderItems.Any()
+                ? order.OrderItems.Count == 1
+                    ? order.OrderItems.First().ProductName
+                    : $"{order.OrderItems.First().ProductName} +{order.OrderItems.Count - 1} more"
+                : "N/A";
+
+            return new OrderListItemResponse
+            {
+                OrderId = order.OrderId,
+                Channel = order.Channel ?? "Manual",
+                OrderRef = order.OrderRef,
+                OrderDate = order.OrderDate,
+                ProductSummary = productSummary,
+                PaymentMode = order.PaymentMode.ToString(),
+                CustomerName = order.CustomerName,
+                CustomerMobile = order.CustomerMobile,
+                WeightGrams = order.WeightGrams,
+                IvrStatus = order.IvrStatus,
+                WhatsAppStatus = order.WhatsAppStatus,
+                ShopifyTags = order.ShopifyTags,
+                Tags = order.Tags,
+                Status = order.Status.ToString()
+            };
+        }
     }
 }

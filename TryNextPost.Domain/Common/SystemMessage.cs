@@ -26,6 +26,7 @@ namespace TryNextPost.Domain.Common
         public const string PhoneVerifiedRegistrationRequired = "Phone verified. Please complete your registration.";
         public const string UserNotFound = "User not found.";
         public const string OtpWaitMessage = "Please wait {0} seconds before requesting another OTP.";
+        public const string VerifiedOtp = "OTP verified successfully. You can now reset your password.";
 
         // ───── Seller Module ─────
         public const string SellerNotFound = "Seller profile not found. Please complete KYC first.";

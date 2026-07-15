@@ -7,6 +7,7 @@ using TryNextPost.Domain.Entities;
 using TryNextPost.Domain.IRepository;
 using Microsoft.EntityFrameworkCore;
 using TryNextPost.Infrastructure.AppDbContexts;
+using TryNextPost.Domain.Enums;
 
 
 namespace TryNextPost.Infrastructure.Repository
@@ -36,7 +37,32 @@ namespace TryNextPost.Infrastructure.Repository
                 Where(o => o.SellerId == sellerId && o.IsActive == true).ToListAsync();
         }
 
+        public async Task<int> GetOrdersCountAsync(long sellerId, OrderStatus? statusFilter)
+        {
+            var query = _context.Orders
+           .Where(o => o.SellerId == sellerId && o.IsActive == true);
 
+            if (statusFilter.HasValue)
+                query = query.Where(o => o.Status == statusFilter.Value);
+
+            return await query.CountAsync();
+        }
+
+        public async Task<List<Order>> GetOrdersPagedAsync(long sellerId, int page, int pageSize, OrderStatus? statusFilter)
+        {
+            var query = _context.Orders
+           .Include(o => o.OrderItems)
+           .Where(o => o.SellerId == sellerId && o.IsActive == true);
+
+            if (statusFilter.HasValue)
+                query = query.Where(o => o.Status == statusFilter.Value);
+
+            return await query
+                .OrderByDescending(o => o.OrderDate)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
 
         public async Task SaveChangesAsync()
         {

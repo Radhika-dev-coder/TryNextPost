@@ -15,9 +15,10 @@ namespace TryNextPost.Application.IServices.Interface.IOrder
         Task CancelOrderAsync(long orderId, string userId);
 
         Task<OrderDetailResponse> GetOrderByIdAsync(long OrderId,string userId);
-        Task<List<OrderDetailResponse>> GetMyOrdersAsync(string userId);
 
         Task<long> CreateReverseOrderAsync(CreateForwardOrderRequest request, string userId);
         Task<long> CreateReverseQCOrderAsync(CreateForwardOrderRequest request, string userId);
+
+        Task<OrderListResponse> GetAllOrdersAsync(string userId, int page, int pageSize, string? statusTab);
     }
 }

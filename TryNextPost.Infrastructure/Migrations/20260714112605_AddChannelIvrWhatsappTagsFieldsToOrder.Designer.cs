@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TryNextPost.Infrastructure.AppDbContexts;
 
@@ -11,9 +12,11 @@ using TryNextPost.Infrastructure.AppDbContexts;
 namespace TryNextPost.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260714112605_AddChannelIvrWhatsappTagsFieldsToOrder")]
+    partial class AddChannelIvrWhatsappTagsFieldsToOrder
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -781,144 +784,6 @@ namespace TryNextPost.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Sellers");
-                });
-
-            modelBuilder.Entity("TryNextPost.Domain.Entities.SellerDocument", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("DocumentType")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("FilePath")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool?>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Remarks")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SellerId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("UploadedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("UploadedOn")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("VerifiedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("VerifiedOn")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("SellerDocument");
-                });
-
-            modelBuilder.Entity("TryNextPost.Domain.Entities.SellerKYC", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AadharLast4Digit")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("AadharReferenceId")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("AadharVerified")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("AadharVerifiedOn")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int?>("FailureCode")
-                        .HasColumnType("int");
-
-                    b.Property<string>("FailureReason")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool?>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("KYCStatus")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PanHolderName")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PanNumber")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PanVerfied")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("PanVerfiedOn")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Remark")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int?>("RetryCount")
-                        .HasColumnType("int");
-
-                    b.Property<string>("SellerId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("VerficationBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("VerificationProvider")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("VerificationReferenceId")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("SellerKYC");
                 });
 
             modelBuilder.Entity("TryNextPost.Domain.Entities.Shipment", b =>

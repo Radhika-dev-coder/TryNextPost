@@ -82,6 +82,13 @@ namespace TryNextPost.Domain.Entities
 
         public ICollection<OrderItem>? OrderItems { get; set; }
 
+
+        public string Channel { get; set; } = "Manual";
+        public string? IvrStatus { get; set; }
+        public string? WhatsAppStatus { get; set; }
+        public string? ShopifyTags { get; set; }
+        public string? Tags { get; set; }
+
     }
 }
 

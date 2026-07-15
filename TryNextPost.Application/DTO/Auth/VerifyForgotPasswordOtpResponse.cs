@@ -6,10 +6,9 @@ using System.Threading.Tasks;
 
 namespace TryNextPost.Application.DTO.Auth
 {
-    public class ResetPasswordRequest
+    public class VerifyForgotPasswordOtpResponse
     {
+        public string Message { get; set; } = string.Empty;
         public string ResetToken { get; set; } = string.Empty;
-        public string NewPassword { get; set; }
-        public string ConfirmPassword { get; set; }
     }
 }

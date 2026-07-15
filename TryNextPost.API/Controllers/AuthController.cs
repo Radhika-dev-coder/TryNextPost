@@ -17,7 +17,6 @@ namespace TryNextPost.API.Controllers
     {
 
         private readonly IAuthService _authService;
-
         public AuthController(IAuthService authService)
         {
             _authService = authService;
@@ -88,34 +87,13 @@ namespace TryNextPost.API.Controllers
                 return Ok(new { message });
         }
 
-        //[HttpPost("send-otp")]
-        //public async Task<IActionResult> SendOtp([FromBody] ResendOtpRequest request)
-        //{
-        //    try
-        //    {
-        //        var result = await _authService.SendOtpAsync(request);
-        //        return Ok(result);
-        //    }
-        //    catch (InvalidOperationException ex)
-        //    {
-        //        return StatusCode(429, new { message = ex.Message });
-        //    }
-        //}
 
-        //[HttpPost("verify-otp")]
-        //public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpRequest request)
-        //{
-        //    try
-        //    {
-        //        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
-        //        var result = await _authService.VerifyOtpAsync(request, ipAddress);
-        //        return Ok(result);
-        //    }
-        //    catch (UnauthorizedAccessException ex)
-        //    {
-        //        return BadRequest(new { message = ex.Message });
-        //    }
-        //}
+        [HttpPost("verify-forgot-password-otp")]
+        public async Task<IActionResult> VerifyForgotPasswordOtp([FromBody] VerifyForgotPasswordOtpRequest request)
+        {
+            var result = await _authService.VerifyForgotPasswordOtpAsync(request);
+            return Ok(result);
+        }
 
 
     }

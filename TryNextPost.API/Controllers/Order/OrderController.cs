@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using EllipticCurve.Utils;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -6,8 +7,8 @@ using TryNextPost.Application.DTO.Common;
 using TryNextPost.Application.DTO.Order;
 using TryNextPost.Application.IServices.Interface.IOrder;
 using TryNextPost.Domain.Common;
-using TryNextPost.Domain.Enums;
 using TryNextPost.Domain.Entities;
+using TryNextPost.Domain.Enums;
 
 namespace TryNextPost.API.Controllers.Order
 {
@@ -88,7 +89,6 @@ namespace TryNextPost.API.Controllers.Order
 
                 await _orderService.UpdateOrderAsync(orderId, request, userId);
                 return Ok(new { message = "Order updated successfully" });
-
         }
 
         [HttpDelete("CancelOrder/{orderId}")]
@@ -101,7 +101,6 @@ namespace TryNextPost.API.Controllers.Order
 
                 await _orderService.CancelOrderAsync(orderId, userId);
                 return Ok(new { message = "Order cancelled successfully" });
-
         }
 
         [HttpGet("GetOrderById/{OrderId}")]
@@ -116,21 +115,23 @@ namespace TryNextPost.API.Controllers.Order
                 Message = "Order fetched successfully",
                 Data = order
             });
-
         }
 
-        [HttpGet("my-orders")]
-        public async Task<IActionResult> GetMyOrders()
+        [HttpGet("all-orders")]
+        public async Task<IActionResult> GetAllOrders(
+        [FromQuery] string? tab = "all",
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20)
         {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var order = await _orderService.GetMyOrdersAsync(userId);
+            var result = await _orderService.GetAllOrdersAsync(userId, page, pageSize, tab);
 
-            return Ok(new ApiResponse<List<OrderDetailResponse>>
+            return Ok(new ApiResponse<OrderListResponse>
             {
                 Success = true,
                 Message = SystemMessage.OrderFetchedSuccess,
-                Data = order,
+                Data = result,
                 StatusCode = TryNextPost.Domain.Enums.StatusCode.Success
             });
         }

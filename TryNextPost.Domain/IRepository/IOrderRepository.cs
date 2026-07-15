@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TryNextPost.Domain.Entities;
+using TryNextPost.Domain.Enums;
 
 namespace TryNextPost.Domain.IRepository
 {
@@ -14,8 +15,9 @@ namespace TryNextPost.Domain.IRepository
         Task<List<Order>> GetBySellerIdAsync(long sellerId);
         Task SaveChangesAsync();
         Task UpdateAsync(Order order);
-
-
         Task UpdateOrderItem(OrderItem orderitem);
+
+        Task<List<Order>> GetOrdersPagedAsync(long sellerId, int page, int pageSize, OrderStatus? statusFilter);
+        Task<int> GetOrdersCountAsync(long sellerId, OrderStatus? statusFilter);
     }
 }
