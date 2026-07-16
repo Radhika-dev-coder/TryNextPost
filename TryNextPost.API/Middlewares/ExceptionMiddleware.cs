@@ -2,6 +2,7 @@
 using System.Text.Json;
 using TryNextPost.Application.DTO.Common;
 using TryNextPost.Domain.Common;
+using TryNextPost.Domain.Enums;
 
 namespace TryNextPost.API.Middlewares
 {
@@ -35,13 +36,13 @@ namespace TryNextPost.API.Middlewares
 
             var statusCode = ex switch
             {
-                UnauthorizedAccessException => Domain.Enums.StatusCode.Unauthorized,
-                InvalidOperationException => Domain.Enums.StatusCode.BadRequest,
-                KeyNotFoundException => Domain.Enums.StatusCode.NotFound,
-                _ => Domain.Enums.StatusCode.InternalServerError
+                UnauthorizedAccessException => ApiStatusCode.Unauthorized,
+                InvalidOperationException => ApiStatusCode.BadRequest,
+                KeyNotFoundException => ApiStatusCode.NotFound,
+                _ => ApiStatusCode.InternalServerError
             };
 
-            if (statusCode == Domain.Enums.StatusCode.InternalServerError)
+            if (statusCode == ApiStatusCode.InternalServerError)
             {
                 _logger.LogError(ex, "Unhandled exception occurred");
             }
@@ -49,7 +50,7 @@ namespace TryNextPost.API.Middlewares
             var response = new ApiResponse<object>
             {
                 Success = false,
-                Message = statusCode == Domain.Enums.StatusCode.InternalServerError
+                Message = statusCode == ApiStatusCode.InternalServerError
                     ? SystemMessage.SomethingWentWrong          
                     : ex.Message,                                  
                 StatusCode = statusCode

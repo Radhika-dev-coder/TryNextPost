@@ -31,6 +31,11 @@ namespace TryNextPost.Infrastructure.Repository
                 FirstOrDefaultAsync(o => o.OrderId == orderId && o.IsActive == true);
         }
 
+        public async Task<Order?> GetByOrderRefAsync(string orderRef)
+        {
+           return await _context.Orders.FirstOrDefaultAsync(o => o.OrderRef == orderRef && o.IsActive== true);
+        }
+
         public async Task<List<Order>> GetBySellerIdAsync(long sellerId)
         {
             return await _context.Orders.Include(o => o.OrderItems).

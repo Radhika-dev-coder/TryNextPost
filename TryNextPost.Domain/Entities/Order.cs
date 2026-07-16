@@ -22,18 +22,31 @@ namespace TryNextPost.Domain.Entities
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal FinalPayableAmount { get; set; }
-        public OrderCategoryEnum OrderCategory { get; set; } = OrderCategoryEnum.B2C;   // 👈 NAYA
+        public OrderCategoryEnum OrderCategory { get; set; } = OrderCategoryEnum.B2C;   
         public PaymentMode PaymentMode { get; set; }
         public OrderTypeEnum OrderType { get; set; } = OrderTypeEnum.Forward;
         public OrderStatus Status { get; set; } = OrderStatus.Pending;
 
-        // Billing
-        public long BillingAddressId { get; set; }
-        public string? GstNumber { get; set; }   // 👈 NAYA
+        
+        public string? GstNumber { get; set; }
+
+        public long? PickupAddressId { get; set; }
+        public Address? PickupAddress { get; set; }
+
+        public bool IsBillingSameAsShipping { get; set; } = true;
+        public string? BillingFirstName { get; set; }
+        public string? BillingLastName { get; set; }
+        public string? BillingCompanyName { get; set; }
+        public string? BillingAddressLine1 { get; set; }
+        public string? BillingAddressLine2 { get; set; }
+        public string? BillingCity { get; set; }
+        public string? BillingState { get; set; }
+        public string? BillingPincode { get; set; }
+        public string? BillingCountry { get; set; }
 
         // Shipping — embedded snapshot
         public string CustomerName { get; set; } = string.Empty;
-        public string? CustomerCompanyName { get; set; }   // 👈 NAYA
+        public string? CustomerCompanyName { get; set; }   
         public string CustomerMobile { get; set; } = string.Empty;
         public string ShippingAddressLine1 { get; set; } = string.Empty;
         public string? ShippingAddressLine2 { get; set; }

@@ -15,5 +15,7 @@ namespace TryNextPost.Domain.IRepository
         Task<List<Address>> GetByUserIdAsync(string userId, AddressType type);
         Task UpdateAsync(Address address);
         Task SaveChangesAsync();
+
+        Task<bool> IsPickupAddressValidAsync(long addressId, string UserId);
     }
 }

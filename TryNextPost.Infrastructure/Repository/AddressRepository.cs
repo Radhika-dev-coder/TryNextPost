@@ -36,6 +36,11 @@ namespace TryNextPost.Infrastructure.Repository
                 .ToListAsync();
         }
 
+        public async Task<bool> IsPickupAddressValidAsync(long addressId, string UserId)
+        {
+           return await _context.Addresses.AnyAsync(x => x.AddressId == addressId && x.UserId == UserId);
+        }
+
         public async Task SaveChangesAsync()
         {
             await _context.SaveChangesAsync();
