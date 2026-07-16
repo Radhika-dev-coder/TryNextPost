@@ -19,5 +19,6 @@ namespace TryNextPost.Domain.IRepository
 
         Task<List<Order>> GetOrdersPagedAsync(long sellerId, int page, int pageSize, OrderStatus? statusFilter);
         Task<int> GetOrdersCountAsync(long sellerId, OrderStatus? statusFilter);
+        Task<Order?> GetByOrderRefAsync(string orderRef);
     }
 }

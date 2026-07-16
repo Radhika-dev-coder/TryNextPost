@@ -16,25 +16,27 @@ namespace TryNextPost.Application.IServices.Class.Order
     {
         private readonly ISellerRepository _sellerRepository;
         private readonly IOrderRepository _orderRepository;
-
-        public OrderService(ISellerRepository sellerRepository, IOrderRepository orderRepository)
+        private readonly IAddressRepository _addressRepository;
+        public OrderService(ISellerRepository sellerRepository, IOrderRepository orderRepository
+            , IAddressRepository addressRepository)
         {
             _sellerRepository = sellerRepository;
             _orderRepository = orderRepository;
+            _addressRepository = addressRepository;
         }
 
         public async Task CancelOrderAsync(long orderId, string userId)
         {
             var order = await _orderRepository.GetByIdAsync(orderId);
             if (order == null || order.IsActive == false)
-                throw new InvalidOperationException(string.Format(SystemMessage.OrderNotFound));
+                throw new InvalidOperationException(SystemMessage.OrderNotFound);
 
             var seller = await _sellerRepository.GetByUserIdAsync(userId);
             if (seller == null || order.SellerId != seller.SellerId)
-                throw new UnauthorizedAccessException(string.Format(SystemMessage.Unauthorized));
+                throw new UnauthorizedAccessException(SystemMessage.Unauthorized);
 
             if (order.Status != OrderStatus.Pending)
-                throw new InvalidOperationException(string.Format(SystemMessage.OrderCannotBeCancelled));
+                throw new InvalidOperationException(SystemMessage.OrderCannotBeCancelled);
 
             
 
@@ -83,12 +85,26 @@ namespace TryNextPost.Application.IServices.Class.Order
                 ? orderRefPrefix + OrderService.GenerateOrderRef()
                 : request.OrderRef;
 
+            var existingOrder = await _orderRepository.GetByOrderRefAsync(orderRef);
+            if (existingOrder != null)
+                throw new InvalidOperationException(String.Format(SystemMessage.IsOrderRefExist, orderRef));
+
             var volumetricWeight = (request.LengthCm * request.BreadthCm * request.HeightCm) / 5000 * 1000;
             var totalAmount = request.Items.Sum(i => i.Qty * i.Price);
             var finalPayableAmount = totalAmount - request.Discount + request.ShippingCharges + request.CodCharges + request.TaxAmount;
 
             if (request.IsCollectableAmountDifferent && request.CollectableAmount.HasValue)
                 finalPayableAmount = request.CollectableAmount.Value;
+
+            var pickupAddressId = request.PickupAddressId ?? seller.DefaultPickupAddressId;
+
+            var isValidPickup = await _addressRepository.IsPickupAddressValidAsync(pickupAddressId.Value, seller.UserId);
+
+
+            if (!isValidPickup)
+            {
+                throw new Exception(SystemMessage.IsValidAddress);
+            }
 
             var order = new TryNextPost.Domain.Entities.Order
             {
@@ -104,7 +120,6 @@ namespace TryNextPost.Application.IServices.Class.Order
                 OrderType = orderType,                         
                 Status = OrderStatus.Pending,
 
-                BillingAddressId = request.BillingAddressId,
                 GstNumber = request.GstNumber,
 
                 CustomerName = request.CustomerName,
@@ -116,6 +131,19 @@ namespace TryNextPost.Application.IServices.Class.Order
                 ShippingState = request.ShippingState,
                 ShippingPincode = request.ShippingPincode,
                 ShippingCountry = request.ShippingCountry,
+                PickupAddressId = pickupAddressId,
+
+                // Billing — agar "Same as Shipping" hai to Shipping se copy karo
+                IsBillingSameAsShipping = request.IsBillingSameAsShipping,
+                BillingFirstName = request.IsBillingSameAsShipping ? request.CustomerName : request.BillingFirstName,
+                BillingLastName = request.IsBillingSameAsShipping ? null : request.BillingLastName,
+                BillingCompanyName = request.IsBillingSameAsShipping ? request.CustomerCompanyName : request.BillingCompanyName,
+                BillingAddressLine1 = request.IsBillingSameAsShipping ? request.ShippingAddressLine1 : request.BillingAddressLine1,
+                BillingAddressLine2 = request.IsBillingSameAsShipping ? request.ShippingAddressLine2 : request.BillingAddressLine2,
+                BillingCity = request.IsBillingSameAsShipping ? request.ShippingCity : request.BillingCity,
+                BillingState = request.IsBillingSameAsShipping ? request.ShippingState : request.BillingState,
+                BillingPincode = request.IsBillingSameAsShipping ? request.ShippingPincode : request.BillingPincode,
+                BillingCountry = request.IsBillingSameAsShipping ? request.ShippingCountry : request.BillingCountry,
 
                 WeightGrams = request.WeightGrams,
                 LengthCm = request.LengthCm,
@@ -178,10 +206,8 @@ namespace TryNextPost.Application.IServices.Class.Order
                 OrderType = (int)order.OrderType,
                 OrderCategory = (int)order.OrderCategory,
                 Status = (int)order.Status,
-
-                BillingAddressId = order.BillingAddressId,
+           
                 GstNumber = order.GstNumber,
-
                 CustomerName = order.CustomerName,
                 CustomerCompanyName = order.CustomerCompanyName,
                 CustomerMobile = order.CustomerMobile,
@@ -191,6 +217,18 @@ namespace TryNextPost.Application.IServices.Class.Order
                 ShippingState = order.ShippingState,
                 ShippingPincode = order.ShippingPincode,
                 ShippingCountry = order.ShippingCountry,
+
+                PickupAddressId =order.PickupAddressId,
+                IsBillingSameAsShipping = order.IsBillingSameAsShipping,
+                BillingFirstName = order.BillingFirstName,
+                BillingLastName = order.BillingLastName,
+                BillingCompanyName = order.BillingCompanyName,
+                BillingAddressLine1 = order.BillingAddressLine1,
+                BillingAddressLine2 = order.BillingAddressLine2,
+                BillingCity = order.BillingCity,
+                BillingState = order.BillingState,
+                BillingPincode = order.BillingPincode,
+                BillingCountry = order.BillingCountry,
 
                 WeightGrams = order.WeightGrams,
                 LengthCm = order.LengthCm,
@@ -236,7 +274,6 @@ namespace TryNextPost.Application.IServices.Class.Order
                 finalPayableAmount = request.CollectableAmount.Value;
 
             order.PaymentMode = (PaymentMode)request.PaymentMode;
-            order.BillingAddressId = request.BillingAddressId;
             order.GstNumber = request.GstNumber;
             order.CustomerName = request.CustomerName;
             order.CustomerCompanyName = request.CustomerCompanyName;
@@ -247,6 +284,17 @@ namespace TryNextPost.Application.IServices.Class.Order
             order.ShippingState = request.ShippingState;
             order.ShippingPincode = request.ShippingPincode;
             order.ShippingCountry = request.ShippingCountry;
+            order.PickupAddressId = request.PickupAddressId;
+            order.IsBillingSameAsShipping = request.IsBillingSameAsShipping;
+            order.BillingFirstName = request.BillingFirstName;
+            order.BillingLastName = request.BillingLastName;
+            order.BillingCompanyName = request.BillingCompanyName;
+            order.BillingAddressLine1 = request.BillingAddressLine1;
+            order.BillingAddressLine2 = request.BillingAddressLine2;
+            order.BillingCity = request.BillingCity;
+            order.BillingState = request.BillingState;
+            order.BillingPincode = request.BillingPincode;
+            order.BillingCountry = request.BillingCountry;
             order.WeightGrams = request.WeightGrams;
             order.LengthCm = request.LengthCm;
             order.BreadthCm = request.BreadthCm;

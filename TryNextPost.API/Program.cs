@@ -53,16 +53,16 @@ builder.Services.AddScoped<IIdentityService, IdentityService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISellerRepository, SellerRepository>();
 builder.Services.AddScoped<ISmsService, SmsService>();
-<<<<<<< Updated upstream
+
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IAddressRepository, AddressRepository>();
 builder.Services.AddScoped<IAddressService, AddressService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-=======
+
 builder.Services.AddScoped<ISellerKycRepository, SellerKycRepostiory>();
 builder.Services.AddScoped<ISellerKycServices, SellerKycServices>();
->>>>>>> Stashed changes
+
 #endregion
 
 #region  JWT

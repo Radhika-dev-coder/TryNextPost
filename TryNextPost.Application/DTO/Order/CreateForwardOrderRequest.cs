@@ -15,8 +15,7 @@ namespace TryNextPost.Application.DTO.Order
         [Range(1, 2, ErrorMessage = "Invalid Payment Mode")]
         public int PaymentMode { get; set; }
 
-        [Required]
-        public long BillingAddressId { get; set; }
+        public long? PickupAddressId { get; set; }
 
         public string? GstNumber { get; set; }
 
@@ -46,6 +45,17 @@ namespace TryNextPost.Application.DTO.Order
 
         [Required]
         public string ShippingCountry { get; set; } = string.Empty;
+
+        public bool IsBillingSameAsShipping { get; set; } = true;
+        public string? BillingFirstName { get; set; }
+        public string? BillingLastName { get; set; }
+        public string? BillingCompanyName { get; set; }
+        public string? BillingAddressLine1 { get; set; }
+        public string? BillingAddressLine2 { get; set; }
+        public string? BillingCity { get; set; }
+        public string? BillingState { get; set; }
+        public string? BillingPincode { get; set; }
+        public string? BillingCountry { get; set; }
 
         [Required]
         [MinLength(1, ErrorMessage = "At least one item is required")]

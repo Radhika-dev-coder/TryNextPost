@@ -66,12 +66,12 @@ namespace TryNextPost.Infrastructure.AppDbContexts
                 .OnDelete(DeleteBehavior.Restrict);
 
             // =========================
-            // 🔥 ORDER → BILLING ADDRESS
+            // 🔥 ORDER → PICKUP ADDRESS
             // =========================
             modelBuilder.Entity<Order>()
-                .HasOne<Address>()
+                .HasOne(o => o.PickupAddress)
                 .WithMany()
-                .HasForeignKey(o => o.BillingAddressId)
+                .HasForeignKey(o => o.PickupAddressId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             // =========================
@@ -213,6 +213,13 @@ namespace TryNextPost.Infrastructure.AppDbContexts
            .WithMany()
            .HasForeignKey(us => us.UserId)
            .OnDelete(DeleteBehavior.Cascade);
+
+            //-----------//
+            modelBuilder.Entity<Seller>()
+            .HasOne(s => s.DefaultPickupAddress)
+            .WithMany()
+            .HasForeignKey(s => s.DefaultPickupAddressId)
+            .OnDelete(DeleteBehavior.Restrict);
 
 
             // =========================

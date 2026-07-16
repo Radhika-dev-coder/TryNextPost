@@ -8,7 +8,7 @@ namespace TryNextPost.Domain.Common
 {
     public static class SystemMessage
     {
-<<<<<<< Updated upstream
+
         // ───── Auth Module ─────
         public const string RegisterSuccess = "Registration successful.";
         public const string RegisterFailed = "Registration failed.";
@@ -37,6 +37,7 @@ namespace TryNextPost.Domain.Common
         public const string AddressAddedSuccess = "Pickup address added successfully.";
         public const string AddressUpdatedSuccess = "Address updated successfully.";
         public const string AddressDeletedSuccess = "Address deleted successfully.";
+        public const string IsValidAddress = "Invalid Pickup Address";
 
         // ───── Order Module ─────
         public const string OrderNotFound = "Order not found.";
@@ -47,6 +48,7 @@ namespace TryNextPost.Domain.Common
         public const string OrderCannotBeEdited = "Cannot edit order once it has been shipped or processed.";
         public const string OrderCannotBeCancelled = "Cannot cancel order once it has been shipped or processed.";
         public const string AtLeastOneItemRequired = "At least one item is required.";
+        public const string IsOrderRefExist = "Order reference already exists. Please use a different reference.";
 
         // ───── Common/Generic ─────
         public const string SomethingWentWrong = "Something went wrong. Please try again later.";
@@ -56,13 +58,9 @@ namespace TryNextPost.Domain.Common
         public const string Unauthorized = "You are not authorized to perform this action.";
         public const string InvalidToken = "Invalid or missing authentication token.";
         public const string ValidationFailed = "Validation failed. Please check your input.";
-=======
-        public static string RegisterSuccess = "Registration Successfull...";
+
+
         public static string RegisterFaield = "Registration Faield...";
-        public static string SomethingWentWrong = "Something went Wrong...";
-        public static string NotFound = "Data Not Found...";
-        public static string RequestBodyNull = "Request Body Null...";
-        public static string RequiredId = "Id is Required...";
         public static string AadharInvalid = "Aadhar number is Invalid..";
         public static string DataFound = "Data Found Succesfully..";
         public static string UnAuthorized = "You Are UnAuthorized..";
@@ -73,8 +71,8 @@ namespace TryNextPost.Domain.Common
         public static string KycPending = "Seller KYC verification is pending..";
         public static string AadharOtpSend = "Aadhaar KYC OTP sent successfully..";
         public static string AadharkycSubmitted = "Successfully Kyc Submitted..";
-        public static string InvalidOtp = "Please Enter Valid OTP..";
 
->>>>>>> Stashed changes
+
+
     }
 }

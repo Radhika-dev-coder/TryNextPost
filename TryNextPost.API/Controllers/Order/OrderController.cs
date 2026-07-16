@@ -132,7 +132,7 @@ namespace TryNextPost.API.Controllers.Order
                 Success = true,
                 Message = SystemMessage.OrderFetchedSuccess,
                 Data = result,
-                StatusCode = TryNextPost.Domain.Enums.StatusCode.Success
+                StatusCode = ApiStatusCode.Success
             });
         }
     }

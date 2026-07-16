@@ -32,6 +32,18 @@ namespace TryNextPost.Application.DTO.Order
         public string ShippingState { get; set; } = string.Empty;
         public string ShippingCountry { get; set; } = string.Empty;
 
+        public long?   PickupAddressId { get; set; }
+        public bool    IsBillingSameAsShipping { get; set; }
+        public string? BillingFirstName { get; set; }
+        public string? BillingLastName { get; set; }
+        public string? BillingCompanyName { get; set; }
+        public string? BillingAddressLine1 { get; set; }
+        public string? BillingAddressLine2 { get; set; }
+        public string? BillingCity { get; set; }
+        public string? BillingState { get; set; }
+        public string? BillingPincode { get; set; }
+        public string? BillingCountry { get; set; }
+
         public decimal WeightGrams { get; set; }
         public decimal LengthCm { get; set; }
         public decimal BreadthCm { get; set; }
