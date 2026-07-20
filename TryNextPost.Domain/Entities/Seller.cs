@@ -22,9 +22,12 @@ namespace TryNextPost.Domain.Entities
         public string? GstNumber { get; set; }
         public SellerStatus Status { get; set; } = SellerStatus.Active;
 
+<<<<<<< Updated upstream
         public long? DefaultPickupAddressId { get; set; }  
         public Address? DefaultPickupAddress { get; set; }
 
 
+=======
+>>>>>>> Stashed changes
     }
 }

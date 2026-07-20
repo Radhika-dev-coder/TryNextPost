@@ -22,16 +22,24 @@ namespace TryNextPost.Domain.Entities
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal FinalPayableAmount { get; set; }
+<<<<<<< Updated upstream
         public OrderCategoryEnum OrderCategory { get; set; } = OrderCategoryEnum.B2C;   
+=======
+        public OrderCategoryEnum OrderCategory { get; set; } = OrderCategoryEnum.B2C;  
+>>>>>>> Stashed changes
         public PaymentMode PaymentMode { get; set; }
         public OrderTypeEnum OrderType { get; set; } = OrderTypeEnum.Forward;
         public OrderStatus Status { get; set; } = OrderStatus.Pending;
 
+<<<<<<< Updated upstream
         
+=======
+>>>>>>> Stashed changes
         public string? GstNumber { get; set; }
 
         public long? PickupAddressId { get; set; }
         public Address? PickupAddress { get; set; }
+<<<<<<< Updated upstream
 
         public bool IsBillingSameAsShipping { get; set; } = true;
         public string? BillingFirstName { get; set; }
@@ -43,6 +51,8 @@ namespace TryNextPost.Domain.Entities
         public string? BillingState { get; set; }
         public string? BillingPincode { get; set; }
         public string? BillingCountry { get; set; }
+=======
+>>>>>>> Stashed changes
 
         // Shipping — embedded snapshot
         public string CustomerName { get; set; } = string.Empty;
@@ -54,6 +64,19 @@ namespace TryNextPost.Domain.Entities
         public string ShippingState { get; set; } = string.Empty;
         public string ShippingPincode { get; set; } = string.Empty;
         public string ShippingCountry { get; set; } = string.Empty;
+
+        //Billing 
+
+        public bool IsBillingSameAsShipping { get; set; } = true;
+        public string? BillingFirstName { get; set; }
+        public string? BillingLastName { get; set; }
+        public string? BillingCompanyName { get; set; }
+        public string? BillingAddressLine1 { get; set; }
+        public string? BillingAddressLine2 { get; set; }
+        public string? BillingCity { get; set; }
+        public string? BillingState { get; set; }
+        public string? BillingPincode { get; set; }
+        public string? BillingCountry { get; set; }
 
         // Package Info 
 
@@ -72,7 +95,7 @@ namespace TryNextPost.Domain.Entities
         [Column(TypeName = "decimal(18,2)")]
         public decimal VolumetricWeightGrams { get; set; }
 
-        // Charges — 👈 SAB NAYA
+        // Charges — 
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal ShippingCharges { get; set; }

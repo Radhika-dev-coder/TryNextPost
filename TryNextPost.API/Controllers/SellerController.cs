@@ -43,7 +43,7 @@ namespace TryNextPost.API.Controllers
                     response.StatusCode = (int)ApiStatusCode.Unauthorized; ;
                     response.Success = false;
                     response.Data = null;
-                    response.Message = SystemMessage.UnAuthorized;
+                    response.Message = SystemMessage.Unauthorized;
                     return BadRequest(response);
 
                 }
@@ -74,7 +74,7 @@ namespace TryNextPost.API.Controllers
                     response.StatusCode = (int)ApiStatusCode.Unauthorized; ;
                     response.Success = false;
                     response.Data = null;
-                    response.Message = SystemMessage.UnAuthorized;
+                    response.Message = SystemMessage.Unauthorized;
                     return BadRequest(response);
 
                 }

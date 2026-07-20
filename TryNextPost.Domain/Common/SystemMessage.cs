@@ -8,7 +8,10 @@ namespace TryNextPost.Domain.Common
 {
     public static class SystemMessage
     {
+<<<<<<< Updated upstream
 
+=======
+>>>>>>> Stashed changes
         // ───── Auth Module ─────
         public const string RegisterSuccess = "Registration successful.";
         public const string RegisterFailed = "Registration failed.";
@@ -35,6 +38,16 @@ namespace TryNextPost.Domain.Common
         // ───── Seller Module ─────
         public const string SellerNotFound = "Seller profile not found. Please complete KYC first.";
         public const string SellerProfileIncomplete = "Please complete your seller profile.";
+
+        // ───── KYC Module (Tumhara code) ─────
+        public const string AlreadyKycUpdated = "KYC already verified.";
+        public const string RejectKyc = "Your KYC is rejected. Please contact administration.";
+        public const string KycNotFound = "Seller KYC record not found.";
+        public const string KycVerified = "Seller KYC has been verified successfully.";
+        public const string KycPending = "Seller KYC verification is pending.";
+        public const string AadharInvalid = "Aadhar number is invalid.";
+        public const string AadharOtpSend = "Aadhaar KYC OTP sent successfully.";
+        public const string AadharKycSubmitted = "KYC submitted successfully.";
 
         // ───── Address Module ─────
         public const string AddressNotFound = "Address not found.";
@@ -106,6 +119,7 @@ namespace TryNextPost.Domain.Common
         public const string Unauthorized = "You are not authorized to perform this action.";
         public const string InvalidToken = "Invalid or missing authentication token.";
         public const string ValidationFailed = "Validation failed. Please check your input.";
+<<<<<<< Updated upstream
 
 
         public static string RegisterFaield = "Registration Faield...";
@@ -125,5 +139,10 @@ namespace TryNextPost.Domain.Common
 
 
 
+=======
+
+        // Optional extra (tumhare code se)
+        public const string DataFound = "Data found successfully.";
+>>>>>>> Stashed changes
     }
 }

@@ -105,6 +105,7 @@ namespace TryNextPost.Application.IServices.Class.Order
 
             var pickupAddressId = request.PickupAddressId ?? seller.DefaultPickupAddressId;
 
+<<<<<<< Updated upstream
             if (orderType == OrderTypeEnum.Forward)
             {
                 var isValidPickup = await _addressRepository.IsPickupAddressValidAsync(pickupAddressId.Value, seller.UserId);
@@ -114,6 +115,9 @@ namespace TryNextPost.Application.IServices.Class.Order
                     throw new Exception(SystemMessage.IsValidAddress);
                 }
             }
+=======
+
+>>>>>>> Stashed changes
             var order = new TryNextPost.Domain.Entities.Order
             {
                 SellerId = seller.SellerId,
@@ -140,6 +144,18 @@ namespace TryNextPost.Application.IServices.Class.Order
                 ShippingPincode = request.ShippingPincode,
                 ShippingCountry = request.ShippingCountry,
                 PickupAddressId = pickupAddressId,
+
+                // Billing — agar "Same as Shipping" hai to Shipping se copy karo
+                IsBillingSameAsShipping = request.IsBillingSameAsShipping,
+                BillingFirstName = request.IsBillingSameAsShipping ? request.CustomerName : request.BillingFirstName,
+                BillingLastName = request.IsBillingSameAsShipping ? null : request.BillingLastName,
+                BillingCompanyName = request.IsBillingSameAsShipping ? request.CustomerCompanyName : request.BillingCompanyName,
+                BillingAddressLine1 = request.IsBillingSameAsShipping ? request.ShippingAddressLine1 : request.BillingAddressLine1,
+                BillingAddressLine2 = request.IsBillingSameAsShipping ? request.ShippingAddressLine2 : request.BillingAddressLine2,
+                BillingCity = request.IsBillingSameAsShipping ? request.ShippingCity : request.BillingCity,
+                BillingState = request.IsBillingSameAsShipping ? request.ShippingState : request.BillingState,
+                BillingPincode = request.IsBillingSameAsShipping ? request.ShippingPincode : request.BillingPincode,
+                BillingCountry = request.IsBillingSameAsShipping ? request.ShippingCountry : request.BillingCountry,
 
                 // Billing — agar "Same as Shipping" hai to Shipping se copy karo
                 IsBillingSameAsShipping = request.IsBillingSameAsShipping,
@@ -243,6 +259,7 @@ namespace TryNextPost.Application.IServices.Class.Order
                 OrderType = (int)order.OrderType,
                 OrderCategory = (int)order.OrderCategory,
                 Status = (int)order.Status,
+<<<<<<< Updated upstream
                 StatusName = order.Status.ToString(),
                 CanShip = canShip,
                 HasShipment = hasShipment,
@@ -251,6 +268,10 @@ namespace TryNextPost.Application.IServices.Class.Order
                 ShipmentStatus = activeShipment?.Status.ToString(),
                 CourierName = activeShipment?.Courier?.CourierName,
            
+=======
+
+                
+>>>>>>> Stashed changes
                 GstNumber = order.GstNumber,
                 CustomerName = order.CustomerName,
                 CustomerCompanyName = order.CustomerCompanyName,
@@ -262,10 +283,17 @@ namespace TryNextPost.Application.IServices.Class.Order
                 ShippingPincode = order.ShippingPincode,
                 ShippingCountry = order.ShippingCountry,
 
+<<<<<<< Updated upstream
                 PickupAddressId =order.PickupAddressId,
                 IsBillingSameAsShipping = order.IsBillingSameAsShipping,
                 BillingFirstName = order.BillingFirstName,
                 BillingLastName = order.BillingLastName,
+=======
+                PickupAddressId = order.PickupAddressId,
+                IsBillingSameAsShipping = order.IsBillingSameAsShipping,
+                BillingFirstName = order.BillingFirstName,
+                BillingLastName  = order.BillingLastName,
+>>>>>>> Stashed changes
                 BillingCompanyName = order.BillingCompanyName,
                 BillingAddressLine1 = order.BillingAddressLine1,
                 BillingAddressLine2 = order.BillingAddressLine2,
@@ -398,6 +426,10 @@ namespace TryNextPost.Application.IServices.Class.Order
                 _ => null
             };
 
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
             var criteria = new OrderFilterCriteria
             {
                 Page = request.Page,
@@ -416,9 +448,12 @@ namespace TryNextPost.Application.IServices.Class.Order
 
             var orders = await _orderRepository.GetOrdersFilteredAsync(seller.SellerId, criteria, statusFilter);
             var totalCount = await _orderRepository.GetOrdersFilteredCountAsync(seller.SellerId, criteria, statusFilter);
+<<<<<<< Updated upstream
 
             var activeShipments = await _shipmentRepository.GetActiveShipmentsByOrderIdsAsync(
                 orders.Select(o => o.OrderId));
+=======
+>>>>>>> Stashed changes
 
             var tabCounts = new OrderTabCounts
             {
@@ -431,6 +466,7 @@ namespace TryNextPost.Application.IServices.Class.Order
 
             return new OrderListResponse
             {
+<<<<<<< Updated upstream
                 Orders = orders
                     .Select(o =>
                     {
@@ -438,6 +474,9 @@ namespace TryNextPost.Application.IServices.Class.Order
                         return MapToListItem(o, shipment);
                     })
                     .ToList(),
+=======
+                Orders = orders.Select(MapToListItem).ToList(),
+>>>>>>> Stashed changes
                 TotalCount = totalCount,
                 Page = request.Page,
                 PageSize = request.PageSize,

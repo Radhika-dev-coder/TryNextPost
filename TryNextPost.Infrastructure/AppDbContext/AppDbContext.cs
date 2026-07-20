@@ -101,7 +101,11 @@ namespace TryNextPost.Infrastructure.AppDbContexts
                 .OnDelete(DeleteBehavior.Restrict);
 
             // =========================
+<<<<<<< Updated upstream
             // 🔥 ORDER → PICKUP ADDRESS
+=======
+            // 🔥 ORDER → Pickup ADDRESS
+>>>>>>> Stashed changes
             // =========================
             modelBuilder.Entity<Order>()
                 .HasOne(o => o.PickupAddress)

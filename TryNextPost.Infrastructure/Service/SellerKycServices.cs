@@ -101,7 +101,7 @@ namespace TryNextPost.Infrastructure.Service
                     response.StatusCode = (int)ApiStatusCode.NotFound;
                     response.Success = false;
                     response.Data = null;
-                    response.Message = SystemMessage.UnAuthorized;
+                    response.Message = SystemMessage.Unauthorized;
                     return response;
                 }
                 var existing = await _sellerKycRep.GetBySellerIdAsync(sellerId);

@@ -1,14 +1,10 @@
-﻿using EllipticCurve.Utils;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using TryNextPost.Application.DTO.Common;
 using TryNextPost.Application.DTO.Order;
 using TryNextPost.Application.IServices.Interface.IOrder;
 using TryNextPost.Domain.Common;
-using TryNextPost.Domain.Entities;
-using TryNextPost.Domain.Enums;
 
 namespace TryNextPost.API.Controllers.Order
 {
@@ -18,16 +14,26 @@ namespace TryNextPost.API.Controllers.Order
     public class OrderController : ControllerBase
     {
         private readonly IOrderService _orderService;
+
         public OrderController(IOrderService orderService)
         {
             _orderService = orderService;
         }
 
+        private string? GetUserId()
+        {
+            return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        }
+
         [HttpPost("create-forward")]
         public async Task<IActionResult> CreateForwardOrder([FromBody] CreateForwardOrderRequest request)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = GetUserId();
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(SystemMessage.InvalidToken);
+
             var orderId = await _orderService.CreateForwardOrderAsync(request, userId);
+
             return Ok(new ApiResponse<long>
             {
                 Success = true,
@@ -39,11 +45,12 @@ namespace TryNextPost.API.Controllers.Order
         [HttpPost("create-reverse")]
         public async Task<IActionResult> CreateReverseOrder([FromBody] CreateReverseOrderRequest request)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = GetUserId();
             if (string.IsNullOrEmpty(userId))
-                return Unauthorized(new { message = SystemMessage.InvalidToken });
+                return Unauthorized(SystemMessage.InvalidToken);
 
             var orderId = await _orderService.CreateReverseOrderAsync(request, userId);
+
             return Ok(new ApiResponse<long>
             {
                 Success = true,
@@ -55,11 +62,12 @@ namespace TryNextPost.API.Controllers.Order
         [HttpPost("create-reverse-qc")]
         public async Task<IActionResult> CreateReverseQCOrder([FromBody] CreateReverseQcOrderRequest request)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = GetUserId();
             if (string.IsNullOrEmpty(userId))
-                return Unauthorized(new { message = SystemMessage.InvalidToken });
+                return Unauthorized(SystemMessage.InvalidToken);
 
             var orderId = await _orderService.CreateReverseQCOrderAsync(request, userId);
+
             return Ok(new ApiResponse<long>
             {
                 Success = true,
@@ -78,33 +86,46 @@ namespace TryNextPost.API.Controllers.Order
         [HttpPut("update-order/{orderId}")]
         public async Task<IActionResult> UpdateForwardOrder(long orderId, [FromBody] UpdateForwardOrderRequest request)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
+            var userId = GetUserId();
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized(SystemMessage.Unauthorized);
 
-                await _orderService.UpdateOrderAsync(orderId, request, userId);
-                return Ok(new { message = "Order updated successfully" });
+            await _orderService.UpdateOrderAsync(orderId, request, userId);
+
+            return Ok(new ApiResponse<string>
+            {
+                Success = true,
+                Message = SystemMessage.OrderUpdatedSuccess,
+                Data = null
+            });
         }
 
-        [HttpDelete("CancelOrder/{orderId}")]
+        [HttpDelete("cancel-order/{orderId}")]
         public async Task<IActionResult> CancelOrder(long orderId)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
+            var userId = GetUserId();
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized(SystemMessage.Unauthorized);
 
-                await _orderService.CancelOrderAsync(orderId, userId);
-                return Ok(new { message = "Order cancelled successfully" });
+            await _orderService.CancelOrderAsync(orderId, userId);
+
+            return Ok(new ApiResponse<string>
+            {
+                Success = true,
+                Message = SystemMessage.OrderCancelledSuccess,
+                Data = null
+            });
         }
 
-        [HttpGet("GetOrderById/{OrderId}")]
-        public async Task<IActionResult> GetOrderById([FromRoute] long OrderId)
+        [HttpGet("get-order-by-id/{orderId}")]
+        public async Task<IActionResult> GetOrderById(long orderId)
         {
+            var userId = GetUserId();
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(SystemMessage.Unauthorized);
 
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var order = await _orderService.GetOrderByIdAsync(OrderId, userId);
+            var order = await _orderService.GetOrderByIdAsync(orderId, userId);
+
             return Ok(new ApiResponse<OrderDetailResponse>
             {
                 Success = true,
@@ -116,9 +137,11 @@ namespace TryNextPost.API.Controllers.Order
         [HttpGet("all-orders")]
         public async Task<IActionResult> GetAllOrders([FromQuery] OrderFilterRequest filter)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = GetUserId();
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(SystemMessage.Unauthorized);
 
-            var result = await _orderService.GetAllOrdersAsync(userId, filter);   
+            var result = await _orderService.GetAllOrdersAsync(userId, filter);
 
             return Ok(new ApiResponse<OrderListResponse>
             {

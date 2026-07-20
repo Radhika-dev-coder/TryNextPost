@@ -32,15 +32,12 @@ using TryNextPost.Infrastructure.Service;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 #region Config
-
-builder.Services.AddDbContext<AppDbContext>(option => option.UseSqlServer(builder.Configuration.GetConnectionString("Con")));
-
+builder.Services.AddDbContext<AppDbContext>(option =>
+    option.UseSqlServer(builder.Configuration.GetConnectionString("Con")));
 #endregion
 
 #region Identity
-
 builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 {
     options.Password.RequireDigit = true;
@@ -51,19 +48,20 @@ builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 })
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
-
 #endregion
 
-#region  DI
+#region DI
+
 builder.Services.AddScoped<IIdentityService, IdentityService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IUserSessionRepository, UserSessionRepository>();
-builder.Services.AddScoped<IIdentityService, IdentityService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISellerRepository, SellerRepository>();
-builder.Services.Configure<SmsSettings>(builder.Configuration.GetSection("SmsSettings"));
+
+// ✅ FINAL SMS CONFIG (BEST VERSION)
+builder.Services.Configure<SmsSettings>(
+    builder.Configuration.GetSection("SmsSettings"));
 builder.Services.AddHttpClient<ISmsService, SmsService>();
 
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
@@ -75,22 +73,30 @@ builder.Services.AddScoped<ICourierRepository, CourierRepository>();
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IWalletRechargeRepository, WalletRechargeRepository>();
 builder.Services.AddScoped<IWalletService, WalletService>();
-builder.Services.Configure<RazorpaySettings>(builder.Configuration.GetSection(RazorpaySettings.SectionName));
+
+builder.Services.Configure<RazorpaySettings>(
+    builder.Configuration.GetSection(RazorpaySettings.SectionName));
 builder.Services.AddHttpClient<IRazorpayPaymentGateway, RazorpayPaymentGateway>();
+
 builder.Services.AddScoped<IShipmentService, ShipmentService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 builder.Services.AddScoped<ISellerKycRepository, SellerKycRepostiory>();
 builder.Services.AddScoped<ISellerKycServices, SellerKycServices>();
+
+// ✅ FluentValidation
 builder.Services.AddFluentValidationAutoValidation();
-builder.Services.AddValidatorsFromAssemblyContaining
-    <CreateForwardOrderRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateForwardOrderRequestValidator>();
+
 builder.Services.AddScoped<IOtpRepository, OtpRepository>();
 
-// Courier aggregator adapters (stub until real APIs are wired)
-builder.Services.Configure<CourierSettings>(builder.Configuration.GetSection(CourierSettings.SectionName));
-builder.Services.AddHttpClient(); // IHttpClientFactory for DelhiveryAdapter scaffolding
+// ✅ Courier Aggregator (IMPORTANT)
+builder.Services.Configure<CourierSettings>(
+    builder.Configuration.GetSection(CourierSettings.SectionName));
+
+builder.Services.AddHttpClient();
 builder.Services.AddHttpClient(nameof(DelhiveryAdapter));
+
 builder.Services.AddScoped<ICourierAdapter, DelhiveryAdapter>();
 builder.Services.AddScoped<ICourierAdapter, BlueDartAdapter>();
 builder.Services.AddScoped<ICourierAdapter, XpressbeesAdapter>();
@@ -102,7 +108,8 @@ builder.Services.AddScoped<ICourierAdapterFactory, CourierAdapterFactory>();
 
 #endregion
 
-#region  JWT
+#region JWT
+
 var jwtKey = builder.Configuration["Jwt:Key"];
 
 if (string.IsNullOrEmpty(jwtKey))
@@ -132,9 +139,11 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(keyBytes)
     };
 });
+
 #endregion
 
-#region AddAuthorization
+#region Authorization
+
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("SellerAccess", policy =>
@@ -143,44 +152,48 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AdminAccess", policy =>
         policy.RequireRole("Admin", "SuperAdmin"));
 });
+
 #endregion
 
-#region  Swagger
+#region Swagger
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
-    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-        Description = "Enter: Bearer {your_token}"
-    });
-
-    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
-    {
+    options.AddSecurityDefinition("Bearer",
+        new Microsoft.OpenApi.Models.OpenApiSecurityScheme
         {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            Name = "Authorization",
+            Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+            Description = "Enter: Bearer {your_token}"
+        });
+
+    options.AddSecurityRequirement(
+        new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+        {
             {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                new Microsoft.OpenApi.Models.OpenApiSecurityScheme
                 {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new string[] {}
-        }
-    });
+                    Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                    {
+                        Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                    }
+                },
+                new string[] {}
+            }
+        });
 });
 
 #endregion
 
+#region CORS
 
-#region cors
-var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins").Get<string[]>();
 
 builder.Services.AddCors(options =>
 {
@@ -192,49 +205,52 @@ builder.Services.AddCors(options =>
               .AllowCredentials();
     });
 });
+
 #endregion
 
 builder.Services.AddMemoryCache();
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-//builder.Services.AddOpenApi();
+
 var app = builder.Build();
 
-//seeder 
 #region Seeder
+
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
+
     var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
     var roleManager = services.GetRequiredService<RoleManager<ApplicationRole>>();
+
     await IdentitySeeder.SeedAsync(userManager, roleManager);
 
     var db = services.GetRequiredService<AppDbContext>();
-    var courierLogger = services.GetRequiredService<ILoggerFactory>().CreateLogger("CourierSeeder");
+    var logger = services.GetRequiredService<ILoggerFactory>()
+                         .CreateLogger("CourierSeeder");
+
     try
     {
-        await CourierSeeder.SeedAsync(db, courierLogger);
+        await CourierSeeder.SeedAsync(db, logger);
     }
     catch (Exception ex)
     {
-        courierLogger.LogWarning(ex,
-            "Courier seed skipped. Apply migration AddCourierCode if CourierCode column is missing.");
+        logger.LogWarning(ex,
+            "Courier seed skipped. Apply migration AddCourierCode if missing.");
     }
 }
+
 #endregion
 
-    // Configure the HTTP request pipeline.
-    if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
     {
-        //app.MapOpenApi();
-        app.UseSwagger();
-        app.UseSwaggerUI(options =>
-        {
-            options.SwaggerEndpoint("/swagger/v1/swagger.json", "TryNextPost API v1");
-            options.RoutePrefix = string.Empty;
-        });
-    }
-
+        options.SwaggerEndpoint("/swagger/v1/swagger.json",
+            "TryNextPost API v1");
+        options.RoutePrefix = string.Empty;
+    });
+}
 
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
