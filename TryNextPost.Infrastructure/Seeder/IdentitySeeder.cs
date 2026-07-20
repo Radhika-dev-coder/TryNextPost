@@ -37,8 +37,7 @@ namespace TryNextPost.Infrastructure.Seeder
                 };
                 await userManager.CreateAsync(superAdmin,"SuperAdmin@123");
                 await userManager.AddToRoleAsync(superAdmin,RoleEnum.SuperAdmin.ToString());
-            }
-       
+            }       
         }
     }
 }

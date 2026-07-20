@@ -43,5 +43,16 @@ namespace TryNextPost.Infrastructure.Repository
         {
             return await _appDbContexts.Sellers.FirstOrDefaultAsync(s => s.UserId == userId);
         }
+
+        public Task UpdateAsync(Seller seller)
+        {
+            _appDbContexts.Sellers.Update(seller);
+            return Task.CompletedTask;
+        }
+
+        public async Task SaveChangesAsync()
+        {
+            await _appDbContexts.SaveChangesAsync();
+        }
     }
 }

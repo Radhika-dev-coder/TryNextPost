@@ -15,10 +15,16 @@ namespace TryNextPost.Domain.Entities
         public long CourierId { get; set; } 
         public string CourierName { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Stable adapter lookup key (e.g. DELHIVERY). Matches Domain.Common.CourierCodes.
+        /// </summary>
+        [MaxLength(50)]
+        public string CourierCode { get; set; } = string.Empty;
+
         // API Integration details
         public string? ApiBaseUrl { get; set; }
-        public string? ApiKey { get; set; }       // ⚠️ encrypt before storing
-        public string? ApiSecret { get; set; }    // ⚠️ encrypt before storing
+        public string? ApiKey { get; set; }       //  encrypt before storing
+        public string? ApiSecret { get; set; }    //  encrypt before storing
         public string? AccountCode { get; set; }
 
         // Contact details

@@ -54,6 +54,17 @@ namespace TryNextPost.Application.IServices.Class.Default
             await _addressRepository.AddAsync(address);
             await _addressRepository.SaveChangesAsync();
 
+            // First active warehouse becomes the seller default return/pickup warehouse
+            // (needed for Reverse / ReverseQC rates when order.PickupAddressId is null).
+            if (!seller.DefaultPickupAddressId.HasValue)
+            {
+                seller.DefaultPickupAddressId = address.AddressId;
+                seller.UpdatedAt = DateTime.UtcNow;
+                seller.UpdatedBy = userId;
+                await _sellerRepository.UpdateAsync(seller);
+                await _sellerRepository.SaveChangesAsync();
+            }
+
             return address.AddressId;
         }
 

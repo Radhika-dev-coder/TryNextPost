@@ -17,5 +17,6 @@ namespace TryNextPost.Domain.Entities
 
         // Navigation
         public ICollection<Transaction>? Transactions { get; set; }
+        public ICollection<WalletRecharge>? Recharges { get; set; }
     }
 }

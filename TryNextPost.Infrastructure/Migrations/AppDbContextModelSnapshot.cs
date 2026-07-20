@@ -322,6 +322,11 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.Property<string>("ContactPhone")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("CourierCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("CourierName")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -352,6 +357,9 @@ namespace TryNextPost.Infrastructure.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("CourierId");
+
+                    b.HasIndex("CourierCode")
+                        .IsUnique();
 
                     b.ToTable("Couriers");
                 });
@@ -675,6 +683,53 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.ToTable("OrderItems");
                 });
 
+            modelBuilder.Entity("TryNextPost.Domain.Entities.Otp", b =>
+                {
+                    b.Property<long>("OtpId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("OtpId"));
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("ExpiryTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FailedAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<bool?>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsUsed")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("MobileNumber")
+                        .IsRequired()
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("OtpId");
+
+                    b.ToTable("Otps");
+                });
+
             modelBuilder.Entity("TryNextPost.Domain.Entities.Permission", b =>
                 {
                     b.Property<long>("PermissionId")
@@ -736,6 +791,72 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.HasIndex("ShipmentId");
 
                     b.ToTable("RTOS");
+                });
+
+            modelBuilder.Entity("TryNextPost.Domain.Entities.ReverseQcDetail", b =>
+                {
+                    b.Property<long>("ReverseQcDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ReverseQcDetailId"));
+
+                    b.Property<bool?>("IsBrandMatched")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("IsColorMatched")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("IsDamagedProduct")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("IsSizeMatched")
+                        .HasColumnType("bit");
+
+                    b.Property<bool?>("IsUsedProduct")
+                        .HasColumnType("bit");
+
+                    b.Property<long>("OrderId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ProductCategory")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("ReverseQcDetailId");
+
+                    b.HasIndex("OrderId")
+                        .IsUnique();
+
+                    b.ToTable("ReverseQcDetails");
+                });
+
+            modelBuilder.Entity("TryNextPost.Domain.Entities.ReverseQcImage", b =>
+                {
+                    b.Property<long>("ReverseQcImageId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ReverseQcImageId"));
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<long>("ReverseQcDetailId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("ReverseQcImageId");
+
+                    b.HasIndex("ReverseQcDetailId", "DisplayOrder")
+                        .IsUnique();
+
+                    b.ToTable("ReverseQcImages");
                 });
 
             modelBuilder.Entity("TryNextPost.Domain.Entities.RolePermission", b =>
@@ -964,15 +1085,24 @@ namespace TryNextPost.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("ShipmentId"));
 
-                    b.Property<long>("AwbNumber")
-                        .HasColumnType("bigint");
+                    b.Property<string>("AwbNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<decimal>("Breadth")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal>("ChargedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<long>("CourierId")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("CourierReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -1018,6 +1148,9 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.Property<bool?>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<string>("LabelUrl")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<decimal>("Length")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -1027,6 +1160,10 @@ namespace TryNextPost.Infrastructure.Migrations
 
                     b.Property<long>("PickupAddressId")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("ServiceCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<int>("ShipmentType")
                         .HasColumnType("int");
@@ -1047,7 +1184,8 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.HasKey("ShipmentId");
 
                     b.HasIndex("AwbNumber")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[AwbNumber] IS NOT NULL");
 
                     b.HasIndex("CourierId");
 
@@ -1232,6 +1370,84 @@ namespace TryNextPost.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Wallets");
+                });
+
+            modelBuilder.Entity("TryNextPost.Domain.Entities.WalletRecharge", b =>
+                {
+                    b.Property<long>("WalletRechargeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("WalletRechargeId"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("AmountInPaise")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("GatewayOrderId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("GatewayPaymentId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool?>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Receipt")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<long>("WalletId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("WalletRechargeId");
+
+                    b.HasIndex("GatewayOrderId")
+                        .IsUnique();
+
+                    b.HasIndex("GatewayPaymentId")
+                        .IsUnique()
+                        .HasFilter("[GatewayPaymentId] IS NOT NULL");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("WalletId");
+
+                    b.ToTable("WalletRecharges");
                 });
 
             modelBuilder.Entity("TryNextPost.Domain.Entities.Webhook", b =>
@@ -1531,6 +1747,28 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.Navigation("Shipment");
                 });
 
+            modelBuilder.Entity("TryNextPost.Domain.Entities.ReverseQcDetail", b =>
+                {
+                    b.HasOne("TryNextPost.Domain.Entities.Order", "Order")
+                        .WithOne("ReverseQcDetail")
+                        .HasForeignKey("TryNextPost.Domain.Entities.ReverseQcDetail", "OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("TryNextPost.Domain.Entities.ReverseQcImage", b =>
+                {
+                    b.HasOne("TryNextPost.Domain.Entities.ReverseQcDetail", "ReverseQcDetail")
+                        .WithMany("Images")
+                        .HasForeignKey("ReverseQcDetailId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ReverseQcDetail");
+                });
+
             modelBuilder.Entity("TryNextPost.Domain.Entities.RolePermission", b =>
                 {
                     b.HasOne("TryNextPost.Domain.Entities.Permission", "Permission")
@@ -1629,6 +1867,17 @@ namespace TryNextPost.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("TryNextPost.Domain.Entities.WalletRecharge", b =>
+                {
+                    b.HasOne("TryNextPost.Domain.Entities.Wallet", "Wallet")
+                        .WithMany("Recharges")
+                        .HasForeignKey("WalletId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Wallet");
+                });
+
             modelBuilder.Entity("TryNextPost.Domain.Entities.CompanyInfo", b =>
                 {
                     b.Navigation("Addresses");
@@ -1646,11 +1895,18 @@ namespace TryNextPost.Infrastructure.Migrations
             modelBuilder.Entity("TryNextPost.Domain.Entities.Order", b =>
                 {
                     b.Navigation("OrderItems");
+
+                    b.Navigation("ReverseQcDetail");
                 });
 
             modelBuilder.Entity("TryNextPost.Domain.Entities.Permission", b =>
                 {
                     b.Navigation("RolePermissions");
+                });
+
+            modelBuilder.Entity("TryNextPost.Domain.Entities.ReverseQcDetail", b =>
+                {
+                    b.Navigation("Images");
                 });
 
             modelBuilder.Entity("TryNextPost.Domain.Entities.Shipment", b =>
@@ -1664,6 +1920,8 @@ namespace TryNextPost.Infrastructure.Migrations
 
             modelBuilder.Entity("TryNextPost.Domain.Entities.Wallet", b =>
                 {
+                    b.Navigation("Recharges");
+
                     b.Navigation("Transactions");
                 });
 

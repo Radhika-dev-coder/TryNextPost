@@ -14,5 +14,7 @@ namespace TryNextPost.Domain.IRepository
 
         Task CreateSellerAsync(string UserId);
 
+        Task UpdateAsync(Seller seller);
+        Task SaveChangesAsync();
     }
 }

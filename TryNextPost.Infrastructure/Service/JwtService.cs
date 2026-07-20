@@ -47,6 +47,24 @@ namespace TryNextPost.Infrastructure.Service
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
+        public string GeneratePhoneVerifiedToken(string mobile)
+        {
+            var claims = new[]
+{
+             new Claim("phone_verified", "true"),
+             new Claim("mobile", mobile)
+              };
+            var key = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var token = new JwtSecurityToken(
+                issuer: _config["Jwt:Issuer"],
+                audience: _config["Jwt:Audience"],
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(10),
+                signingCredentials: creds);
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
 
         public string GenerateToken(string userId, string email , List<string> roles)
         {

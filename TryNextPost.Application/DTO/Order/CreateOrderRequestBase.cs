@@ -1,0 +1,84 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace TryNextPost.Application.DTO.Order
+{
+    public abstract class CreateOrderRequestBase
+    {
+        public string? OrderRef { get; set; }
+
+        [Required]
+        [Range(1, 2, ErrorMessage = "Invalid Payment Mode")]
+        public int PaymentMode { get; set; }
+
+        public long? PickupAddressId { get; set; }
+
+        public string? GstNumber { get; set; }
+
+        [Required(ErrorMessage = "Customer Name is required")]
+        public string CustomerName { get; set; } = string.Empty;
+
+        public string? CustomerCompanyName { get; set; }
+
+        [Required(ErrorMessage = "Customer Mobile is required")]
+        [Phone(ErrorMessage = "Invalid mobile number")]
+        public string CustomerMobile { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Shipping Address is required")]
+        public string ShippingAddressLine1 { get; set; } = string.Empty;
+
+        public string? ShippingAddressLine2 { get; set; }
+
+        [Required]
+        [RegularExpression(@"^\d{6}$", ErrorMessage = "Pincode must be 6 digits")]
+        public string ShippingPincode { get; set; } = string.Empty;
+
+        [Required]
+        public string ShippingCity { get; set; } = string.Empty;
+
+        [Required]
+        public string ShippingState { get; set; } = string.Empty;
+
+        [Required]
+        public string ShippingCountry { get; set; } = string.Empty;
+
+        public bool IsBillingSameAsShipping { get; set; } = true;
+        public string? BillingFirstName { get; set; }
+        public string? BillingLastName { get; set; }
+        public string? BillingCompanyName { get; set; }
+        public string? BillingAddressLine1 { get; set; }
+        public string? BillingAddressLine2 { get; set; }
+        public string? BillingCity { get; set; }
+        public string? BillingState { get; set; }
+        public string? BillingPincode { get; set; }
+        public string? BillingCountry { get; set; }
+
+        [Required]
+        [MinLength(1, ErrorMessage = "At least one item is required")]
+        public List<OrderItemDto> Items { get; set; } = new();
+
+        public decimal WeightGrams { get; set; }
+        public decimal LengthCm { get; set; }
+        public decimal BreadthCm { get; set; }
+        public decimal HeightCm { get; set; }
+
+        [Range(0, double.MaxValue)]
+        public decimal ShippingCharges { get; set; }
+
+        [Range(0, double.MaxValue)]
+        public decimal CodCharges { get; set; }
+
+        [Range(0, double.MaxValue)]
+        public decimal TaxAmount { get; set; }
+
+        [Range(0, double.MaxValue)]
+        public decimal Discount { get; set; }
+
+        public bool IsCollectableAmountDifferent { get; set; }
+        public decimal? CollectableAmount { get; set; }
+    }
+}

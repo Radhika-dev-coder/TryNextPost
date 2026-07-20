@@ -11,7 +11,7 @@ namespace TryNextPost.Application.DTO.Auth
         public bool IsRegistered { get; set; }
         public string Message { get; set; }
         public string Mobile {  get; set; }
-
+        public string? PhoneVerifiedToken { get; set; }
         public string Token { get; set; } // Only when then IsRegisterd = True
         public DateTime? ExpiresAt { get;set; }
     }

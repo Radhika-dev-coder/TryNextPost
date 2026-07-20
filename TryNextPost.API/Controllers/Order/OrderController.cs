@@ -26,22 +26,18 @@ namespace TryNextPost.API.Controllers.Order
         [HttpPost("create-forward")]
         public async Task<IActionResult> CreateForwardOrder([FromBody] CreateForwardOrderRequest request)
         {
-
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-                var orderId = await _orderService.CreateForwardOrderAsync(request, userId);
-
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var orderId = await _orderService.CreateForwardOrderAsync(request, userId);
             return Ok(new ApiResponse<long>
             {
                 Success = true,
                 Message = SystemMessage.OrderCreatedSuccess,
                 Data = orderId
             });
-
         }
 
         [HttpPost("create-reverse")]
-        public async Task<IActionResult> CreateReverseOrder([FromBody] CreateForwardOrderRequest request)
+        public async Task<IActionResult> CreateReverseOrder([FromBody] CreateReverseOrderRequest request)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
@@ -57,7 +53,7 @@ namespace TryNextPost.API.Controllers.Order
         }
 
         [HttpPost("create-reverse-qc")]
-        public async Task<IActionResult> CreateReverseQCOrder([FromBody] CreateForwardOrderRequest request)
+        public async Task<IActionResult> CreateReverseQCOrder([FromBody] CreateReverseQcOrderRequest request)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
@@ -118,19 +114,16 @@ namespace TryNextPost.API.Controllers.Order
         }
 
         [HttpGet("all-orders")]
-        public async Task<IActionResult> GetAllOrders(
-        [FromQuery] string? tab = "all",
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> GetAllOrders([FromQuery] OrderFilterRequest filter)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            var result = await _orderService.GetAllOrdersAsync(userId, page, pageSize, tab);
+            var result = await _orderService.GetAllOrdersAsync(userId, filter);   
 
             return Ok(new ApiResponse<OrderListResponse>
             {
                 Success = true,
-                Message = SystemMessage.OrderFetchedSuccess,
+                Message = "Orders fetched successfully",
                 Data = result,
                 StatusCode = ApiStatusCode.Success
             });

@@ -1,21 +1,32 @@
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using TryNextPost.API.Middlewares;
+using TryNextPost.Application.Common.Settings;
 using TryNextPost.Application.IServices;
 using TryNextPost.Application.IServices.Class;
 using TryNextPost.Application.IServices.Class.Default;
 using TryNextPost.Application.IServices.Class.Order;
+using TryNextPost.Application.IServices.Class.Shipment;
+using TryNextPost.Application.IServices.Class.Wallet;
 using TryNextPost.Application.IServices.Interface;
 using TryNextPost.Application.IServices.Interface.Default;
 using TryNextPost.Application.IServices.Interface.IOrder;
+using TryNextPost.Application.IServices.Interface.IShipment;
+using TryNextPost.Application.IServices.Interface.IWallet;
+using TryNextPost.Application.IServices.Interface.IPayment;
 using TryNextPost.Application.Services.Interface;
+using TryNextPost.Application.Validators.Order;
 using TryNextPost.Domain.IRepository;
 using TryNextPost.Infrastructure.AppDbContexts;
 using TryNextPost.Infrastructure.Identity;
 using TryNextPost.Infrastructure.Repository;
+using TryNextPost.Application.IServices.Interface.Courier;
+using TryNextPost.Infrastructure.CourierAdapters;
 using TryNextPost.Infrastructure.Seeder;
 using TryNextPost.Infrastructure.Service;
 
@@ -52,16 +63,42 @@ builder.Services.AddScoped<IUserSessionRepository, UserSessionRepository>();
 builder.Services.AddScoped<IIdentityService, IdentityService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISellerRepository, SellerRepository>();
-builder.Services.AddScoped<ISmsService, SmsService>();
+builder.Services.Configure<SmsSettings>(builder.Configuration.GetSection("SmsSettings"));
+builder.Services.AddHttpClient<ISmsService, SmsService>();
 
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IAddressRepository, AddressRepository>();
 builder.Services.AddScoped<IAddressService, AddressService>();
+builder.Services.AddScoped<IShipmentRepository, ShipmentRepository>();
+builder.Services.AddScoped<ICourierRepository, CourierRepository>();
+builder.Services.AddScoped<IWalletRepository, WalletRepository>();
+builder.Services.AddScoped<IWalletRechargeRepository, WalletRechargeRepository>();
+builder.Services.AddScoped<IWalletService, WalletService>();
+builder.Services.Configure<RazorpaySettings>(builder.Configuration.GetSection(RazorpaySettings.SectionName));
+builder.Services.AddHttpClient<IRazorpayPaymentGateway, RazorpayPaymentGateway>();
+builder.Services.AddScoped<IShipmentService, ShipmentService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 builder.Services.AddScoped<ISellerKycRepository, SellerKycRepostiory>();
 builder.Services.AddScoped<ISellerKycServices, SellerKycServices>();
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining
+    <CreateForwardOrderRequestValidator>();
+builder.Services.AddScoped<IOtpRepository, OtpRepository>();
+
+// Courier aggregator adapters (stub until real APIs are wired)
+builder.Services.Configure<CourierSettings>(builder.Configuration.GetSection(CourierSettings.SectionName));
+builder.Services.AddHttpClient(); // IHttpClientFactory for DelhiveryAdapter scaffolding
+builder.Services.AddHttpClient(nameof(DelhiveryAdapter));
+builder.Services.AddScoped<ICourierAdapter, DelhiveryAdapter>();
+builder.Services.AddScoped<ICourierAdapter, BlueDartAdapter>();
+builder.Services.AddScoped<ICourierAdapter, XpressbeesAdapter>();
+builder.Services.AddScoped<ICourierAdapter, DtdcAdapter>();
+builder.Services.AddScoped<ICourierAdapter, EkartAdapter>();
+builder.Services.AddScoped<ICourierAdapter, IndiaPostAdapter>();
+builder.Services.AddScoped<ICourierAdapter, ShadowfaxAdapter>();
+builder.Services.AddScoped<ICourierAdapterFactory, CourierAdapterFactory>();
 
 #endregion
 
@@ -171,8 +208,20 @@ using (var scope = app.Services.CreateScope())
     var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
     var roleManager = services.GetRequiredService<RoleManager<ApplicationRole>>();
     await IdentitySeeder.SeedAsync(userManager, roleManager);
+
+    var db = services.GetRequiredService<AppDbContext>();
+    var courierLogger = services.GetRequiredService<ILoggerFactory>().CreateLogger("CourierSeeder");
+    try
+    {
+        await CourierSeeder.SeedAsync(db, courierLogger);
+    }
+    catch (Exception ex)
+    {
+        courierLogger.LogWarning(ex,
+            "Courier seed skipped. Apply migration AddCourierCode if CourierCode column is missing.");
+    }
 }
-    #endregion
+#endregion
 
     // Configure the HTTP request pipeline.
     if (app.Environment.IsDevelopment())
@@ -188,7 +237,7 @@ using (var scope = app.Services.CreateScope())
 
 
 app.UseHttpsRedirection();
-app.UseCors("AllowAll");
+app.UseCors("AllowFrontend");
 app.UseMiddleware<ExceptionMiddleware>();
 
 app.UseAuthentication();
