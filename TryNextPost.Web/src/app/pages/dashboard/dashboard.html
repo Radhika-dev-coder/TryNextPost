@@ -1,0 +1,128 @@
+<div class="shell">
+  <aside class="sidebar">
+    <p class="logo">TryNextPost</p>
+    <nav>
+      <a class="active">Dashboard</a>
+      <a>Orders</a>
+      <a>Shipments</a>
+      <a>Billing</a>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="spacer"></div>
+      <button type="button" class="recharge-btn" (click)="openRecharge()">⚡ Recharge</button>
+      <div class="balance-pill">
+        Balance
+        <strong>
+          @if (loadingBalance()) {
+            …
+          } @else {
+            {{ balance() | currency: 'INR' : 'symbol' : '1.0-0' }}
+          }
+        </strong>
+      </div>
+      <div class="user">{{ auth.email() }}</div>
+      <button type="button" class="link" (click)="auth.logout()">Logout</button>
+    </header>
+
+    <section class="hero">
+      <div>
+        <h1>Start Shipping, Start Saving</h1>
+        <p>Recharge wallet to book shipments. Flow matches NimbusPost → Razorpay Checkout.</p>
+        <button type="button" class="recharge-btn light" (click)="openRecharge()">
+          Recharge Now
+        </button>
+      </div>
+    </section>
+
+    @if (success()) {
+      <p class="banner ok">{{ success() }}</p>
+    }
+    @if (error()) {
+      <p class="banner bad">{{ error() }}</p>
+    }
+
+    <section class="checklist">
+      <h2>Set Up Your Account</h2>
+      <ul>
+        <li>Verify KYC</li>
+        <li [class.done]="balance() > 0">Recharge Your Wallet</li>
+        <li>Add a Pickup Address</li>
+      </ul>
+    </section>
+  </div>
+</div>
+
+@if (modalOpen()) {
+  <div class="overlay" (click)="closeModal()">
+    <div class="modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        @if (step() === 'gateway') {
+          <button type="button" class="icon-btn" (click)="backToAmount()" aria-label="Back">←</button>
+        } @else {
+          <span class="icon-spacer"></span>
+        }
+        <h3>Add Money</h3>
+        <div class="balance-pill sm">
+          Balance : {{ balance() | currency: 'INR' : 'symbol' : '1.0-0' }}
+        </div>
+        <button type="button" class="icon-btn" (click)="closeModal()" aria-label="Close">×</button>
+      </div>
+
+      @if (step() === 'amount') {
+        <div class="amount-panel">
+          <p>Enter amount to add</p>
+          <div class="big-amount">₹{{ amount() }}</div>
+          <div class="presets">
+            @for (p of presets; track p) {
+              <button
+                type="button"
+                [class.selected]="amount() === p"
+                (click)="selectAmount(p)"
+              >
+                ₹{{ p | number: '1.0-0' }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <label class="contact">
+          Phone for Razorpay Checkout (optional)
+          <input
+            type="tel"
+            [(ngModel)]="contact"
+            name="contact"
+            placeholder="10-digit mobile"
+            maxlength="10"
+          />
+        </label>
+
+        <button type="button" class="pay-btn" (click)="goToGateway()">
+          Pay ₹{{ amount() }}
+        </button>
+      } @else {
+        <div class="gateway-panel">
+          <p class="muted">Amount to be paid</p>
+          <div class="big-amount dark">₹{{ amount() }}</div>
+          <p class="select-label">Select your preferred payment mode</p>
+
+          <button type="button" class="gateway selected" disabled>
+            <strong>Razorpay</strong>
+            <span>UPI / Net Banking · Credit & Debit Cards</span>
+          </button>
+
+          <button
+            type="button"
+            class="pay-btn"
+            [disabled]="paying()"
+            (click)="payWithRazorpay()"
+          >
+            {{ paying() ? 'Opening Razorpay…' : 'Pay ₹' + amount() }}
+          </button>
+        </div>
+      }
+    </div>
+  </div>
+}

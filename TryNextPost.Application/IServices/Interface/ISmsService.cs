@@ -8,6 +8,6 @@ namespace TryNextPost.Application.IServices.Interface
 {
     public interface ISmsService
     {
-        Task SendOtpSms(String PhoneNumber, string Otp);
+        Task SendOtpSms(String mobile, string otp);
     }
 }

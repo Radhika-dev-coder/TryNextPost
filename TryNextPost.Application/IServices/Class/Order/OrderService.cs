@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Azure.Core;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -17,12 +18,18 @@ namespace TryNextPost.Application.IServices.Class.Order
         private readonly ISellerRepository _sellerRepository;
         private readonly IOrderRepository _orderRepository;
         private readonly IAddressRepository _addressRepository;
-        public OrderService(ISellerRepository sellerRepository, IOrderRepository orderRepository
-            , IAddressRepository addressRepository)
+        private readonly IShipmentRepository _shipmentRepository;
+
+        public OrderService(
+            ISellerRepository sellerRepository,
+            IOrderRepository orderRepository,
+            IAddressRepository addressRepository,
+            IShipmentRepository shipmentRepository)
         {
             _sellerRepository = sellerRepository;
             _orderRepository = orderRepository;
             _addressRepository = addressRepository;
+            _shipmentRepository = shipmentRepository;
         }
 
         public async Task CancelOrderAsync(long orderId, string userId)
@@ -62,17 +69,17 @@ namespace TryNextPost.Application.IServices.Class.Order
             return await CreateOrderInternalAsync(request, userId, OrderTypeEnum.Forward, "");
         }
 
-        public async Task<long> CreateReverseOrderAsync(CreateForwardOrderRequest request, string userId)
-        {
-            return await CreateOrderInternalAsync(request, userId, OrderTypeEnum.Reverse, "R-");
-        }
+        //public async Task<long> CreateReverseOrderAsync(CreateForwardOrderRequest request, string userId)
+        //{
+        //    return await CreateOrderInternalAsync(request, userId, OrderTypeEnum.Reverse, "R-");
+        //}
 
-        public async Task<long> CreateReverseQCOrderAsync(CreateForwardOrderRequest request, string userId)
-        {
-            return await CreateOrderInternalAsync(request, userId, OrderTypeEnum.ReverseQC, "QC-");
-        }
+        //public async Task<long> CreateReverseQCOrderAsync(CreateForwardOrderRequest request, string userId)
+        //{
+        //    return await CreateOrderInternalAsync(request, userId, OrderTypeEnum.ReverseQC, "QC-");
+        //}
 
-        private async Task<long> CreateOrderInternalAsync(CreateForwardOrderRequest request, string userId,
+        private async Task<long> CreateOrderInternalAsync(CreateOrderRequestBase request, string userId,
         OrderTypeEnum orderType,
         string orderRefPrefix)
         {
@@ -98,14 +105,15 @@ namespace TryNextPost.Application.IServices.Class.Order
 
             var pickupAddressId = request.PickupAddressId ?? seller.DefaultPickupAddressId;
 
-            var isValidPickup = await _addressRepository.IsPickupAddressValidAsync(pickupAddressId.Value, seller.UserId);
-
-
-            if (!isValidPickup)
+            if (orderType == OrderTypeEnum.Forward)
             {
-                throw new Exception(SystemMessage.IsValidAddress);
-            }
+                var isValidPickup = await _addressRepository.IsPickupAddressValidAsync(pickupAddressId.Value, seller.UserId);
 
+                if (!isValidPickup)
+                {
+                    throw new Exception(SystemMessage.IsValidAddress);
+                }
+            }
             var order = new TryNextPost.Domain.Entities.Order
             {
                 SellerId = seller.SellerId,
@@ -167,6 +175,27 @@ namespace TryNextPost.Application.IServices.Class.Order
                 }).ToList()
             };
 
+            if (orderType == OrderTypeEnum.ReverseQC)
+            {
+                var qcRequest = (CreateReverseQcOrderRequest)request;
+                order.ReverseQcDetail = new ReverseQcDetail
+                {
+                    ProductCategory = qcRequest.ProductCategory.Trim(),
+                    IsUsedProduct = qcRequest.IsUsedProduct,
+                    IsDamagedProduct = qcRequest.IsDamagedProduct,
+                    IsBrandMatched = qcRequest.IsBrandMatched,
+                    IsSizeMatched = qcRequest.IsSizeMatched,
+                    IsColorMatched = qcRequest.IsColorMatched,
+                    Images = qcRequest.ReferenceImageUrls
+                        .Select((url, index) => new ReverseQcImage
+                        {
+                            ImageUrl = url.Trim(),
+                            DisplayOrder = index + 1
+                        })
+                        .ToList()
+                };
+            }
+
             await _orderRepository.AddAsync(order);
             await _orderRepository.SaveChangesAsync();
 
@@ -187,13 +216,21 @@ namespace TryNextPost.Application.IServices.Class.Order
             var seller = await _sellerRepository.GetByUserIdAsync(userId);
             if (seller == null || order.SellerId != seller.SellerId)
                 throw new UnauthorizedAccessException(string.Format(SystemMessage.Unauthorized));
-            
-            return MapToResponse(order);
 
+            var activeShipments = await _shipmentRepository.GetActiveShipmentsByOrderIdsAsync(
+                new[] { order.OrderId });
+            activeShipments.TryGetValue(order.OrderId, out var activeShipment);
+
+            return MapToResponse(order, activeShipment);
         }
 
-        private OrderDetailResponse MapToResponse(TryNextPost.Domain.Entities.Order order)
+        private OrderDetailResponse MapToResponse(
+            TryNextPost.Domain.Entities.Order order,
+            Domain.Entities.Shipment? activeShipment)
         {
+            var hasShipment = activeShipment != null;
+            var canShip = order.Status == OrderStatus.Pending && !hasShipment;
+
             return new OrderDetailResponse
             {
                 OrderId = order.OrderId,
@@ -206,6 +243,13 @@ namespace TryNextPost.Application.IServices.Class.Order
                 OrderType = (int)order.OrderType,
                 OrderCategory = (int)order.OrderCategory,
                 Status = (int)order.Status,
+                StatusName = order.Status.ToString(),
+                CanShip = canShip,
+                HasShipment = hasShipment,
+                ShipmentId = activeShipment?.ShipmentId,
+                AwbNumber = activeShipment?.AwbNumber,
+                ShipmentStatus = activeShipment?.Status.ToString(),
+                CourierName = activeShipment?.Courier?.CourierName,
            
                 GstNumber = order.GstNumber,
                 CustomerName = order.CustomerName,
@@ -249,7 +293,22 @@ namespace TryNextPost.Application.IServices.Class.Order
                     Qty = i.Qty,
                     Price = i.Price,
                     Sku = i.Sku
-                }).ToList() ?? new List<OrderItemDto>()
+                }).ToList(),
+                ReverseQcDetail = order.ReverseQcDetail == null
+                ? null
+                 : new ReverseQcDetailResponse
+        {
+        ProductCategory = order.ReverseQcDetail.ProductCategory,
+        IsUsedProduct = order.ReverseQcDetail.IsUsedProduct,
+        IsDamagedProduct = order.ReverseQcDetail.IsDamagedProduct,
+        IsBrandMatched = order.ReverseQcDetail.IsBrandMatched,
+        IsSizeMatched = order.ReverseQcDetail.IsSizeMatched,
+        IsColorMatched = order.ReverseQcDetail.IsColorMatched,
+        ReferenceImageUrls = order.ReverseQcDetail.Images
+            .OrderBy(image => image.DisplayOrder)
+            .Select(image => image.ImageUrl)
+            .ToList()
+    }
             };
         }
 
@@ -324,13 +383,13 @@ namespace TryNextPost.Application.IServices.Class.Order
             await _orderRepository.SaveChangesAsync();
         }
 
-        public async Task<OrderListResponse> GetAllOrdersAsync(string userId, int page, int pageSize, string? statusTab)
+        public async Task<OrderListResponse> GetAllOrdersAsync(string userId, OrderFilterRequest request)
         {
             var seller = await _sellerRepository.GetByUserIdAsync(userId);
             if (seller == null)
                 throw new InvalidOperationException(SystemMessage.SellerNotFound);
 
-            OrderStatus? statusFilter = statusTab?.ToLower() switch
+            OrderStatus? statusFilter = request.Tab?.ToLower() switch
             {
                 "not-shipped" => OrderStatus.Pending,
                 "booked" => OrderStatus.Confirmed,
@@ -339,8 +398,27 @@ namespace TryNextPost.Application.IServices.Class.Order
                 _ => null
             };
 
-            var orders = await _orderRepository.GetOrdersPagedAsync(seller.SellerId, page, pageSize, statusFilter);
-            var totalCount = await _orderRepository.GetOrdersCountAsync(seller.SellerId, statusFilter);
+            var criteria = new OrderFilterCriteria
+            {
+                Page = request.Page,
+                PageSize = request.PageSize,
+                FromDate = request.FromDate,
+                ToDate = request.ToDate,
+                OrderIds = request.OrderIds,
+                SearchQuery = request.SearchQuery,
+                ProductName = request.ProductName,
+                Channel = request.Channel,
+                Type = request.Type,
+                IvrStatus = request.IvrStatus,
+                WhatsAppStatus = request.WhatsAppStatus,
+                Tags = request.Tags
+            };
+
+            var orders = await _orderRepository.GetOrdersFilteredAsync(seller.SellerId, criteria, statusFilter);
+            var totalCount = await _orderRepository.GetOrdersFilteredCountAsync(seller.SellerId, criteria, statusFilter);
+
+            var activeShipments = await _shipmentRepository.GetActiveShipmentsByOrderIdsAsync(
+                orders.Select(o => o.OrderId));
 
             var tabCounts = new OrderTabCounts
             {
@@ -353,21 +431,32 @@ namespace TryNextPost.Application.IServices.Class.Order
 
             return new OrderListResponse
             {
-                Orders = orders.Select(MapToListItem).ToList(),   
+                Orders = orders
+                    .Select(o =>
+                    {
+                        activeShipments.TryGetValue(o.OrderId, out var shipment);
+                        return MapToListItem(o, shipment);
+                    })
+                    .ToList(),
                 TotalCount = totalCount,
-                Page = page,
-                PageSize = pageSize,
+                Page = request.Page,
+                PageSize = request.PageSize,
                 TabCounts = tabCounts
             };
         }
 
-        private OrderListItemResponse MapToListItem(TryNextPost.Domain.Entities.Order order)
+        private static OrderListItemResponse MapToListItem(
+            TryNextPost.Domain.Entities.Order order,
+            Domain.Entities.Shipment? activeShipment)
         {
             var productSummary = order.OrderItems != null && order.OrderItems.Any()
                 ? order.OrderItems.Count == 1
                     ? order.OrderItems.First().ProductName
                     : $"{order.OrderItems.First().ProductName} +{order.OrderItems.Count - 1} more"
                 : "N/A";
+
+            var hasShipment = activeShipment != null;
+            var canShip = order.Status == OrderStatus.Pending && !hasShipment;
 
             return new OrderListItemResponse
             {
@@ -384,8 +473,26 @@ namespace TryNextPost.Application.IServices.Class.Order
                 WhatsAppStatus = order.WhatsAppStatus,
                 ShopifyTags = order.ShopifyTags,
                 Tags = order.Tags,
-                Status = order.Status.ToString()
+                Status = order.Status.ToString(),
+                StatusCode = (int)order.Status,
+                CanShip = canShip,
+                HasShipment = hasShipment,
+                ShipmentId = activeShipment?.ShipmentId,
+                AwbNumber = activeShipment?.AwbNumber,
+                ShipmentStatus = activeShipment?.Status.ToString(),
+                CourierName = activeShipment?.Courier?.CourierName
             };
+        }
+
+        public Task<long> CreateReverseOrderAsync(CreateReverseOrderRequest request, string userId)
+        {
+            return CreateOrderInternalAsync(request, userId, OrderTypeEnum.Reverse, "R-");
+
+        }
+
+        public Task<long> CreateReverseQCOrderAsync(CreateReverseQcOrderRequest request, string userId)
+        {
+            return CreateOrderInternalAsync(request, userId, OrderTypeEnum.ReverseQC, "QC-");
         }
     }
 }

@@ -19,7 +19,22 @@ namespace TryNextPost.Application.DTO.Order
         public int OrderCategory { get; set; }
         public int Status { get; set; }
 
-        public long BillingAddressId { get; set; }
+        /// <summary>Order status name (e.g. Pending). Useful alongside numeric Status.</summary>
+        public string StatusName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// True when order is Pending and has no active shipment — show Ship Now.
+        /// </summary>
+        public bool CanShip { get; set; }
+
+        /// <summary>True when an active (non-cancelled / non-booking-failed) shipment exists.</summary>
+        public bool HasShipment { get; set; }
+
+        public long? ShipmentId { get; set; }
+        public string? AwbNumber { get; set; }
+        public string? ShipmentStatus { get; set; }
+        public string? CourierName { get; set; }
+
         public string? GstNumber { get; set; }
 
         public string CustomerName { get; set; } = string.Empty;
@@ -58,5 +73,6 @@ namespace TryNextPost.Application.DTO.Order
         public decimal? CollectableAmount { get; set; }
 
         public List<OrderItemDto> Items { get; set; } = new();
+        public ReverseQcDetailResponse? ReverseQcDetail { get; set; }
     }
 }

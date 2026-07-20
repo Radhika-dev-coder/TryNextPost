@@ -15,6 +15,8 @@ namespace TryNextPost.Infrastructure.AppDbContexts
         public DbSet<Address> Addresses => Set<Address>();
         public DbSet<Order> Orders => Set<Order>();
         public DbSet<OrderItem> OrderItems => Set<OrderItem>();
+        public DbSet<ReverseQcDetail> ReverseQcDetails => Set<ReverseQcDetail>();
+        public DbSet<ReverseQcImage> ReverseQcImages=> Set<ReverseQcImage>();
         public DbSet<Shipment> Shipments => Set<Shipment>();
         public DbSet<ShipmentTracking> ShipmentTrackings => Set<ShipmentTracking>();
         public DbSet<Courier> Couriers => Set<Courier>();
@@ -24,6 +26,7 @@ namespace TryNextPost.Infrastructure.AppDbContexts
         public DbSet<Webhook> Webhooks => Set<Webhook>();
         public DbSet<Wallet> Wallets => Set<Wallet>();
         public DbSet<Transaction> Transactions => Set<Transaction>();
+        public DbSet<WalletRecharge> WalletRecharges => Set<WalletRecharge>();
         public DbSet<CODSettlement> CODSettlements => Set<CODSettlement>();
         public DbSet<Permission> Permissions => Set<Permission>();
         public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
@@ -31,7 +34,7 @@ namespace TryNextPost.Infrastructure.AppDbContexts
         public DbSet<CompanyInfo> Companies => Set<CompanyInfo>();
         public DbSet<SellerKYC> SellerKYC { get; set; }
         public DbSet<SellerDocument> SellerDocument { get; set; }
-
+        public DbSet<Otp> Otps { get; set; }
 
         public DbSet<UserSession> UserSessions => Set<UserSession>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -55,6 +58,38 @@ namespace TryNextPost.Infrastructure.AppDbContexts
                 .WithOne(oi => oi.Order)
                 .HasForeignKey(oi => oi.OrderId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // =========================
+            // ORDER → REVERSE QC DETAIL (one-to-one)
+            // =========================
+            modelBuilder.Entity<Order>()
+                .HasOne(o => o.ReverseQcDetail)
+                .WithOne(qc => qc.Order)
+                .HasForeignKey<ReverseQcDetail>(qc => qc.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Ek order ke liye sirf ek QC detail
+            modelBuilder.Entity<ReverseQcDetail>()
+                .HasIndex(qc => qc.OrderId)
+                .IsUnique();
+
+            // =========================
+            // REVERSE QC DETAIL → IMAGES (one-to-many)
+            // =========================
+            modelBuilder.Entity<ReverseQcDetail>()
+                .HasMany(qc => qc.Images)
+                .WithOne(image => image.ReverseQcDetail)
+                .HasForeignKey(image => image.ReverseQcDetailId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Same position par duplicate image order na ho
+            modelBuilder.Entity<ReverseQcImage>()
+                .HasIndex(image => new
+                {
+                    image.ReverseQcDetailId,
+                    image.DisplayOrder
+                })
+                .IsUnique();
 
             // =========================
             // 🔥 ORDER → SELLER
@@ -151,6 +186,12 @@ namespace TryNextPost.Infrastructure.AppDbContexts
                 .HasForeignKey(t => t.WalletId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<WalletRecharge>()
+                .HasOne(r => r.Wallet)
+                .WithMany(w => w.Recharges)
+                .HasForeignKey(r => r.WalletId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // =========================
             // 🔥 COD → SHIPMENT
             // =========================
@@ -238,6 +279,24 @@ namespace TryNextPost.Infrastructure.AppDbContexts
             modelBuilder.Entity<Transaction>().HasIndex(t => t.WalletId);
             modelBuilder.Entity<Transaction>().HasIndex(t => t.TxnReference).IsUnique();
 
+            // --- WalletRecharge (Razorpay) ---
+            modelBuilder.Entity<WalletRecharge>(entity =>
+            {
+                entity.Property(x => x.UserId).HasMaxLength(450).IsRequired();
+                entity.Property(x => x.Currency).HasMaxLength(10).IsRequired();
+                entity.Property(x => x.GatewayOrderId).HasMaxLength(100).IsRequired();
+                entity.Property(x => x.GatewayPaymentId).HasMaxLength(100);
+                entity.Property(x => x.Receipt).HasMaxLength(100).IsRequired();
+                entity.Property(x => x.Amount).HasPrecision(18, 2);
+                entity.HasIndex(x => x.GatewayOrderId).IsUnique();
+                entity.HasIndex(x => x.GatewayPaymentId)
+                    .IsUnique()
+                    .HasFilter("[GatewayPaymentId] IS NOT NULL");
+                entity.HasIndex(x => x.WalletId);
+                entity.HasIndex(x => x.UserId);
+                entity.HasIndex(x => x.Status);
+            });
+
             // --- CODSettlement ---
             modelBuilder.Entity<CODSettlement>().HasIndex(c => c.ShipmentId).IsUnique();
             modelBuilder.Entity<CODSettlement>().HasIndex(c => c.SellerId);
@@ -247,8 +306,15 @@ namespace TryNextPost.Infrastructure.AppDbContexts
             modelBuilder.Entity<Order>().HasIndex(o => o.ShippingPincode);
 
             // --- Shipment ---
-            modelBuilder.Entity<Shipment>().HasIndex(s => s.AwbNumber).IsUnique();
-            modelBuilder.Entity<Shipment>().HasIndex(s => s.DeliveryPincode);
+            modelBuilder.Entity<Shipment>(entity =>
+            {
+                entity.Property(x => x.AwbNumber).HasMaxLength(100);
+                entity.Property(x => x.CourierReference).HasMaxLength(100);
+                entity.Property(x => x.ServiceCode).HasMaxLength(100);
+                entity.Property(x => x.ChargedAmount).HasPrecision(18, 2);
+                entity.HasIndex(s => s.AwbNumber).IsUnique().HasFilter("[AwbNumber] IS NOT NULL");
+                entity.HasIndex(s => s.DeliveryPincode);
+            });
 
             // --- ShipmentTracking ---
             modelBuilder.Entity<ShipmentTracking>().HasIndex(st => st.ShipmentId);
@@ -273,13 +339,12 @@ namespace TryNextPost.Infrastructure.AppDbContexts
                 .Property(x => x.CollectedAmount)
                 .HasPrecision(18, 2);
 
-            modelBuilder.Entity<Courier>()
-                .Property(x => x.MaxWeightLimit)
-                .HasPrecision(18, 2);
-
-            modelBuilder.Entity<Order>()
-                .Property(x => x.TotalAmount)
-                .HasPrecision(18, 2);
+            modelBuilder.Entity<Courier>(entity =>
+            {
+                entity.Property(x => x.MaxWeightLimit).HasPrecision(18, 2);
+                entity.Property(x => x.CourierCode).HasMaxLength(50).IsRequired();
+                entity.HasIndex(x => x.CourierCode).IsUnique();
+            });
 
             modelBuilder.Entity<OrderItem>()
                 .Property(x => x.Price)

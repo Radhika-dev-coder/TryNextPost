@@ -11,5 +11,6 @@ namespace TryNextPost.Application.IServices.Interface
         string GenerateToken(string userId, string email,List<string> roles);
         string GenerateOtpToken(string email, string otp, DateTime expiry);
         (bool isValid, string email) ValidateOtpToken(string token, string enteredOtp);
+        string GeneratePhoneVerifiedToken(string mobile);
     }
 }

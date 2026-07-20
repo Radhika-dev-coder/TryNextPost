@@ -93,7 +93,10 @@ namespace TryNextPost.Domain.Entities
         [Column(TypeName = "decimal(18,2)")]
         public decimal? CollectableAmount { get; set; }
 
-        public ICollection<OrderItem>? OrderItems { get; set; }
+        public ICollection<OrderItem> OrderItems { get; set; }
+      = new List<OrderItem>();
+
+        public ReverseQcDetail? ReverseQcDetail { get; set; }
 
 
         public string Channel { get; set; } = "Manual";

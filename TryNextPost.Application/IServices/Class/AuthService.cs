@@ -1,15 +1,20 @@
-﻿    using Microsoft.AspNetCore.Identity.Data;
+﻿using Microsoft.AspNetCore.Identity;
+    using Microsoft.AspNetCore.Identity.Data;
     using Microsoft.Extensions.Caching.Memory;
-    using System;
+using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
+using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Security.Cryptography;
+    using System.Text;
     using System.Text;
     using System.Threading.Tasks;
     using TryNextPost.Application.DTO.Auth;
     using TryNextPost.Application.DTO.Common;
     using TryNextPost.Application.IServices.Interface;
     using TryNextPost.Application.Services.Interface;
-using TryNextPost.Domain.Common;
+    using TryNextPost.Domain.Common;
     using TryNextPost.Domain.Entities;
     using TryNextPost.Domain.Enums;
     using TryNextPost.Domain.IRepository;
@@ -17,7 +22,7 @@ using TryNextPost.Domain.Common;
     using RegisterRequest = TryNextPost.Application.DTO.Auth.RegisterRequest;
 
 
-    namespace TryNextPost.Application.IServices.Class
+namespace TryNextPost.Application.IServices.Class
     {
         public class AuthService : IAuthService
         {
@@ -29,9 +34,12 @@ using TryNextPost.Domain.Common;
             private readonly IMemoryCache _cache;
             private readonly ISmsService _smsService;
             private readonly IUnitOfWork _unitOfWork;
+            private readonly IOtpRepository _otpRepository;
+            private readonly IConfiguration _configuration;
 
-            public AuthService(IIdentityService identityService, ISellerRepository sellerRepository,IJwtService jwtService,IUserSessionRepository userSessionRepository,
-                IEmailService emailService, IMemoryCache cache,ISmsService smsService,IUnitOfWork unitOfWork)
+        public AuthService(IIdentityService identityService, ISellerRepository sellerRepository,IJwtService jwtService,IUserSessionRepository userSessionRepository,
+                IEmailService emailService, IMemoryCache cache,ISmsService smsService,IUnitOfWork unitOfWork,
+                IOtpRepository otpRepository,IConfiguration configuration)
             {
                 _identityService = identityService;
                 _sellerRepository = sellerRepository;
@@ -41,6 +49,8 @@ using TryNextPost.Domain.Common;
                 _cache = cache;
                 _smsService = smsService;
                 _unitOfWork = unitOfWork;
+            _otpRepository = otpRepository;
+            _configuration = configuration;
 
             }
 
@@ -119,21 +129,7 @@ using TryNextPost.Domain.Common;
 
             public async Task<string> ResetPasswordAsync(DTO.Auth.ResetPasswordRequest request)
             {
-            //if (request.NewPassword != request.ConfirmPassword)
-            //    throw new InvalidOperationException(string.Format(SystemMessage.PasswordMismatch));
-
-            //var (isValid, email) = _jwtService.ValidateOtpToken(request.OtpToken, request.Otp);
-
-            //if (!isValid)
-            //    throw new UnauthorizedAccessException(string.Format(SystemMessage.InvalidOtp));
-
-            //var result = await _identityService.ResetPasswordAsync(email, request.NewPassword);
-
-            //if (!result.Succeeded)
-            //    throw new InvalidOperationException(string.Join(", ", result.Errors));
-
-            //return SystemMessage.PasswordResetSuccess;
-
+  
             var (isValid, email) = _jwtService.ValidateOtpToken(request.ResetToken, "VERIFIED");
 
             if (!isValid)
@@ -154,71 +150,120 @@ using TryNextPost.Domain.Common;
 
             public async Task<string> SendPhoneOtpAsync(SendPhoneOtpRequest request)
             {
-                var cacheKey = $"phone_otp_{request.Mobile}";
+            var mobile = NormalizedIndianMobile(request.Mobile);
 
-                if (_cache.TryGetValue(cacheKey, out DateTime lastSentTime))
-                {
-                    var secondsSinceLastSent = (DateTime.UtcNow - lastSentTime).TotalSeconds;
-                    if (secondsSinceLastSent < 30)
-                    {
-                        var remaining = 30 - (int)secondsSinceLastSent;
-                        throw new InvalidOperationException(string.Format(SystemMessage.OtpWaitMessage,remaining));
-                    }
-                }
+            var cacheKey = $"phone_otp_{mobile}";
+            if (_cache.TryGetValue(cacheKey, out _))
+                throw new InvalidOperationException("Please wait before requesting another OTP");
 
-                var otp = new Random().Next(100000, 999999).ToString();
-                await _smsService.SendOtpSms(request.Mobile, otp);
+            await _otpRepository.InvalidateActiveOtpsAsync(mobile);
 
-                _cache.Set(cacheKey, DateTime.UtcNow, TimeSpan.FromSeconds(30));
+            var otp = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+            var entity = new Otp
+            {
+                MobileNumber = mobile,
+                CodeHash = HashOtp(otp, mobile),
+                ExpiryTime = DateTime.UtcNow.AddMinutes(5),
+                IsUsed = false,
+                FailedAttempts = 0
+            };
 
-                return SystemMessage.OtpSentPhone;
-            }
+            await _smsService.SendOtpSms(mobile, otp);
+            await _otpRepository.AddAsync(entity);
+            await _otpRepository.SaveChangesAsync();
+            _cache.Set(cacheKey, true, TimeSpan.FromSeconds(30));
+            return SystemMessage.OtpSentPhone;
+        }
 
             public async Task<PhoneOtpVerifyResponse> VerifyPhoneOtpAsync(VerifyPhoneOtpRequest request, string ipAddress)
             {
-                if (string.IsNullOrEmpty(request.Otp) || request.Otp.Length != 6 || !request.Otp.All(char.IsDigit))
-                    throw new UnauthorizedAccessException(string.Format(SystemMessage.InvalidOtpFormat));
 
-                var isRegistered = await _identityService.CheckPhoneExistsAsyns(request.Mobile);
+            var mobile = NormalizedIndianMobile(request.Mobile);
 
-                if(!isRegistered)
-                {
-                    return new PhoneOtpVerifyResponse
-                    {
-                        IsRegistered = false,
-                        Mobile = request.Mobile,
-                        Message = SystemMessage.PhoneVerifiedRegistrationRequired
-                    };
-                }
+            if (string.IsNullOrEmpty(request.Otp) || request.Otp.Length != 6 || !request.Otp.All(char.IsDigit))
+                throw new UnauthorizedAccessException(SystemMessage.InvalidOtpFormat);
 
-                // Registered → Then Complete Login
-                var user = await _identityService.GetUserByPhoneAsync(request.Mobile);
-                var roles = await _identityService.GetUserRolesAsync(user.UserId);
-                var token = _jwtService.GenerateToken(user.UserId, user.Email,roles);
+           
+            var otpEntity = await _otpRepository.GetLatestActiveByMobileAsync(request.Mobile);
 
-                var Session = new UserSession
-                {
-                    UserId = user.UserId,
-                    DeviceId = request.DeviceId,
-                    IpAddress = ipAddress,
-                    JwtToken = token,
-                    CreatedAt = DateTime.UtcNow,
-                    ExpiryAt = DateTime.UtcNow.AddDays(7),
-                    IsActive = true
-                };
+            if (otpEntity == null || otpEntity.ExpiryTime < DateTime.UtcNow)
+                throw new UnauthorizedAccessException(SystemMessage.InvalidOtp);
 
-                await _sessionRepository.AddAsync(Session);
-                await _sessionRepository.SaveChangesAsync();
+            if (otpEntity.ExpiryTime < DateTime.UtcNow)
+                throw new UnauthorizedAccessException(SystemMessage.OtpExpired);
 
+            if (otpEntity.FailedAttempts >= 5)
+                throw new InvalidOperationException(SystemMessage.RequestNewOtp);
+
+
+            var incomingHash = HashOtp(request.Otp, mobile);
+
+            if (!CryptographicOperations.FixedTimeEquals(
+                    Convert.FromHexString(otpEntity.CodeHash),
+                    Convert.FromHexString(incomingHash)))
+            {
+                otpEntity.FailedAttempts++;
+                await _otpRepository.SaveChangesAsync();
+                throw new InvalidOperationException(SystemMessage.InvalidOtp);
+            }
+
+            otpEntity.IsUsed = true;
+            await _otpRepository.SaveChangesAsync();
+
+            var user = await _identityService.CheckPhoneExistsAsyns(mobile);
+
+            if (user != null)
+            {
                 return new PhoneOtpVerifyResponse
                 {
                     IsRegistered = true,
-                    Mobile = request.Mobile,
-                    Message = "Login successful",
-                    Token = token,
-                    ExpiresAt = Session.ExpiryAt
                 };
             }
+
+            var isRegistered = await _identityService.CheckPhoneExistsAsyns(request.Mobile);
+
+            if (!isRegistered)
+            {
+                return new PhoneOtpVerifyResponse
+                {
+                    IsRegistered = false,
+                    Mobile = request.Mobile,
+                    Message = SystemMessage.PhoneVerifiedRegistrationRequired
+                };
+            }
+
+            var phoneVerifiedToken = _jwtService.GeneratePhoneVerifiedToken(mobile);
+            return new PhoneOtpVerifyResponse
+            {
+                IsRegistered = false,
+                PhoneVerifiedToken = phoneVerifiedToken,
+                Message = "Complete registration"
+            };
+        }
+
+
+
+        private static string NormalizedIndianMobile(string mobile)
+        {
+            mobile = mobile.Trim().Replace(" ", "").Replace("-", "");
+            if (mobile.StartsWith("+91"))
+                mobile = mobile[3..];
+            else if (mobile.StartsWith("91") && mobile.Length == 12)
+                mobile = mobile[2..];
+            else if (mobile.StartsWith("0") && mobile.Length == 11)
+                mobile = mobile[1..];
+            if (mobile.Length != 10 || mobile[0] < '6')
+                throw new InvalidOperationException(SystemMessage.InvalidMobile);
+            return "91" + mobile;
+        }
+
+        private string HashOtp(string otp, string mobile)
+        {
+            var pepper = _configuration["Otp:Pepper"]
+             ?? throw new InvalidOperationException("Otp:Pepper missing");
+            var bytes = Encoding.UTF8.GetBytes($"{otp}:{mobile}:{pepper}");
+            return Convert.ToHexString(SHA256.HashData(bytes));
+        }
 
             public async Task<LoginSuccessResponse> RegisterAsync(RegisterRequest request, string ipAddress)
             {
