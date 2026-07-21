@@ -13,7 +13,7 @@ namespace TryNextPost.API.Controllers
 {
     [Route("api/[Controller]")]
     [ApiController]
-    [Authorize(Policy = "SellerAccess")]
+    [Authorize]
     public class SellerController : ControllerBase
     {
         private readonly ISellerKycServices _sellerKycServices;
