@@ -22,6 +22,9 @@ namespace TryNextPost.Infrastructure.Seeder
             if (!await roleManager.RoleExistsAsync(RoleEnum.Seller.ToString()))
                 await roleManager.CreateAsync(new ApplicationRole { Name=RoleEnum.Seller.ToString()});
 
+            if (!await roleManager.RoleExistsAsync(RoleEnum.SellerEmployee.ToString()))
+                await roleManager.CreateAsync(new ApplicationRole { Name = RoleEnum.SellerEmployee.ToString() });
+
             var superAdmin = await userManager.FindByEmailAsync("SuperAdmin@yopmail.com");
             if(superAdmin == null)
             {

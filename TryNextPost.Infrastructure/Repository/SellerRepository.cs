@@ -44,6 +44,11 @@ namespace TryNextPost.Infrastructure.Repository
             return await _appDbContexts.Sellers.FirstOrDefaultAsync(s => s.UserId == userId);
         }
 
+        public async Task<Seller?> GetByIdAsync(long sellerId)
+        {
+            return await _appDbContexts.Sellers.FirstOrDefaultAsync(s => s.SellerId == sellerId);
+        }
+
         public Task UpdateAsync(Seller seller)
         {
             _appDbContexts.Sellers.Update(seller);

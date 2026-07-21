@@ -13,5 +13,7 @@ namespace TryNextPost.Application.DTO.Auth
         public DateTime ExpiresAt { get; set; }
 
         public List<string> Roles { get; set; }
+
+        public SellerContextDto? SellerContext { get; set; }
     }
 }

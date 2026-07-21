@@ -20,6 +20,18 @@ namespace TryNextPost.Infrastructure.Repository
                 .FirstOrDefaultAsync(w => w.UserId == userId && w.IsActive == true);
         }
 
+        public async Task<Wallet?> GetBySellerIdAsync(long sellerId)
+        {
+            return await _context.Wallets
+                .FirstOrDefaultAsync(w => w.SellerId == sellerId && w.IsActive == true);
+        }
+
+        public async Task<Wallet?> GetByIdAsync(long walletId)
+        {
+            return await _context.Wallets
+                .FirstOrDefaultAsync(w => w.WalletId == walletId && w.IsActive == true);
+        }
+
         public async Task AddAsync(Wallet wallet)
         {
             await _context.Wallets.AddAsync(wallet);

@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Options;
 using TryNextPost.Application.Common.Settings;
 using TryNextPost.Application.DTO.Wallet;
+using TryNextPost.Application.IServices.Interface;
 using TryNextPost.Application.IServices.Interface.IPayment;
 using TryNextPost.Application.IServices.Interface.IWallet;
 using TryNextPost.Domain.Common;
@@ -17,22 +18,30 @@ namespace TryNextPost.Application.IServices.Class.Wallet
         private readonly IWalletRechargeRepository _rechargeRepository;
         private readonly IRazorpayPaymentGateway _razorpay;
         private readonly RazorpaySettings _razorpaySettings;
+        private readonly ISellerContextService _sellerContextService;
+        private readonly ISellerRepository _sellerRepository;
 
         public WalletService(
             IWalletRepository walletRepository,
             IWalletRechargeRepository rechargeRepository,
             IRazorpayPaymentGateway razorpay,
-            IOptions<RazorpaySettings> razorpaySettings)
+            IOptions<RazorpaySettings> razorpaySettings,
+            ISellerContextService sellerContextService,
+            ISellerRepository sellerRepository)
         {
             _walletRepository = walletRepository;
             _rechargeRepository = rechargeRepository;
             _razorpay = razorpay;
             _razorpaySettings = razorpaySettings.Value;
+            _sellerContextService = sellerContextService;
+            _sellerRepository = sellerRepository;
         }
 
         public async Task<WalletBalanceResponse> GetOrCreateBalanceAsync(string userId)
         {
-            var wallet = await EnsureWalletAsync(userId);
+            await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.WalletViewBalance);
+            var context = await _sellerContextService.ResolveAsync(userId);
+            var wallet = await EnsureWalletAsync(context.SellerId, context.UserId);
             if (wallet.WalletId == 0)
                 await _walletRepository.SaveChangesAsync();
             return Map(wallet);
@@ -50,7 +59,10 @@ namespace TryNextPost.Application.IServices.Class.Wallet
                 throw new InvalidOperationException(SystemMessage.WalletAmountInvalid);
 
             var actor = string.IsNullOrWhiteSpace(performedBy) ? userId : performedBy;
-            var wallet = await EnsureWalletAsync(userId.Trim());
+            var seller = await _sellerRepository.GetByUserIdAsync(userId.Trim())
+                ?? throw new KeyNotFoundException(SystemMessage.SellerNotFound);
+
+            var wallet = await EnsureWalletAsync(seller.SellerId, seller.UserId);
 
             if (wallet.WalletId == 0)
                 await _walletRepository.SaveChangesAsync();
@@ -88,7 +100,8 @@ namespace TryNextPost.Application.IServices.Class.Wallet
             if (amount <= 0)
                 throw new InvalidOperationException(SystemMessage.WalletAmountInvalid);
 
-            var wallet = await EnsureWalletAsync(userId);
+            var context = await _sellerContextService.ResolveAsync(userId);
+            var wallet = await EnsureWalletAsync(context.SellerId, context.UserId);
 
             if (wallet.WalletId == 0)
                 await _walletRepository.SaveChangesAsync();
@@ -117,23 +130,23 @@ namespace TryNextPost.Application.IServices.Class.Wallet
             };
 
             await _walletRepository.AddTransactionAsync(txn);
-            // Caller owns the outer SaveChanges when used inside confirm; still safe to save here
-            // so debit is durable even if caller forgets — confirm will save again.
             await _walletRepository.SaveChangesAsync();
         }
 
         public async Task<WalletRechargeResponse> CreateRechargeAsync(string userId, WalletRechargeRequest request)
         {
+            await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.WalletRecharge);
+
             if (request.Amount <= 0)
                 throw new InvalidOperationException(SystemMessage.WalletAmountInvalid);
 
-            // Round to paise (2 decimal places) then convert — Razorpay amount is integer paise.
             var amountRupees = decimal.Round(request.Amount, 2, MidpointRounding.AwayFromZero);
             var amountPaise = (int)(amountRupees * 100m);
             if (amountPaise <= 0)
                 throw new InvalidOperationException(SystemMessage.WalletAmountInvalid);
 
-            var wallet = await EnsureWalletAsync(userId);
+            var context = await _sellerContextService.ResolveAsync(userId);
+            var wallet = await EnsureWalletAsync(context.SellerId, context.UserId);
             if (wallet.WalletId == 0)
                 await _walletRepository.SaveChangesAsync();
 
@@ -141,6 +154,7 @@ namespace TryNextPost.Application.IServices.Class.Wallet
             var notes = new Dictionary<string, string>
             {
                 ["userId"] = userId,
+                ["sellerId"] = context.SellerId.ToString(),
                 ["walletId"] = wallet.WalletId.ToString()
             };
 
@@ -228,10 +242,14 @@ namespace TryNextPost.Application.IServices.Class.Wallet
                 throw new InvalidOperationException("Invalid Razorpay payment signature.");
             }
 
+            var context = await _sellerContextService.ResolveAsync(userId);
             var recharge = await _rechargeRepository.GetByGatewayOrderIdAsync(request.RazorpayOrderId)
                 ?? throw new KeyNotFoundException(SystemMessage.WalletRechargeNotFound);
 
-            if (!string.Equals(recharge.UserId, userId, StringComparison.Ordinal))
+            var wallet = await _walletRepository.GetByIdAsync(recharge.WalletId)
+                ?? throw new KeyNotFoundException(SystemMessage.WalletNotFound);
+
+            if (wallet.SellerId != context.SellerId)
                 throw new UnauthorizedAccessException(SystemMessage.Unauthorized);
 
             var result = await CreditFromGatewayAsync(
@@ -243,9 +261,6 @@ namespace TryNextPost.Application.IServices.Class.Wallet
             return result;
         }
 
-        /// <summary>
-        /// Idempotent credit: if already Paid, returns current balance without double-crediting.
-        /// </summary>
         private async Task<VerifyPaymentResponse> CreditFromGatewayAsync(
             string gatewayOrderId,
             string gatewayPaymentId,
@@ -255,7 +270,7 @@ namespace TryNextPost.Application.IServices.Class.Wallet
             var recharge = await _rechargeRepository.GetByGatewayOrderIdAsync(gatewayOrderId)
                 ?? throw new KeyNotFoundException(SystemMessage.WalletRechargeNotFound);
 
-            var wallet = await _walletRepository.GetByUserIdAsync(recharge.UserId)
+            var wallet = await _walletRepository.GetByIdAsync(recharge.WalletId)
                 ?? throw new KeyNotFoundException(SystemMessage.WalletNotFound);
 
             if (recharge.Status == WalletRechargeStatus.Paid)
@@ -272,7 +287,6 @@ namespace TryNextPost.Application.IServices.Class.Wallet
                 };
             }
 
-            // Prefer stored amount; fall back to webhook paise if present and matching order.
             if (amountPaiseHint > 0 && amountPaiseHint != recharge.AmountInPaise)
             {
                 throw new InvalidOperationException(
@@ -293,7 +307,6 @@ namespace TryNextPost.Application.IServices.Class.Wallet
                 WalletId = wallet.WalletId,
                 TxnType = TransactionType.Credit,
                 Amount = recharge.Amount,
-                // Unique index on TxnReference → second webhook/verify cannot double-insert.
                 TxnReference = gatewayPaymentId,
                 ReferenceId = recharge.WalletRechargeId.ToString(),
                 Description = $"Wallet recharge via Razorpay ({gatewayOrderId})",
@@ -345,19 +358,23 @@ namespace TryNextPost.Application.IServices.Class.Wallet
             return !string.IsNullOrWhiteSpace(paymentId) && !string.IsNullOrWhiteSpace(orderId);
         }
 
-        private async Task<Domain.Entities.Wallet> EnsureWalletAsync(string userId)
+        private async Task<Domain.Entities.Wallet> EnsureWalletAsync(long sellerId, string actingUserId)
         {
-            var wallet = await _walletRepository.GetByUserIdAsync(userId);
+            var wallet = await _walletRepository.GetBySellerIdAsync(sellerId);
             if (wallet != null)
                 return wallet;
 
+            var seller = await _sellerRepository.GetByIdAsync(sellerId);
+            var ownerUserId = seller?.UserId ?? actingUserId;
+
             wallet = new Domain.Entities.Wallet
             {
-                UserId = userId,
+                SellerId = sellerId,
+                UserId = ownerUserId,
                 Balance = 0,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
-                CreatedBy = userId
+                CreatedBy = actingUserId
             };
 
             await _walletRepository.AddAsync(wallet);
@@ -369,6 +386,7 @@ namespace TryNextPost.Application.IServices.Class.Wallet
             return new WalletBalanceResponse
             {
                 WalletId = wallet.WalletId,
+                SellerId = wallet.SellerId,
                 UserId = wallet.UserId,
                 Balance = wallet.Balance
             };

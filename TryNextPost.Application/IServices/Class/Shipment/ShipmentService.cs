@@ -1,6 +1,7 @@
 using TryNextPost.Application.DTO.Courier;
 using TryNextPost.Application.DTO.Shipment;
 using TryNextPost.Application.Helpers;
+using TryNextPost.Application.IServices.Interface;
 using TryNextPost.Application.IServices.Interface.Courier;
 using TryNextPost.Application.IServices.Interface.IShipment;
 using TryNextPost.Application.IServices.Interface.IWallet;
@@ -14,6 +15,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
     public class ShipmentService : IShipmentService
     {
         private readonly ISellerRepository _sellerRepository;
+        private readonly ISellerContextService _sellerContextService;
         private readonly IOrderRepository _orderRepository;
         private readonly IAddressRepository _addressRepository;
         private readonly IShipmentRepository _shipmentRepository;
@@ -23,6 +25,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
 
         public ShipmentService(
             ISellerRepository sellerRepository,
+            ISellerContextService sellerContextService,
             IOrderRepository orderRepository,
             IAddressRepository addressRepository,
             IShipmentRepository shipmentRepository,
@@ -31,6 +34,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             IWalletService walletService)
         {
             _sellerRepository = sellerRepository;
+            _sellerContextService = sellerContextService;
             _orderRepository = orderRepository;
             _addressRepository = addressRepository;
             _shipmentRepository = shipmentRepository;
@@ -44,6 +48,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             string userId,
             CancellationToken cancellationToken = default)
         {
+            await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.ShipmentsCreate);
             var (order, seller) = await LoadOwnedOrderAsync(orderId, userId);
             EnsureOrderShippable(order);
 
@@ -102,6 +107,8 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             string userId,
             CancellationToken cancellationToken = default)
         {
+            await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.ShipmentsCreate);
+
             if (request.ChargeAmount <= 0)
                 throw new InvalidOperationException(SystemMessage.ChargeAmountInvalid);
 
@@ -500,9 +507,8 @@ namespace TryNextPost.Application.IServices.Class.Shipment
 
         public async Task<ShipmentListResponse> GetShipmentsAsync(string userId, ShipmentFilterRequest request)
         {
-            var seller = await _sellerRepository.GetByUserIdAsync(userId);
-            if (seller == null)
-                throw new InvalidOperationException(SystemMessage.SellerNotFound);
+            await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.ShipmentsView);
+            var seller = await _sellerContextService.ResolveSellerAsync(userId);
 
             var page = request.Page < 1 ? 1 : request.Page;
             var pageSize = request.PageSize < 1 ? 20 : Math.Min(request.PageSize, 100);
@@ -539,6 +545,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
 
         public async Task<ShipmentDetailResponse> GetShipmentByOrderIdAsync(long orderId, string userId)
         {
+            await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.ShipmentsView);
             await LoadOwnedOrderAsync(orderId, userId);
 
             var shipment = await _shipmentRepository.GetByOrderIdAsync(orderId);
@@ -577,8 +584,8 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             if (order == null || order.IsActive == false)
                 throw new InvalidOperationException(SystemMessage.OrderNotFound);
 
-            var seller = await _sellerRepository.GetByUserIdAsync(userId);
-            if (seller == null || order.SellerId != seller.SellerId)
+            var seller = await _sellerContextService.ResolveSellerAsync(userId);
+            if (order.SellerId != seller.SellerId)
                 throw new UnauthorizedAccessException(SystemMessage.Unauthorized);
 
             return (order, seller);
@@ -590,8 +597,8 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             if (shipment == null)
                 throw new InvalidOperationException(SystemMessage.ShipmentNotFound);
 
-            var seller = await _sellerRepository.GetByUserIdAsync(userId);
-            if (seller == null || shipment.Order == null || shipment.Order.SellerId != seller.SellerId)
+            var seller = await _sellerContextService.ResolveSellerAsync(userId);
+            if (shipment.Order == null || shipment.Order.SellerId != seller.SellerId)
                 throw new UnauthorizedAccessException(SystemMessage.Unauthorized);
 
             return shipment;

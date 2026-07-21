@@ -47,14 +47,8 @@ namespace TryNextPost.Application.DTO.Order
         public string ShippingState { get; set; } = string.Empty;
         public string ShippingCountry { get; set; } = string.Empty;
 
-<<<<<<< Updated upstream
-        public long?   PickupAddressId { get; set; }
-        public bool    IsBillingSameAsShipping { get; set; }
-=======
-
         public long? PickupAddressId { get; set; }
         public bool IsBillingSameAsShipping { get; set; }
->>>>>>> Stashed changes
         public string? BillingFirstName { get; set; }
         public string? BillingLastName { get; set; }
         public string? BillingCompanyName { get; set; }

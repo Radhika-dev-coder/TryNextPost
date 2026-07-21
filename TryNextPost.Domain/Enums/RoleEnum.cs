@@ -10,6 +10,7 @@ namespace TryNextPost.Domain.Enums
     {
         SuperAdmin=1,
         Admin=2,
-        Seller=3
+        Seller=3,
+        SellerEmployee=4
     }
 }

@@ -8,10 +8,7 @@ namespace TryNextPost.Domain.Common
 {
     public static class SystemMessage
     {
-<<<<<<< Updated upstream
 
-=======
->>>>>>> Stashed changes
         // ───── Auth Module ─────
         public const string RegisterSuccess = "Registration successful.";
         public const string RegisterFailed = "Registration failed.";
@@ -85,6 +82,7 @@ namespace TryNextPost.Domain.Common
         public const string ShipmentLabelFetchedSuccess = "Shipment label fetched successfully.";
         public const string ShipmentCancelledSuccess = "Shipment cancelled successfully.";
         public const string ShipmentTrackedSuccess = "Shipment tracking fetched successfully.";
+        public const string DataFound = "Data fetched successfully.";
         public const string ShipmentCancelFailed = "Shipment cancellation failed.";
         public const string ShipmentLabelFailed = "Failed to fetch shipment label.";
         public const string ShipmentTrackFailed = "Failed to fetch shipment tracking.";
@@ -119,30 +117,5 @@ namespace TryNextPost.Domain.Common
         public const string Unauthorized = "You are not authorized to perform this action.";
         public const string InvalidToken = "Invalid or missing authentication token.";
         public const string ValidationFailed = "Validation failed. Please check your input.";
-<<<<<<< Updated upstream
-
-
-        public static string RegisterFaield = "Registration Faield...";
-        public static string AadharInvalid = "Aadhar number is Invalid..";
-        public static string DataFound = "Data Found Succesfully..";
-        public static string UnAuthorized = "You Are UnAuthorized..";
-        public static string AlreadyKycUpdated = "KYC Already Verifeid..";
-        public static string RejectKyc = "You Kyc is Rejected. Please Contact Adminstration..";
-        public static string KycNotFound = "Seller KYC record not found..";
-        public static string KycVerified = "Seller KYC has been verified successfully..";
-        public static string KycPending = "Seller KYC verification is pending..";
-        public static string AadharOtpSend = "Aadhaar KYC OTP sent successfully..";
-        public static string AadharkycSubmitted = "Successfully Kyc Submitted..";
-
-
-        //-------------OTP----------
-
-
-
-=======
-
-        // Optional extra (tumhare code se)
-        public const string DataFound = "Data found successfully.";
->>>>>>> Stashed changes
     }
 }

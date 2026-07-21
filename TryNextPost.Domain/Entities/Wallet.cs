@@ -10,7 +10,10 @@ namespace TryNextPost.Domain.Entities
         [Key]
         public long WalletId { get; set; } 
 
-        // 🔗 FK → User (only ID, no navigation to Identity)
+        public long SellerId { get; set; }
+        public Seller? Seller { get; set; }
+
+        // Legacy owner user id (audit); wallet is shared at SellerId level.
         public string UserId { get; set; } = string.Empty;
 
         public decimal Balance { get; set; } = 0;

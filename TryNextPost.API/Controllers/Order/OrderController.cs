@@ -5,12 +5,13 @@ using TryNextPost.Application.DTO.Common;
 using TryNextPost.Application.DTO.Order;
 using TryNextPost.Application.IServices.Interface.IOrder;
 using TryNextPost.Domain.Common;
+using TryNextPost.Domain.Enums;
 
 namespace TryNextPost.API.Controllers.Order
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Seller,SuperAdmin")]
+    [Authorize(Roles = "Seller,SellerEmployee,SuperAdmin")]
     public class OrderController : ControllerBase
     {
         private readonly IOrderService _orderService;

@@ -31,6 +31,7 @@ namespace TryNextPost.Application.IServices.Class
             private readonly IEmailService _emailService;
             private readonly IUserSessionRepository _sessionRepository;
             private readonly ISellerRepository _sellerRepository;
+            private readonly ISellerContextService _sellerContextService;
             private readonly IMemoryCache _cache;
             private readonly ISmsService _smsService;
             private readonly IUnitOfWork _unitOfWork;
@@ -39,7 +40,7 @@ namespace TryNextPost.Application.IServices.Class
 
         public AuthService(IIdentityService identityService, ISellerRepository sellerRepository,IJwtService jwtService,IUserSessionRepository userSessionRepository,
                 IEmailService emailService, IMemoryCache cache,ISmsService smsService,IUnitOfWork unitOfWork,
-                IOtpRepository otpRepository,IConfiguration configuration)
+                IOtpRepository otpRepository,IConfiguration configuration, ISellerContextService sellerContextService)
             {
                 _identityService = identityService;
                 _sellerRepository = sellerRepository;
@@ -51,6 +52,7 @@ namespace TryNextPost.Application.IServices.Class
                 _unitOfWork = unitOfWork;
             _otpRepository = otpRepository;
             _configuration = configuration;
+            _sellerContextService = sellerContextService;
 
             }
 
@@ -86,12 +88,30 @@ namespace TryNextPost.Application.IServices.Class
                 await _sessionRepository.AddAsync(session);
                 await _sessionRepository.SaveChangesAsync();
 
+                SellerContextDto? sellerContext = null;
+                try
+                {
+                    var context = await _sellerContextService.ResolveAsync(user.UserId);
+                    sellerContext = new SellerContextDto
+                    {
+                        SellerId = context.SellerId,
+                        IsOwner = context.IsOwner,
+                        EmployeeId = context.EmployeeId,
+                        Permissions = context.Permissions.ToList()
+                    };
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    // SuperAdmin / non-seller logins have no seller context.
+                }
+
                 return new LoginSuccessResponse
                 {
                     Message = SystemMessage.LoginSuccess,
                     Token = token,
                     ExpiresAt = session.ExpiryAt,
-                    Roles = roles
+                    Roles = roles,
+                    SellerContext = sellerContext
                 };
             }
 
@@ -106,9 +126,9 @@ namespace TryNextPost.Application.IServices.Class
                 if(_cache.TryGetValue(cacheKey,out DateTime lastSentTime))
                 {
                     var secondsSinceLastSent = (DateTime.UtcNow - lastSentTime).TotalSeconds;
-                    if (secondsSinceLastSent < 30)
+                    if (secondsSinceLastSent < 60)
                     {
-                        var remaining = 30 - (int)secondsSinceLastSent;
+                        var remaining = 60 - (int)secondsSinceLastSent;
                         throw new InvalidOperationException(string.Format(SystemMessage.OtpWaitMessage,remaining));
                     }
                 }
@@ -118,7 +138,7 @@ namespace TryNextPost.Application.IServices.Class
 
                 await _emailService.SendOtpEmail(request.Email, otp);
 
-                _cache.Set(cacheKey, DateTime.UtcNow, TimeSpan.FromSeconds(30));
+                _cache.Set(cacheKey, DateTime.UtcNow, TimeSpan.FromSeconds(60));
 
                 return new LoginOtpResponse
                 {
@@ -171,7 +191,7 @@ namespace TryNextPost.Application.IServices.Class
             await _smsService.SendOtpSms(mobile, otp);
             await _otpRepository.AddAsync(entity);
             await _otpRepository.SaveChangesAsync();
-            _cache.Set(cacheKey, true, TimeSpan.FromSeconds(30));
+            _cache.Set(cacheKey, true, TimeSpan.FromSeconds(60));
             return SystemMessage.OtpSentPhone;
         }
 
@@ -184,7 +204,7 @@ namespace TryNextPost.Application.IServices.Class
                 throw new UnauthorizedAccessException(SystemMessage.InvalidOtpFormat);
 
            
-            var otpEntity = await _otpRepository.GetLatestActiveByMobileAsync(request.Mobile);
+            var otpEntity = await _otpRepository.GetLatestActiveByMobileAsync(mobile);
 
             if (otpEntity == null || otpEntity.ExpiryTime < DateTime.UtcNow)
                 throw new UnauthorizedAccessException(SystemMessage.InvalidOtp);
@@ -220,7 +240,7 @@ namespace TryNextPost.Application.IServices.Class
                 };
             }
 
-            var isRegistered = await _identityService.CheckPhoneExistsAsyns(request.Mobile);
+            var isRegistered = await _identityService.CheckPhoneExistsAsyns(mobile);
 
             if (!isRegistered)
             {
@@ -303,12 +323,20 @@ namespace TryNextPost.Application.IServices.Class
 
                 await _emailService.SendWelcomeEmail(request.Email, fullName);
 
+                var sellerContext = new SellerContextDto
+                {
+                    SellerId = (await _sellerRepository.GetByUserIdAsync(result.UserId)).SellerId,
+                    IsOwner = true,
+                    Permissions = EmployeePermissionCode.All.ToList()
+                };
+
                 return new LoginSuccessResponse
                 {
                     Message = SystemMessage.RegisterSuccess,
                     Token = token,
                     ExpiresAt = session.ExpiryAt,
-                    Roles = roles
+                    Roles = roles,
+                    SellerContext = sellerContext
                 };
             }
 

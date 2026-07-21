@@ -11,7 +11,7 @@ namespace TryNextPost.API.Controllers.Shipment
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Seller,SuperAdmin")]
+    [Authorize(Roles = "Seller,SellerEmployee,SuperAdmin")]
     public class ShipmentController : ControllerBase
     {
         private readonly IShipmentService _shipmentService;

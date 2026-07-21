@@ -21,12 +21,8 @@ namespace TryNextPost.Application.IServices.Interface.IOrder
 
         Task<OrderListResponse> GetAllOrdersAsync(string userId, OrderFilterRequest request);
 
-<<<<<<< Updated upstream
         Task<long> CreateReverseOrderAsync(CreateReverseOrderRequest request,string userId);
 
         Task<long> CreateReverseQCOrderAsync( CreateReverseQcOrderRequest request,string userId);
-=======
-
->>>>>>> Stashed changes
     }
 }

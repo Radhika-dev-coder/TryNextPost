@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TryNextPost.Application.DTO.Default;
+using TryNextPost.Application.IServices.Interface;
 using TryNextPost.Application.IServices.Interface.Default;
 using TryNextPost.Domain.Common;
 using TryNextPost.Domain.Entities;
@@ -15,18 +16,22 @@ namespace TryNextPost.Application.IServices.Class.Default
     public class AddressService : IAddressService
     {
         private readonly ISellerRepository _sellerRepository;
+        private readonly ISellerContextService _sellerContextService;
         private readonly IAddressRepository _addressRepository;
 
-        public AddressService(ISellerRepository sellerRepository, IAddressRepository addressRepository)
+        public AddressService(
+            ISellerRepository sellerRepository,
+            ISellerContextService sellerContextService,
+            IAddressRepository addressRepository)
         { 
             _sellerRepository = sellerRepository;
+            _sellerContextService = sellerContextService;
             _addressRepository = addressRepository;
         }
         public async Task<long> AddPickupAddressAsync(AddPickupAddressRequest request, string userId)
         {
-            var seller = await _sellerRepository.GetByUserIdAsync(userId);
-            if (seller == null)
-                throw new InvalidOperationException(string.Format(SystemMessage.SellerNotFound));
+            await _sellerContextService.EnsureOwnerAsync(userId);
+            var seller = await _sellerContextService.ResolveSellerAsync(userId);
 
             var address = new Address
             {
@@ -70,10 +75,12 @@ namespace TryNextPost.Application.IServices.Class.Default
 
         public async Task DeletePickupAddressAsync(long addressId, string userId)
         {
+           await _sellerContextService.EnsureOwnerAsync(userId);
+           var seller = await _sellerContextService.ResolveSellerAsync(userId);
            var address = await _addressRepository.GetByIdAsync(addressId);
             if (address == null) throw new InvalidOperationException(string.Format(SystemMessage.AddressNotFound));
 
-            if(address.UserId != userId)
+            if(address.UserId != seller.UserId)
                 throw new UnauthorizedAccessException(string.Format(SystemMessage.Unauthorized));
 
             address.IsActive = false;
@@ -87,12 +94,13 @@ namespace TryNextPost.Application.IServices.Class.Default
 
         public async Task<AddressResponse> GetPickupAddressByIdAsync(long addressId, string userId)
         {
+            var seller = await _sellerContextService.ResolveSellerAsync(userId);
             var address = await _addressRepository.GetByIdAsync(addressId);
             if (address == null)
                 throw new InvalidOperationException(string.Format(SystemMessage.AddressNotFound));
 
             
-            if (address.UserId != userId)
+            if (address.UserId != seller.UserId)
                 throw new UnauthorizedAccessException(string.Format(SystemMessage.Unauthorized));
 
             return new AddressResponse
@@ -113,7 +121,8 @@ namespace TryNextPost.Application.IServices.Class.Default
 
         public async Task<List<AddressResponse>> GetPickupAddressesAsync(string userId)
         {
-            var addresses = await _addressRepository.GetByUserIdAsync(userId, AddressType.SellerPickup);
+            var seller = await _sellerContextService.ResolveSellerAsync(userId);
+            var addresses = await _addressRepository.GetByUserIdAsync(seller.UserId, AddressType.SellerPickup);
 
             return addresses.Select(a => new AddressResponse
             {
@@ -133,11 +142,13 @@ namespace TryNextPost.Application.IServices.Class.Default
 
         public async Task UpdatePickupAddressAsync(long addressId, UpdatePickupAddressRequest request, string userId)
         {
+            await _sellerContextService.EnsureOwnerAsync(userId);
+            var seller = await _sellerContextService.ResolveSellerAsync(userId);
             var address = await _addressRepository.GetByIdAsync(addressId);
             if (address == null)
                 throw new InvalidOperationException(string.Format(SystemMessage.AddressNotFound));
 
-            if (address.UserId != userId)
+            if (address.UserId != seller.UserId)
                 throw new UnauthorizedAccessException(string.Format(SystemMessage.Unauthorized));
 
          

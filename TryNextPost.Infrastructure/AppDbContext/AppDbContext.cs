@@ -31,6 +31,8 @@ namespace TryNextPost.Infrastructure.AppDbContexts
         public DbSet<Permission> Permissions => Set<Permission>();
         public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
         public DbSet<Seller> Sellers => Set<Seller>();
+        public DbSet<SellerEmployee> SellerEmployees => Set<SellerEmployee>();
+        public DbSet<EmployeePermission> EmployeePermissions => Set<EmployeePermission>();
         public DbSet<CompanyInfo> Companies => Set<CompanyInfo>();
         public DbSet<SellerKYC> SellerKYC { get; set; }
         public DbSet<SellerDocument> SellerDocument { get; set; }
@@ -101,11 +103,7 @@ namespace TryNextPost.Infrastructure.AppDbContexts
                 .OnDelete(DeleteBehavior.Restrict);
 
             // =========================
-<<<<<<< Updated upstream
             // 🔥 ORDER → PICKUP ADDRESS
-=======
-            // 🔥 ORDER → Pickup ADDRESS
->>>>>>> Stashed changes
             // =========================
             modelBuilder.Entity<Order>()
                 .HasOne(o => o.PickupAddress)
@@ -196,6 +194,28 @@ namespace TryNextPost.Infrastructure.AppDbContexts
                 .HasForeignKey(r => r.WalletId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<Wallet>()
+                .HasOne(w => w.Seller)
+                .WithMany()
+                .HasForeignKey(w => w.SellerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SellerEmployee>()
+                .HasOne(e => e.Seller)
+                .WithMany()
+                .HasForeignKey(e => e.SellerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<EmployeePermission>()
+                .HasOne(p => p.Employee)
+                .WithMany(e => e.Permissions)
+                .HasForeignKey(p => p.EmployeeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<EmployeePermission>()
+                .HasIndex(p => new { p.EmployeeId, p.PermissionCode })
+                .IsUnique();
+
             // =========================
             // 🔥 COD → SHIPMENT
             // =========================
@@ -277,7 +297,13 @@ namespace TryNextPost.Infrastructure.AppDbContexts
             modelBuilder.Entity<Seller>().HasIndex(s => s.CompanyId);
 
             // --- Wallet ---
-            modelBuilder.Entity<Wallet>().HasIndex(w => w.UserId).IsUnique();
+            modelBuilder.Entity<Wallet>().HasIndex(w => w.SellerId).IsUnique();
+            modelBuilder.Entity<Wallet>().HasIndex(w => w.UserId);
+
+            // --- SellerEmployee ---
+            modelBuilder.Entity<SellerEmployee>().HasIndex(e => e.UserId).IsUnique();
+            modelBuilder.Entity<SellerEmployee>().HasIndex(e => e.SellerId);
+            modelBuilder.Entity<SellerEmployee>().HasIndex(e => e.Email);
 
             // --- Transaction ---
             modelBuilder.Entity<Transaction>().HasIndex(t => t.WalletId);

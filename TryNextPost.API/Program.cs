@@ -17,6 +17,7 @@ using TryNextPost.Application.IServices.Interface;
 using TryNextPost.Application.IServices.Interface.Default;
 using TryNextPost.Application.IServices.Interface.IOrder;
 using TryNextPost.Application.IServices.Interface.IShipment;
+using TryNextPost.Application.IServices.Interface.IEmployee;
 using TryNextPost.Application.IServices.Interface.IWallet;
 using TryNextPost.Application.IServices.Interface.IPayment;
 using TryNextPost.Application.Services.Interface;
@@ -58,6 +59,9 @@ builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IUserSessionRepository, UserSessionRepository>();
 builder.Services.AddScoped<ISellerRepository, SellerRepository>();
+builder.Services.AddScoped<ISellerEmployeeRepository, SellerEmployeeRepository>();
+builder.Services.AddScoped<ISellerContextService, SellerContextService>();
+builder.Services.AddScoped<IEmployeeService, TryNextPost.Application.IServices.Class.Employee.EmployeeService>();
 
 // ✅ FINAL SMS CONFIG (BEST VERSION)
 builder.Services.Configure<SmsSettings>(
@@ -147,7 +151,7 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("SellerAccess", policy =>
-        policy.RequireRole("Seller", "SuperAdmin"));
+        policy.RequireRole("Seller", "SellerEmployee", "SuperAdmin"));
 
     options.AddPolicy("AdminAccess", policy =>
         policy.RequireRole("Admin", "SuperAdmin"));
@@ -225,6 +229,8 @@ using (var scope = app.Services.CreateScope())
     await IdentitySeeder.SeedAsync(userManager, roleManager);
 
     var db = services.GetRequiredService<AppDbContext>();
+    await PermissionSeeder.SeedAsync(db);
+
     var logger = services.GetRequiredService<ILoggerFactory>()
                          .CreateLogger("CourierSeeder");
 

@@ -12,6 +12,8 @@ namespace TryNextPost.Domain.IRepository
         Task AddSellerAsync(Seller seller);
         Task<Seller> GetByUserIdAsync(string  userId);
 
+        Task<Seller?> GetByIdAsync(long sellerId);
+
         Task CreateSellerAsync(string UserId);
 
         Task UpdateAsync(Seller seller);

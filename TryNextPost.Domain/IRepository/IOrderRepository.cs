@@ -18,13 +18,8 @@ namespace TryNextPost.Domain.IRepository
         Task SaveChangesAsync();
         Task UpdateAsync(Order order);
         Task UpdateOrderItem(OrderItem orderitem);
-<<<<<<< Updated upstream
         Task<int> GetOrdersCountAsync(long sellerId, OrderStatus? statusFilter);
         Task<Order?> GetByOrderRefAsync(string orderRef);
-=======
-
-        Task<int> GetOrdersCountAsync(long sellerId, OrderStatus? statusFilter);
->>>>>>> Stashed changes
 
         Task<List<Order>> GetOrdersFilteredAsync(long sellerId, OrderFilterCriteria filter, OrderStatus? statusFilter);
         Task<int> GetOrdersFilteredCountAsync(long sellerId, OrderFilterCriteria filter, OrderStatus? statusFilter);

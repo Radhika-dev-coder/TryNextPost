@@ -83,6 +83,59 @@ namespace TryNextPost.Infrastructure.Service
             };
         }
 
+        public async Task<IdentityResultModel> CreateEmployeeUserAsync(
+            string email,
+            string password,
+            string fullName,
+            string mobile)
+        {
+            var existingEmailUser = await _userManager.FindByEmailAsync(email);
+            if (existingEmailUser != null)
+            {
+                return new IdentityResultModel
+                {
+                    Succeeded = false,
+                    Errors = new List<string> { "Email Already Registered" }
+                };
+            }
+
+            var existingMobileUser = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == mobile);
+            if (existingMobileUser != null)
+            {
+                return new IdentityResultModel
+                {
+                    Succeeded = false,
+                    Errors = new List<string> { "Mobile Number Already Registered" }
+                };
+            }
+
+            var newId = await GenerateNextUserCodeAsync();
+            var user = new ApplicationUser
+            {
+                Id = newId,
+                UserName = email,
+                Email = email,
+                FullName = fullName,
+                PhoneNumber = mobile,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var result = await _userManager.CreateAsync(user, password);
+
+            if (result.Succeeded)
+            {
+                await _userManager.AddToRoleAsync(user, RoleEnum.SellerEmployee.ToString());
+            }
+
+            return new IdentityResultModel
+            {
+                Succeeded = result.Succeeded,
+                UserId = user.Id,
+                Errors = result.Errors.Select(e => e.Description).ToList()
+            };
+        }
+
         public async Task<ResponseSellerDto> GetSellerById(string id)
         {
 

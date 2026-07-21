@@ -11,7 +11,7 @@ namespace TryNextPost.API.Controllers.Wallet
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Seller,SuperAdmin")]
+    [Authorize(Roles = "Seller,SellerEmployee,SuperAdmin")]
     public class WalletController : ControllerBase
     {
         private readonly IWalletService _walletService;

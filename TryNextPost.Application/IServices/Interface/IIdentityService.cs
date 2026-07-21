@@ -11,6 +11,8 @@ namespace TryNextPost.Application.Services.Interface
     {
         Task<IdentityResultModel> CreateUserAsync(string email, string password, string fullName, string mobile);
 
+        Task<IdentityResultModel> CreateEmployeeUserAsync(string email, string password, string fullName, string mobile);
+
         Task<ResponseSellerDto> GetSellerById(string id);
 
         Task<List<ResponseSellerDto>> GetSellerList();
