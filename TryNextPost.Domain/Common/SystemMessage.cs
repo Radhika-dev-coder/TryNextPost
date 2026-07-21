@@ -117,5 +117,6 @@ namespace TryNextPost.Domain.Common
         public const string Unauthorized = "You are not authorized to perform this action.";
         public const string InvalidToken = "Invalid or missing authentication token.";
         public const string ValidationFailed = "Validation failed. Please check your input.";
+        public const string AlreadyOTPSend = "Already Otp Send for Verification.";
     }
 }

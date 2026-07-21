@@ -1,7 +1,10 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -19,10 +22,18 @@ namespace TryNextPost.Infrastructure.Service
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ISellerKycRepository _sellerKycRep;
-        public SellerKycServices(UserManager<ApplicationUser> userManager, ISellerKycRepository sellerKycRep)
+        private readonly ISmsService _msService;
+        private readonly IOtpRepository _otpRepository;
+        private readonly IMemoryCache _cache;
+        private readonly IConfiguration _configuration;
+        public SellerKycServices(UserManager<ApplicationUser> userManager, ISellerKycRepository sellerKycRep, ISmsService msService, IOtpRepository otpRepository, IMemoryCache chache, IConfiguration configuration)
         {
             _userManager = userManager;
             _sellerKycRep = sellerKycRep;
+            _msService = msService;
+            _otpRepository = otpRepository;
+            _cache = chache;
+            _configuration = configuration;
         }
 
         public async Task<BaseResponse<object>> AddSellerKycAsync(VerifyAadhaarOtpRequestDto dto, string sellerId)
@@ -131,10 +142,38 @@ namespace TryNextPost.Infrastructure.Service
                             return response;
                     }
                 }
+                var mobileNo = data.PhoneNumber;
+                var cacheKey = $"phone_otp_{mobileNo}";
+                if (_cache.TryGetValue(cacheKey, out _))
+                {
+                    response.StatusCode = (int)ApiStatusCode.BadRequest;
+                    response.Success = false;
+                    response.Data = null;
+                    response.Message = SystemMessage.AlreadyOTPSend;
+                    return response;
+                }
+
+
+                await _otpRepository.InvalidateActiveOtpsAsync(mobileNo);
+
+                var otp = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+                var entity = new Otp
+                {
+                    MobileNumber = mobileNo,
+                    CodeHash = HashOtp(otp, mobileNo),
+                    ExpiryTime = DateTime.UtcNow.AddMinutes(5),
+                    IsUsed = false,
+                    FailedAttempts = 0
+                };
+
+                await _msService.SendOtpSms(mobileNo, otp);
+                await _otpRepository.AddAsync(entity);
+                await _otpRepository.SaveChangesAsync();
+                _cache.Set(cacheKey, true, TimeSpan.FromSeconds(60));
                 response.StatusCode = (int)ApiStatusCode.Success;
                 response.Success = true;
                 response.Data = null;
-                response.Message = SystemMessage.AadharOtpSend;
+                response.Message = SystemMessage.OtpSentPhone;
                 return response;
             }
             catch (Exception ex)
@@ -146,5 +185,13 @@ namespace TryNextPost.Infrastructure.Service
                 return response;
             }
         }
+        private string HashOtp(string otp, string mobile)
+        {
+            var pepper = _configuration["Otp:Pepper"]
+             ?? throw new InvalidOperationException("Otp:Pepper missing");
+            var bytes = Encoding.UTF8.GetBytes($"{otp}:{mobile}:{pepper}");
+            return Convert.ToHexString(SHA256.HashData(bytes));
+        }
+
     }
 }
