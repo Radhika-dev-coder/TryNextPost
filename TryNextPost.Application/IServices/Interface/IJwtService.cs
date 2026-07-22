@@ -8,7 +8,9 @@ namespace TryNextPost.Application.IServices.Interface
 {
     public interface IJwtService
     {
-        string GenerateToken(string userId, string email,List<string> roles);
+        string GenerateToken(string userId, string email, List<string> roles, int? sessionId = null);
+        string GenerateRefreshToken();
+        string HashRefreshToken(string refreshToken);
         string GenerateOtpToken(string email, string otp, DateTime expiry);
         (bool isValid, string email) ValidateOtpToken(string token, string enteredOtp);
         string GeneratePhoneVerifiedToken(string mobile);

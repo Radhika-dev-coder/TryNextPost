@@ -40,6 +40,11 @@ namespace TryNextPost.Application.IServices.Class.Wallet
         public async Task<WalletBalanceResponse> GetOrCreateBalanceAsync(string userId)
         {
             await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.WalletViewBalance);
+            return await GetSellerWalletBalanceAsync(userId);
+        }
+
+        public async Task<WalletBalanceResponse> GetSellerWalletBalanceAsync(string userId)
+        {
             var context = await _sellerContextService.ResolveAsync(userId);
             var wallet = await EnsureWalletAsync(context.SellerId, context.UserId);
             if (wallet.WalletId == 0)
@@ -90,7 +95,7 @@ namespace TryNextPost.Application.IServices.Class.Wallet
             return Map(wallet);
         }
 
-        public async Task DebitForShipmentAsync(
+        public async Task<WalletBalanceResponse> DebitForShipmentAsync(
             string userId,
             decimal amount,
             long shipmentId,
@@ -131,6 +136,7 @@ namespace TryNextPost.Application.IServices.Class.Wallet
 
             await _walletRepository.AddTransactionAsync(txn);
             await _walletRepository.SaveChangesAsync();
+            return Map(wallet);
         }
 
         public async Task<WalletRechargeResponse> CreateRechargeAsync(string userId, WalletRechargeRequest request)

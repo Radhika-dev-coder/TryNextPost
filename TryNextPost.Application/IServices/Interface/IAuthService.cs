@@ -32,6 +32,7 @@ namespace TryNextPost.Application.Services.Interface
 
         Task<VerifyForgotPasswordOtpResponse> VerifyForgotPasswordOtpAsync(VerifyForgotPasswordOtpRequest request);
 
-
+        Task<LoginSuccessResponse> RefreshTokenAsync(RefreshTokenRequest request, string ipAddress);
+        Task<string> LogoutAsync(string userId, int? sessionId, LogoutRequest? request);
     }
 }

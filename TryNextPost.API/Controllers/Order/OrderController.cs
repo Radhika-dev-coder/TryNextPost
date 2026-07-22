@@ -49,7 +49,6 @@ namespace TryNextPost.API.Controllers.Order
             var userId = GetUserId();
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized(SystemMessage.InvalidToken);
-
             var orderId = await _orderService.CreateReverseOrderAsync(request, userId);
 
             return Ok(new ApiResponse<long>

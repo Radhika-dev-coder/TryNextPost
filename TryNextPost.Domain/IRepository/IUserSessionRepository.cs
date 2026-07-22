@@ -10,6 +10,8 @@ namespace TryNextPost.Domain.IRepository
     public interface IUserSessionRepository
     {
         Task AddAsync(UserSession session);
+        Task<UserSession?> GetByIdAsync(int sessionId);
+        Task<UserSession?> GetByRefreshTokenHashAsync(string refreshTokenHash);
         Task SaveChangesAsync();
     }
 }

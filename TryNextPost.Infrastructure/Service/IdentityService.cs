@@ -181,6 +181,20 @@ namespace TryNextPost.Infrastructure.Service
             };
         }
 
+        public async Task<ResponseSellerDto?> GetUserByIdAsync(string userId)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null) return null;
+
+            return new ResponseSellerDto
+            {
+                UserId = user.Id,
+                Email = user.Email,
+                FullName = user.FullName,
+                PhoneNumber = user.PhoneNumber
+            };
+        }
+
         public async Task<ResponseSellerDto> GetUserByPhoneAsync(string Mobile)
         {
             var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == Mobile);

@@ -1,9 +1,6 @@
 namespace TryNextPost.Application.Common.Settings
 {
-    /// <summary>
-    /// Razorpay Test/Live keys. Leave empty in appsettings; set via User Secrets or environment.
-    /// Never commit real KeySecret / WebhookSecret.
-    /// </summary>
+
     public class RazorpaySettings
     {
         public const string SectionName = "Razorpay";
