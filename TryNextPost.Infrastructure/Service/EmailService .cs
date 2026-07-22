@@ -83,5 +83,43 @@ namespace TryNextPost.Infrastructure.Service
 
             await smtp.SendMailAsync(mail);
         }
+
+        public async Task SendEmployeeInviteEmail(string email, string fullName, string temporaryPassword)
+        {
+            var smtpHost = _config["Smtp:Host"];
+            var smtpPort = int.Parse(_config["Smtp:Port"]);
+            var senderEmail = _config["Smtp:SenderEmail"];
+            var senderName = _config["Smtp:SenderName"];
+            var password = _config["Smtp:Password"];
+
+            var body = $@"
+                <div style='font-family: Arial, sans-serif; padding: 20px;'>
+                    <h2 style='color: #2E86C1;'>You've been invited to TryNextPost</h2>
+                    <p>Hello {fullName},</p>
+                    <p>Your seller account owner has created an employee account for you.</p>
+                    <p><strong>Email:</strong> {email}</p>
+                    <p><strong>Temporary password:</strong> {temporaryPassword}</p>
+                    <p>Please log in and change your password after your first sign-in.</p>
+                    <br/>
+                    <p style='color: gray; font-size: 12px;'>This is an automated message, please do not reply.</p>
+                </div>";
+
+            var mail = new MailMessage
+            {
+                From = new MailAddress(senderEmail, senderName),
+                Subject = "TryNextPost — Employee account invitation",
+                Body = body,
+                IsBodyHtml = true
+            };
+            mail.To.Add(email);
+
+            using var smtp = new SmtpClient(smtpHost, smtpPort)
+            {
+                Credentials = new NetworkCredential(senderEmail, password),
+                EnableSsl = true
+            };
+
+            await smtp.SendMailAsync(mail);
+        }
     }
 }

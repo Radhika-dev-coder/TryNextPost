@@ -20,7 +20,7 @@ namespace TryNextPost.Domain.Entities
 
         public string Reason { get; set; } = string.Empty;
         public int Attempts { get; set; } = 0;
-        public NdrStatus Status { get; set; } = NdrStatus.Pending;
+        public NdrStatus Status { get; set; } = NdrStatus.ActionRequired;
         public string? Action { get; set; }
         public DateTime? NextAttemptDate { get; set; }
         public string? Remarks { get; set; }

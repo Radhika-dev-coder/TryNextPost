@@ -8,9 +8,6 @@ using TryNextPost.Domain.Enums;
 
 namespace TryNextPost.API.Controllers.Webhook
 {
-    /// <summary>
-    /// Courier tracking webhook skeleton. Secure with IP allowlist / shared secret later.
-    /// </summary>
     [Route("api/webhook/shipment")]
     [ApiController]
     [AllowAnonymous]
@@ -23,9 +20,6 @@ namespace TryNextPost.API.Controllers.Webhook
             _shipmentService = shipmentService;
         }
 
-        /// <summary>
-        /// Ingest a tracking status update (updates Shipment.Status + ShipmentTracking row).
-        /// </summary>
         [HttpPost("tracking")]
         public async Task<IActionResult> Tracking(
             [FromBody] ShipmentTrackingWebhookRequest request,

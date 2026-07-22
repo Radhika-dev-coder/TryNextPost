@@ -10,18 +10,27 @@ using TryNextPost.Application.Common.Settings;
 using TryNextPost.Application.IServices;
 using TryNextPost.Application.IServices.Class;
 using TryNextPost.Application.IServices.Class.Default;
+using TryNextPost.Application.IServices.Class.Ndr;
 using TryNextPost.Application.IServices.Class.Order;
 using TryNextPost.Application.IServices.Class.Shipment;
-using TryNextPost.Application.IServices.Class.Wallet;
+using TryNextPost.Application.IServices.Class.Settlement;
+using TryNextPost.Application.IServices.Class.RateCard;
+using TryNextPost.Application.IServices.Class.Weight;
 using TryNextPost.Application.IServices.Interface;
 using TryNextPost.Application.IServices.Interface.Default;
+using TryNextPost.Application.IServices.Interface.INdr;
 using TryNextPost.Application.IServices.Interface.IOrder;
 using TryNextPost.Application.IServices.Interface.IShipment;
 using TryNextPost.Application.IServices.Interface.IEmployee;
+using TryNextPost.Application.IServices.Interface.ISettlement;
+using TryNextPost.Application.IServices.Interface.IRateCard;
+using TryNextPost.Application.IServices.Interface.IWeight;
+using TryNextPost.Application.IServices.Class.Wallet;
 using TryNextPost.Application.IServices.Interface.IWallet;
 using TryNextPost.Application.IServices.Interface.IPayment;
 using TryNextPost.Application.Services.Interface;
 using TryNextPost.Application.Validators.Order;
+using TryNextPost.Domain.Common;
 using TryNextPost.Domain.IRepository;
 using TryNextPost.Infrastructure.AppDbContexts;
 using TryNextPost.Infrastructure.Identity;
@@ -63,9 +72,9 @@ builder.Services.AddScoped<ISellerEmployeeRepository, SellerEmployeeRepository>(
 builder.Services.AddScoped<ISellerContextService, SellerContextService>();
 builder.Services.AddScoped<IEmployeeService, TryNextPost.Application.IServices.Class.Employee.EmployeeService>();
 
-// ✅ FINAL SMS CONFIG (BEST VERSION)
+
 builder.Services.Configure<SmsSettings>(
-    builder.Configuration.GetSection("SmsSettings"));
+builder.Configuration.GetSection("SmsSettings"));
 builder.Services.AddHttpClient<ISmsService, SmsService>();
 
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
@@ -73,16 +82,29 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IAddressRepository, AddressRepository>();
 builder.Services.AddScoped<IAddressService, AddressService>();
 builder.Services.AddScoped<IShipmentRepository, ShipmentRepository>();
+builder.Services.AddScoped<INdrRepository, NdrRepository>();
+builder.Services.AddScoped<IRtoRepository, RtoRepository>();
 builder.Services.AddScoped<ICourierRepository, CourierRepository>();
+builder.Services.AddScoped<IZoneRepository, ZoneRepository>();
+builder.Services.AddScoped<ICourierRateCardRepository, CourierRateCardRepository>();
+builder.Services.AddScoped<IShipmentChargesRepository, ShipmentChargesRepository>();
+builder.Services.AddScoped<ICourierSettlementRepository, CourierSettlementRepository>();
+builder.Services.AddScoped<IRateCalculationService, RateCalculationService>();
+builder.Services.AddScoped<ICourierSettlementService, CourierSettlementService>();
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IWalletRechargeRepository, WalletRechargeRepository>();
 builder.Services.AddScoped<IWalletService, WalletService>();
 
 builder.Services.Configure<RazorpaySettings>(
-    builder.Configuration.GetSection(RazorpaySettings.SectionName));
+builder.Configuration.GetSection(RazorpaySettings.SectionName));
 builder.Services.AddHttpClient<IRazorpayPaymentGateway, RazorpayPaymentGateway>();
 
 builder.Services.AddScoped<IShipmentService, ShipmentService>();
+builder.Services.AddScoped<INdrService, NdrService>();
+builder.Services.AddScoped<IWeightDiscrepancyRepository, WeightDiscrepancyRepository>();
+builder.Services.AddScoped<IProductWeightFreezeRepository, ProductWeightFreezeRepository>();
+builder.Services.AddScoped<IWeightDiscrepancyService, WeightDiscrepancyService>();
+builder.Services.AddScoped<IWeightFreezeService, WeightFreezeService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 builder.Services.AddScoped<ISellerKycRepository, SellerKycRepostiory>();
@@ -141,6 +163,25 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = builder.Configuration["Jwt:Audience"],
 
         IssuerSigningKey = new SymmetricSecurityKey(keyBytes)
+    };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = async context =>
+        {
+            var sid = context.Principal?.FindFirst("sid")?.Value;
+            if (string.IsNullOrEmpty(sid) || !int.TryParse(sid, out var sessionId))
+                return;
+
+            var sessionRepository = context.HttpContext.RequestServices
+                .GetRequiredService<IUserSessionRepository>();
+
+            var session = await sessionRepository.GetByIdAsync(sessionId);
+            if (session == null || !session.IsActive || session.ExpiryAt < DateTime.UtcNow)
+            {
+                context.Fail(SystemMessage.SessionRevoked);
+            }
+        }
     };
 });
 
@@ -217,33 +258,70 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
-#region Seeder
+#region Seeder (background — do not block Swagger / Kestrel startup)
 
-using (var scope = app.Services.CreateScope())
+app.Lifetime.ApplicationStarted.Register(() =>
 {
-    var services = scope.ServiceProvider;
-
-    var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
-    var roleManager = services.GetRequiredService<RoleManager<ApplicationRole>>();
-
-    await IdentitySeeder.SeedAsync(userManager, roleManager);
-
-    var db = services.GetRequiredService<AppDbContext>();
-    await PermissionSeeder.SeedAsync(db);
-
-    var logger = services.GetRequiredService<ILoggerFactory>()
-                         .CreateLogger("CourierSeeder");
-
-    try
+    _ = Task.Run(async () =>
     {
-        await CourierSeeder.SeedAsync(db, logger);
-    }
-    catch (Exception ex)
-    {
-        logger.LogWarning(ex,
-            "Courier seed skipped. Apply migration AddCourierCode if missing.");
-    }
-}
+        try
+        {
+            using var scope = app.Services.CreateScope();
+            var services = scope.ServiceProvider;
+
+            var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+            var roleManager = services.GetRequiredService<RoleManager<ApplicationRole>>();
+
+            await IdentitySeeder.SeedAsync(userManager, roleManager);
+
+            var db = services.GetRequiredService<AppDbContext>();
+            await PermissionSeeder.SeedAsync(db);
+
+            var logger = services.GetRequiredService<ILoggerFactory>()
+                .CreateLogger("CourierSeeder");
+
+            try
+            {
+                await CourierSeeder.SeedAsync(db, logger);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex,
+                    "Courier seed skipped. Apply migration AddCourierCode if missing.");
+            }
+
+            var rateCardLogger = services.GetRequiredService<ILoggerFactory>()
+                .CreateLogger("RateCardSeeder");
+            try
+            {
+                await RateCardSeeder.SeedAsync(db, rateCardLogger);
+            }
+            catch (Exception ex)
+            {
+                rateCardLogger.LogWarning(ex,
+                    "Rate card seed skipped. Apply migration AddRateCardAndSettlement if missing.");
+            }
+
+            var weightLogger = services.GetRequiredService<ILoggerFactory>()
+                .CreateLogger("WeightSeeder");
+            try
+            {
+                await WeightSeeder.SeedAsync(db, weightLogger);
+            }
+            catch (Exception ex)
+            {
+                weightLogger.LogWarning(ex,
+                    "Weight seed skipped. Apply migration AddWeightManagement if missing.");
+            }
+        }
+        catch (Exception ex)
+        {
+            var startupLogger = app.Services.GetRequiredService<ILoggerFactory>()
+                .CreateLogger("StartupSeeder");
+            startupLogger.LogError(ex, "Background startup seeding failed.");
+        }
+    });
+});
 
 #endregion
 
@@ -254,7 +332,7 @@ if (app.Environment.IsDevelopment())
     {
         options.SwaggerEndpoint("/swagger/v1/swagger.json",
             "TryNextPost API v1");
-        options.RoutePrefix = string.Empty;
+        options.RoutePrefix = "swagger";
     });
 }
 

@@ -28,6 +28,14 @@ namespace TryNextPost.Infrastructure.AppDbContexts
         public DbSet<Transaction> Transactions => Set<Transaction>();
         public DbSet<WalletRecharge> WalletRecharges => Set<WalletRecharge>();
         public DbSet<CODSettlement> CODSettlements => Set<CODSettlement>();
+        public DbSet<Zone> Zones => Set<Zone>();
+        public DbSet<PincodeZoneMapping> PincodeZoneMappings => Set<PincodeZoneMapping>();
+        public DbSet<CourierRateCard> CourierRateCards => Set<CourierRateCard>();
+        public DbSet<ShipmentCharges> ShipmentCharges => Set<ShipmentCharges>();
+        public DbSet<CourierSettlement> CourierSettlements => Set<CourierSettlement>();
+        public DbSet<CourierSettlementLine> CourierSettlementLines => Set<CourierSettlementLine>();
+        public DbSet<WeightDiscrepancy> WeightDiscrepancies => Set<WeightDiscrepancy>();
+        public DbSet<ProductWeightFreeze> ProductWeightFreezes => Set<ProductWeightFreeze>();
         public DbSet<Permission> Permissions => Set<Permission>();
         public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
         public DbSet<Seller> Sellers => Set<Seller>();
@@ -407,6 +415,159 @@ namespace TryNextPost.Infrastructure.AppDbContexts
             modelBuilder.Entity<Order>()
                 .Property(x => x.TotalAmount)
                 .HasPrecision(18, 2);
+
+            // =========================
+            // ZONE + PINCODE MAPPING
+            // =========================
+            modelBuilder.Entity<Zone>(entity =>
+            {
+                entity.Property(x => x.ZoneCode).HasMaxLength(10).IsRequired();
+                entity.Property(x => x.ZoneName).HasMaxLength(100).IsRequired();
+                entity.HasIndex(x => x.ZoneCode).IsUnique();
+            });
+
+            modelBuilder.Entity<PincodeZoneMapping>(entity =>
+            {
+                entity.Property(x => x.PincodePrefix).HasMaxLength(2).IsRequired();
+                entity.HasIndex(x => x.PincodePrefix).IsUnique();
+                entity.HasOne(m => m.Zone)
+                    .WithMany(z => z.PincodeMappings)
+                    .HasForeignKey(m => m.ZoneId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // =========================
+            // COURIER RATE CARD
+            // =========================
+            modelBuilder.Entity<CourierRateCard>(entity =>
+            {
+                entity.Property(x => x.WeightFromGrams).HasPrecision(18, 2);
+                entity.Property(x => x.WeightToGrams).HasPrecision(18, 2);
+                entity.Property(x => x.CourierCost).HasPrecision(18, 2);
+                entity.Property(x => x.SellerCharge).HasPrecision(18, 2);
+                entity.Property(x => x.ServiceCode).HasMaxLength(50).IsRequired();
+                entity.HasIndex(x => new { x.CourierId, x.FromZoneId, x.ToZoneId, x.WeightFromGrams, x.WeightToGrams, x.ServiceCode });
+                entity.HasOne(r => r.Courier)
+                    .WithMany()
+                    .HasForeignKey(r => r.CourierId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(r => r.FromZone)
+                    .WithMany()
+                    .HasForeignKey(r => r.FromZoneId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(r => r.ToZone)
+                    .WithMany()
+                    .HasForeignKey(r => r.ToZoneId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // =========================
+            // SHIPMENT CHARGES
+            // =========================
+            modelBuilder.Entity<ShipmentCharges>(entity =>
+            {
+                entity.Property(x => x.SellerCharge).HasPrecision(18, 2);
+                entity.Property(x => x.CourierCost).HasPrecision(18, 2);
+                entity.Property(x => x.Margin).HasPrecision(18, 2);
+                entity.Property(x => x.CodCharge).HasPrecision(18, 2);
+                entity.Property(x => x.ChargeableWeightGrams).HasPrecision(18, 2);
+                entity.HasIndex(x => x.ShipmentId).IsUnique();
+                entity.HasOne(c => c.Shipment)
+                    .WithMany()
+                    .HasForeignKey(c => c.ShipmentId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // =========================
+            // COURIER B2B SETTLEMENT
+            // =========================
+            modelBuilder.Entity<CourierSettlement>(entity =>
+            {
+                entity.Property(x => x.TotalCourierCost).HasPrecision(18, 2);
+                entity.Property(x => x.TotalSellerCharge).HasPrecision(18, 2);
+                entity.Property(x => x.TotalMargin).HasPrecision(18, 2);
+                entity.Property(x => x.PaymentReference).HasMaxLength(200);
+                entity.Property(x => x.Notes).HasMaxLength(500);
+                entity.HasIndex(x => x.CourierId);
+                entity.HasIndex(x => new { x.CourierId, x.PeriodFrom, x.PeriodTo });
+                entity.HasOne(s => s.Courier)
+                    .WithMany()
+                    .HasForeignKey(s => s.CourierId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<CourierSettlementLine>(entity =>
+            {
+                entity.Property(x => x.CourierCost).HasPrecision(18, 2);
+                entity.Property(x => x.SellerCharge).HasPrecision(18, 2);
+                entity.Property(x => x.Margin).HasPrecision(18, 2);
+                entity.Property(x => x.AwbNumber).HasMaxLength(100);
+                entity.HasIndex(x => new { x.CourierSettlementId, x.ShipmentId }).IsUnique();
+                entity.HasIndex(x => x.ShipmentId);
+                entity.HasOne(l => l.CourierSettlement)
+                    .WithMany(s => s.Lines)
+                    .HasForeignKey(l => l.CourierSettlementId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(l => l.Shipment)
+                    .WithMany()
+                    .HasForeignKey(l => l.ShipmentId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // =========================
+            // WEIGHT DISCREPANCY
+            // =========================
+            modelBuilder.Entity<WeightDiscrepancy>(entity =>
+            {
+                entity.Property(x => x.AwbNumber).HasMaxLength(100);
+                entity.Property(x => x.CourierName).HasMaxLength(150);
+                entity.Property(x => x.ProductName).HasMaxLength(250);
+                entity.Property(x => x.DisputeRemarks).HasMaxLength(500);
+                entity.Property(x => x.ClosedRemarks).HasMaxLength(500);
+                entity.Property(x => x.EnteredWeightGrams).HasPrecision(18, 2);
+                entity.Property(x => x.AppliedWeightGrams).HasPrecision(18, 2);
+                entity.Property(x => x.WeightCharges).HasPrecision(18, 2);
+                entity.HasIndex(x => x.SellerId);
+                entity.HasIndex(x => x.Status);
+                entity.HasIndex(x => x.AwbNumber);
+                entity.HasIndex(x => x.WeightAppliedDate);
+                entity.HasOne(w => w.Seller)
+                    .WithMany()
+                    .HasForeignKey(w => w.SellerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(w => w.Shipment)
+                    .WithMany()
+                    .HasForeignKey(w => w.ShipmentId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(w => w.Order)
+                    .WithMany()
+                    .HasForeignKey(w => w.OrderId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // =========================
+            // PRODUCT WEIGHT FREEZE
+            // =========================
+            modelBuilder.Entity<ProductWeightFreeze>(entity =>
+            {
+                entity.Property(x => x.ProductId).HasMaxLength(100).IsRequired();
+                entity.Property(x => x.ProductName).HasMaxLength(250).IsRequired();
+                entity.Property(x => x.Sku).HasMaxLength(100);
+                entity.Property(x => x.ActionRemarks).HasMaxLength(500);
+                entity.Property(x => x.ActionedBy).HasMaxLength(450);
+                entity.Property(x => x.LengthCm).HasPrecision(18, 2);
+                entity.Property(x => x.BreadthCm).HasPrecision(18, 2);
+                entity.Property(x => x.HeightCm).HasPrecision(18, 2);
+                entity.Property(x => x.WeightGrams).HasPrecision(18, 2);
+                entity.HasIndex(x => x.SellerId);
+                entity.HasIndex(x => x.Status);
+                entity.HasIndex(x => x.ProductId);
+                entity.HasIndex(x => new { x.SellerId, x.ProductId });
+                entity.HasOne(w => w.Seller)
+                    .WithMany()
+                    .HasForeignKey(w => w.SellerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
         }
     }
 }

@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Microsoft.EntityFrameworkCore;
 using TryNextPost.Domain.Entities;
 using TryNextPost.Domain.IRepository;
 using TryNextPost.Infrastructure.AppDbContexts;
@@ -21,6 +17,17 @@ namespace TryNextPost.Infrastructure.Repository
         public async Task AddAsync(UserSession session)
         {
             await _context.UserSessions.AddAsync(session);
+        }
+
+        public Task<UserSession?> GetByIdAsync(int sessionId)
+        {
+            return _context.UserSessions.FirstOrDefaultAsync(s => s.Id == sessionId);
+        }
+
+        public Task<UserSession?> GetByRefreshTokenHashAsync(string refreshTokenHash)
+        {
+            return _context.UserSessions.FirstOrDefaultAsync(s =>
+                s.RefreshTokenHash == refreshTokenHash && s.IsActive);
         }
 
         public async Task SaveChangesAsync()

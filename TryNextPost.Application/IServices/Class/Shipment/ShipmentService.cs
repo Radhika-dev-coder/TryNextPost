@@ -4,6 +4,7 @@ using TryNextPost.Application.Helpers;
 using TryNextPost.Application.IServices.Interface;
 using TryNextPost.Application.IServices.Interface.Courier;
 using TryNextPost.Application.IServices.Interface.IShipment;
+using TryNextPost.Application.IServices.Interface.IRateCard;
 using TryNextPost.Application.IServices.Interface.IWallet;
 using TryNextPost.Domain.Common;
 using TryNextPost.Domain.Entities;
@@ -19,9 +20,12 @@ namespace TryNextPost.Application.IServices.Class.Shipment
         private readonly IOrderRepository _orderRepository;
         private readonly IAddressRepository _addressRepository;
         private readonly IShipmentRepository _shipmentRepository;
+        private readonly INdrRepository _ndrRepository;
         private readonly ICourierRepository _courierRepository;
         private readonly ICourierAdapterFactory _courierAdapterFactory;
         private readonly IWalletService _walletService;
+        private readonly IRateCalculationService _rateCalculationService;
+        private readonly IShipmentChargesRepository _shipmentChargesRepository;
 
         public ShipmentService(
             ISellerRepository sellerRepository,
@@ -29,18 +33,24 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             IOrderRepository orderRepository,
             IAddressRepository addressRepository,
             IShipmentRepository shipmentRepository,
+            INdrRepository ndrRepository,
             ICourierRepository courierRepository,
             ICourierAdapterFactory courierAdapterFactory,
-            IWalletService walletService)
+            IWalletService walletService,
+            IRateCalculationService rateCalculationService,
+            IShipmentChargesRepository shipmentChargesRepository)
         {
             _sellerRepository = sellerRepository;
             _sellerContextService = sellerContextService;
             _orderRepository = orderRepository;
             _addressRepository = addressRepository;
             _shipmentRepository = shipmentRepository;
+            _ndrRepository = ndrRepository;
             _courierRepository = courierRepository;
             _courierAdapterFactory = courierAdapterFactory;
             _walletService = walletService;
+            _rateCalculationService = rateCalculationService;
+            _shipmentChargesRepository = shipmentChargesRepository;
         }
 
         public async Task<GetShipmentRatesResponse> GetRatesAsync(
@@ -55,11 +65,44 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             var warehouse = await ResolveWarehouseAddressAsync(order, seller);
             var rateRequest = BuildRateRequest(order, warehouse);
             var couriers = await _courierRepository.GetActiveCouriersAsync();
+            var isCod = rateRequest.IsCod;
 
             var rates = new List<ShipmentRateOptionDto>();
 
             foreach (var courier in couriers)
             {
+                var rateCardQuotes = await _rateCalculationService.GetRatesForCourierAsync(
+                    courier.CourierId,
+                    courier.CourierCode,
+                    courier.CourierName,
+                    rateRequest.OriginPincode,
+                    rateRequest.DestinationPincode,
+                    order.WeightGrams,
+                    order.VolumetricWeightGrams,
+                    isCod);
+
+                if (rateCardQuotes.Count > 0)
+                {
+                    foreach (var quote in rateCardQuotes)
+                    {
+                        rates.Add(new ShipmentRateOptionDto
+                        {
+                            CourierId = courier.CourierId,
+                            CourierCode = courier.CourierCode,
+                            CourierName = courier.CourierName,
+                            ServiceName = quote.ServiceName,
+                            ServiceCode = quote.ServiceCode,
+                            TotalCharge = quote.TotalCharge,
+                            CodCharge = quote.CodCharge,
+                            EstimatedDays = quote.EstimatedDays,
+                            IsStub = false,
+                            Message = $"Rate card ({quote.OriginZoneCode} → {quote.DestinationZoneCode})"
+                        });
+                    }
+
+                    continue;
+                }
+
                 if (!_courierAdapterFactory.TryResolve(courier.CourierCode, out var adapter) || adapter is null)
                     continue;
 
@@ -121,16 +164,34 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             if (await _shipmentRepository.HasActiveShipmentAsync(order.OrderId))
                 throw new InvalidOperationException(SystemMessage.ShipmentAlreadyExists);
 
-            // Balance check before courier booking (avoid orphaned AWBs on insufficient funds).
-            var wallet = await _walletService.GetOrCreateBalanceAsync(userId);
-            if (wallet.Balance < request.ChargeAmount)
-                throw new InvalidOperationException(SystemMessage.WalletInsufficientBalance);
-
             var courier = await ResolveCourierAsync(request.CourierId, request.CourierCode);
             if (!_courierAdapterFactory.TryResolve(courier.CourierCode, out var adapter) || adapter is null)
                 throw new InvalidOperationException(SystemMessage.CourierNotSupported);
 
             var warehouse = await ResolveWarehouseAddressAsync(order, seller);
+            var rateRequest = BuildRateRequest(order, warehouse);
+            var rateQuote = await ResolveRateQuoteAsync(
+                order,
+                warehouse,
+                courier,
+                request.ServiceCode,
+                cancellationToken);
+
+            if (rateQuote != null)
+            {
+                if (Math.Abs(rateQuote.TotalCharge - request.ChargeAmount) > 0.01m)
+                    throw new InvalidOperationException(SystemMessage.ChargeAmountMismatch);
+            }
+            else
+            {
+                await ValidateChargeAmountAsync(order, warehouse, courier, request, adapter, cancellationToken);
+            }
+
+            // Balance check before courier booking (avoid orphaned AWBs on insufficient funds).
+            var wallet = await _walletService.GetSellerWalletBalanceAsync(userId);
+            if (wallet.Balance < request.ChargeAmount)
+                throw new InvalidOperationException(SystemMessage.WalletInsufficientBalance);
+
             var bookRequest = BuildBookRequest(order, warehouse, request.ServiceCode);
 
             CourierBookShipmentResponse bookResponse;
@@ -198,7 +259,17 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             await _orderRepository.UpdateAsync(order);
             await _shipmentRepository.SaveChangesAsync();
 
-            await _walletService.DebitForShipmentAsync(
+            var charges = BuildShipmentCharges(
+                shipment.ShipmentId,
+                rateQuote,
+                rateRequest,
+                order,
+                request,
+                userId);
+            await _shipmentChargesRepository.AddAsync(charges);
+            await _shipmentChargesRepository.SaveChangesAsync();
+
+            var walletAfterDebit = await _walletService.DebitForShipmentAsync(
                 userId,
                 request.ChargeAmount,
                 shipment.ShipmentId,
@@ -231,6 +302,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 Status = (int)shipment.Status,
                 StatusName = shipment.Status.ToString(),
                 ChargedAmount = shipment.ChargedAmount,
+                WalletBalanceAfterDebit = walletAfterDebit.Balance,
                 IsStub = bookResponse.IsStub,
                 LabelUrl = shipment.LabelUrl,
                 CourierReference = shipment.CourierReference,
@@ -493,6 +565,12 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 EventTime = request.EventTime ?? DateTime.UtcNow,
                 CreatedAt = DateTime.UtcNow
             });
+
+            await ApplyNdrFromTrackingAsync(
+                shipment,
+                newStatus,
+                request.Description ?? $"Webhook status update: {newStatus}");
+
             await _shipmentRepository.SaveChangesAsync();
 
             return new ShipmentTrackingWebhookResponse
@@ -503,6 +581,60 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 StatusName = shipment.Status.ToString(),
                 Message = SystemMessage.TrackingWebhookAccepted
             };
+        }
+
+        /// <summary>
+        /// Upsert / close NDR rows from courier tracking status (Phase-1).
+        /// Exception → open ActionRequired (+Attempts); Delivered → Delivered; RTO → Rto.
+        /// </summary>
+        private async Task ApplyNdrFromTrackingAsync(
+            Domain.Entities.Shipment shipment,
+            ShipmentStatus newStatus,
+            string reason)
+        {
+            if (newStatus == ShipmentStatus.Exception)
+            {
+                var open = await _ndrRepository.GetOpenByShipmentIdAsync(shipment.ShipmentId);
+                if (open == null)
+                {
+                    await _ndrRepository.AddAsync(new NDR
+                    {
+                        ShipmentId = shipment.ShipmentId,
+                        Reason = reason,
+                        Attempts = 1,
+                        Status = NdrStatus.ActionRequired,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        CreatedBy = "webhook"
+                    });
+                }
+                else
+                {
+                    open.Attempts += 1;
+                    open.Reason = reason;
+                    open.Status = NdrStatus.ActionRequired;
+                    open.UpdatedAt = DateTime.UtcNow;
+                    open.UpdatedBy = "webhook";
+                    await _ndrRepository.UpdateAsync(open);
+                }
+
+                return;
+            }
+
+            if (newStatus != ShipmentStatus.Delivered && newStatus != ShipmentStatus.RTO)
+                return;
+
+            var existing = await _ndrRepository.GetOpenByShipmentIdAsync(shipment.ShipmentId);
+            if (existing == null)
+                return;
+
+            existing.Status = newStatus == ShipmentStatus.Delivered
+                ? NdrStatus.Delivered
+                : NdrStatus.Rto;
+            existing.Reason = string.IsNullOrWhiteSpace(reason) ? existing.Reason : reason;
+            existing.UpdatedAt = DateTime.UtcNow;
+            existing.UpdatedBy = "webhook";
+            await _ndrRepository.UpdateAsync(existing);
         }
 
         public async Task<ShipmentListResponse> GetShipmentsAsync(string userId, ShipmentFilterRequest request)
@@ -691,7 +823,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             {
                 OriginPincode = origin,
                 DestinationPincode = destination,
-                WeightKg = ToKg(order.WeightGrams),
+                WeightKg = ToKg(GetChargeableWeightGrams(order)),
                 LengthCm = order.LengthCm,
                 BreadthCm = order.BreadthCm,
                 HeightCm = order.HeightCm,
@@ -743,7 +875,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                     DeliveryState = warehouse.State,
                     DeliveryPincode = warehouse.Pincode,
                     DeliveryCountry = warehouseCountry,
-                    WeightKg = ToKg(order.WeightGrams),
+                    WeightKg = ToKg(GetChargeableWeightGrams(order)),
                     LengthCm = order.LengthCm,
                     BreadthCm = order.BreadthCm,
                     HeightCm = order.HeightCm,
@@ -774,7 +906,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 DeliveryState = order.ShippingState,
                 DeliveryPincode = order.ShippingPincode,
                 DeliveryCountry = customerCountry,
-                WeightKg = ToKg(order.WeightGrams),
+                WeightKg = ToKg(GetChargeableWeightGrams(order)),
                 LengthCm = order.LengthCm,
                 BreadthCm = order.BreadthCm,
                 HeightCm = order.HeightCm,
@@ -785,6 +917,109 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 InvoiceValue = order.FinalPayableAmount,
                 ProductDescription = productDescription
             };
+        }
+
+        private static ShipmentCharges BuildShipmentCharges(
+            long shipmentId,
+            DTO.RateCard.RateQuoteDto? rateQuote,
+            CourierRateRequest rateRequest,
+            Domain.Entities.Order order,
+            ConfirmShipmentRequest request,
+            string userId)
+        {
+            if (rateQuote != null)
+            {
+                return new ShipmentCharges
+                {
+                    ShipmentId = shipmentId,
+                    SellerCharge = rateQuote.SellerCharge,
+                    CourierCost = rateQuote.CourierCost,
+                    Margin = rateQuote.Margin,
+                    CodCharge = rateQuote.CodCharge,
+                    ChargeableWeightGrams = rateQuote.ChargeableWeightGrams,
+                    OriginZoneCode = rateQuote.OriginZoneCode,
+                    DestinationZoneCode = rateQuote.DestinationZoneCode,
+                    ServiceCode = request.ServiceCode,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = userId
+                };
+            }
+
+            var codCharge = rateRequest.IsCod ? 30m : 0m;
+            var sellerCharge = request.ChargeAmount - codCharge;
+            var courierCost = Math.Round(sellerCharge * 0.75m, 2);
+
+            return new ShipmentCharges
+            {
+                ShipmentId = shipmentId,
+                SellerCharge = sellerCharge,
+                CourierCost = courierCost,
+                Margin = sellerCharge - courierCost,
+                CodCharge = codCharge,
+                ChargeableWeightGrams = GetChargeableWeightGrams(order),
+                ServiceCode = request.ServiceCode,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = userId
+            };
+        }
+
+        private async Task<DTO.RateCard.RateQuoteDto?> ResolveRateQuoteAsync(
+            Domain.Entities.Order order,
+            Address warehouse,
+            Courier courier,
+            string? serviceCode,
+            CancellationToken cancellationToken)
+        {
+            var rateRequest = BuildRateRequest(order, warehouse);
+            var quote = await _rateCalculationService.GetRateForServiceAsync(
+                courier.CourierId,
+                courier.CourierCode,
+                courier.CourierName,
+                rateRequest.OriginPincode,
+                rateRequest.DestinationPincode,
+                order.WeightGrams,
+                order.VolumetricWeightGrams,
+                rateRequest.IsCod,
+                serviceCode);
+
+            return quote;
+        }
+
+        private async Task ValidateChargeAmountAsync(
+            Domain.Entities.Order order,
+            Address warehouse,
+            Courier courier,
+            ConfirmShipmentRequest request,
+            ICourierAdapter adapter,
+            CancellationToken cancellationToken)
+        {
+            var rateRequest = BuildRateRequest(order, warehouse);
+
+            CourierRateResponse? rateResponse;
+            try
+            {
+                rateResponse = await adapter.GetRatesAsync(rateRequest, cancellationToken);
+            }
+            catch (NotImplementedException)
+            {
+                return;
+            }
+
+            if (rateResponse?.Rates == null || rateResponse.Rates.Count == 0)
+                return;
+
+            var matched = string.IsNullOrWhiteSpace(request.ServiceCode)
+                ? rateResponse.Rates.OrderBy(r => r.TotalCharge).FirstOrDefault()
+                : rateResponse.Rates.FirstOrDefault(r =>
+                    string.Equals(r.ServiceCode, request.ServiceCode, StringComparison.OrdinalIgnoreCase));
+
+            if (matched == null)
+                throw new InvalidOperationException(SystemMessage.ChargeAmountMismatch);
+
+            if (Math.Abs(matched.TotalCharge - request.ChargeAmount) > 0.01m)
+                throw new InvalidOperationException(SystemMessage.ChargeAmountMismatch);
         }
 
         private static ShipmentListItemResponse MapToListItem(Domain.Entities.Shipment shipment)
@@ -846,6 +1081,14 @@ namespace TryNextPost.Application.IServices.Class.Shipment
         private static decimal ToKg(decimal weightGrams)
         {
             return Math.Max(weightGrams / 1000m, 0.1m);
+        }
+
+        private static decimal GetChargeableWeightGrams(Domain.Entities.Order order)
+        {
+            var actual = order.WeightGrams > 0 ? order.WeightGrams : 500m;
+            if (order.VolumetricWeightGrams > actual)
+                return order.VolumetricWeightGrams;
+            return actual;
         }
     }
 }
