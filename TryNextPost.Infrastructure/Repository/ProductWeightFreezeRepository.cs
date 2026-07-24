@@ -18,6 +18,8 @@ namespace TryNextPost.Infrastructure.Repository
         public async Task<ProductWeightFreeze?> GetByIdAsync(long id)
         {
             return await _context.ProductWeightFreezes
+                .Include(w => w.Seller!)
+                    .ThenInclude(s => s.Company)
                 .FirstOrDefaultAsync(w => w.ProductWeightFreezeId == id && w.IsActive == true);
         }
 
@@ -62,6 +64,56 @@ namespace TryNextPost.Infrastructure.Repository
             return await query.CountAsync();
         }
 
+        public async Task<bool> HasActiveDuplicateAsync(long sellerId, string productId, long? excludeId = null)
+        {
+            var pid = productId.Trim();
+            var query = _context.ProductWeightFreezes
+                .AsNoTracking()
+                .Where(w =>
+                    w.IsActive == true
+                    && w.SellerId == sellerId
+                    && (w.Status == WeightFreezeStatus.Requested || w.Status == WeightFreezeStatus.Accepted)
+                    && w.ProductId.ToLower() == pid.ToLower());
+
+            if (excludeId.HasValue)
+                query = query.Where(w => w.ProductWeightFreezeId != excludeId.Value);
+
+            return await query.AnyAsync();
+        }
+
+        public async Task<List<ProductWeightFreeze>> GetApplicableAcceptedAsync(
+            long sellerId,
+            IEnumerable<string> productKeys)
+        {
+            var keys = productKeys
+                .Where(k => !string.IsNullOrWhiteSpace(k))
+                .Select(k => k.Trim().ToLowerInvariant())
+                .Distinct()
+                .ToList();
+
+            if (keys.Count == 0)
+                return new List<ProductWeightFreeze>();
+
+            var candidates = await _context.ProductWeightFreezes
+                .AsNoTracking()
+                .Where(w =>
+                    w.IsActive == true
+                    && w.SellerId == sellerId
+                    && w.Status == WeightFreezeStatus.Accepted
+                    && w.AutoApply)
+                .ToListAsync();
+
+            return candidates
+                .Where(w =>
+                {
+                    var pid = w.ProductId?.Trim().ToLowerInvariant();
+                    var sku = w.Sku?.Trim().ToLowerInvariant();
+                    return (!string.IsNullOrEmpty(pid) && keys.Contains(pid))
+                           || (!string.IsNullOrEmpty(sku) && keys.Contains(sku));
+                })
+                .ToList();
+        }
+
         public async Task AddAsync(ProductWeightFreeze entity)
         {
             await _context.ProductWeightFreezes.AddAsync(entity);
@@ -91,6 +143,8 @@ namespace TryNextPost.Infrastructure.Repository
         {
             var query = _context.ProductWeightFreezes
                 .AsNoTracking()
+                .Include(w => w.Seller!)
+                    .ThenInclude(s => s.Company)
                 .Where(w => w.IsActive == true);
 
             if (sellerId.HasValue)

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -37,7 +37,7 @@ namespace TryNextPost.Domain.Common
 
         // ───── Seller Module ─────
         public const string SellerNotFound = "Seller profile not found. Please complete KYC first.";
-        public const string SellerProfileIncomplete = "Please complete your seller profile.";
+        public const string SellerProfileIncomplete = "Please complete your profile first.";
 
         // ───── KYC Module (Tumhara code) ─────
         public const string AlreadyKycUpdated = "KYC already verified.";
@@ -85,6 +85,7 @@ namespace TryNextPost.Domain.Common
         public const string InvalidShipmentStatusTab = "Invalid StatusTab. Use all, Booked, PendingPickup, PickedUp, InTransit, OutForDelivery, Delivered, RTO, Exception, or Cancelled.";
         public const string ShipmentLabelFetchedSuccess = "Shipment label fetched successfully.";
         public const string ShipmentCancelledSuccess = "Shipment cancelled successfully.";
+        public const string ShipmentAlreadyCancelled = "Shipment is already cancelled.";
         public const string ShipmentTrackedSuccess = "Shipment tracking fetched successfully.";
         public const string DataFound = "Data fetched successfully.";
         public const string ShipmentCancelFailed = "Shipment cancellation failed.";
@@ -121,6 +122,35 @@ namespace TryNextPost.Domain.Common
         public const string WalletWebhookIgnored = "Webhook event ignored.";
         public const string RazorpayCredentialsMissing =
             "Razorpay credentials are not configured. Set Razorpay:KeyId and Razorpay:KeySecret (User Secrets or environment).";
+        public const string WalletTransactionsFetchedSuccess = "Wallet transactions fetched successfully.";
+        public const string WalletInsufficientBalanceForWeight =
+            "Insufficient wallet balance to accept this weight discrepancy charge.";
+        public const string WeightDiscrepancyChargeDebited =
+            "Weight discrepancy accepted and wallet debited successfully.";
+
+        // ───── Billing / Shipping Charges ─────
+        public const string ShipmentChargesFetchedSuccess = "Shipping charges fetched successfully.";
+
+        // ───── COD Remittance Module ─────
+        public const string CodRemittanceFetchedSuccess = "COD remittances fetched successfully.";
+        public const string CodRemittanceSummaryFetchedSuccess = "COD remittance summary fetched successfully.";
+        public const string CodBankDetailsFetchedSuccess = "Bank details fetched successfully.";
+        public const string CodBankDetailsSavedSuccess = "Bank details saved successfully.";
+        public const string CodBankDetailsUpdatedSuccess = "Bank details updated successfully.";
+        public const string CodBankDetailsDeletedSuccess = "Bank details deleted successfully.";
+        public const string CodBankDetailsNotFound = "Bank account not found.";
+        public const string CodBankAccountNumberRequired = "Account number is required.";
+        public const string CodBankIfscRequired = "IFSC code is required.";
+        public const string CodBankAccountHolderRequired = "Account holder name is required.";
+        public const string CodBankAccountInvalid = "Invalid bank account details.";
+
+        // ───── Invoice Module ─────
+        public const string InvoicesFetchedSuccess = "Invoices fetched successfully.";
+        public const string InvoiceNotFound = "Invoice not found.";
+        public const string InvoiceDownloadSuccess = "Invoice download generated successfully.";
+        public const string InvoiceCreditNotesPhase2 =
+            "Credit notes will be available in a later phase.";
+        public const string InvoiceTdsPhase2 = "TDS certificates will be available in a later phase.";
 
         // ───── Rate Card / Settlement Module ─────
         public const string CourierSettlementFetchedSuccess = "Courier settlement data fetched successfully.";
@@ -147,9 +177,24 @@ namespace TryNextPost.Domain.Common
         public const string WeightFreezeActionSuccess = "Weight freeze action applied successfully.";
         public const string WeightFreezeActionNotAllowed = "Action is only allowed on Requested weight freeze records.";
         public const string WeightFreezeActionInvalid = "Invalid action. Supported actions: Accept, Reject.";
+        public const string WeightFreezeActionRequired = "Action is required.";
         public const string WeightFreezeImportSuccess = "Weight freeze CSV imported successfully.";
         public const string WeightFreezeImportEmpty = "CSV file is empty or missing required columns.";
-        public const string InvalidWeightFreezeStatusTab = "Invalid StatusTab. Use all, requested, accepted, or rejected.";
+        public const string WeightFreezeImportFileRequired = "Please upload a CSV file.";
+        public const string WeightFreezeImportMissingColumns = "CSV must include ProductId (or PID), ProductName, and WeightGrams columns.";
+        public const string WeightFreezeImportLineProductRequired = "Line {0}: ProductId and ProductName are required.";
+        public const string WeightFreezeImportLineInvalidWeight = "Line {0}: Invalid WeightGrams.";
+        public const string WeightFreezeImportLineDuplicate = "Line {0}: Active freeze already exists for ProductId '{1}'.";
+        public const string WeightFreezeImportLineError = "Line {0}: Failed to process row.";
+        public const string InvalidWeightFreezeStatusTab = "Invalid StatusTab. Use all, requested, accepted, rejected, or unfrozen.";
+        public const string WeightFreezeDuplicateActive = "An active Requested or Accepted weight freeze already exists for this product.";
+        public const string WeightFreezeUnfrozenSuccess = "Weight freeze unfrozen successfully.";
+        public const string WeightFreezeUnfreezeNotAllowed = "Only Accepted weight freeze records can be unfrozen.";
+        public const string WeightFreezeUnfrozenRemark = "Unfrozen";
+        public const string WeightFreezeProductIdRequired = "ProductId (PID) is required.";
+        public const string WeightFreezeProductNameRequired = "Product name is required.";
+        public const string WeightFreezeWeightRequired = "Weight must be greater than zero.";
+        public const string SellerNameFallback = "Seller #{0}";
         public const string WeightExportSuccess = "Export generated successfully.";
 
         // ───── Common/Generic ─────

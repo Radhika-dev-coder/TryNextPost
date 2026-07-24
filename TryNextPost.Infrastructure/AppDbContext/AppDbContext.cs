@@ -28,6 +28,8 @@ namespace TryNextPost.Infrastructure.AppDbContexts
         public DbSet<Transaction> Transactions => Set<Transaction>();
         public DbSet<WalletRecharge> WalletRecharges => Set<WalletRecharge>();
         public DbSet<CODSettlement> CODSettlements => Set<CODSettlement>();
+        public DbSet<SellerBankAccount> SellerBankAccounts => Set<SellerBankAccount>();
+        public DbSet<Invoice> Invoices => Set<Invoice>();
         public DbSet<Zone> Zones => Set<Zone>();
         public DbSet<PincodeZoneMapping> PincodeZoneMappings => Set<PincodeZoneMapping>();
         public DbSet<CourierRateCard> CourierRateCards => Set<CourierRateCard>();
@@ -338,6 +340,38 @@ namespace TryNextPost.Infrastructure.AppDbContexts
             // --- CODSettlement ---
             modelBuilder.Entity<CODSettlement>().HasIndex(c => c.ShipmentId).IsUnique();
             modelBuilder.Entity<CODSettlement>().HasIndex(c => c.SellerId);
+
+            // --- SellerBankAccount ---
+            modelBuilder.Entity<SellerBankAccount>(entity =>
+            {
+                entity.HasOne(a => a.Seller)
+                    .WithMany()
+                    .HasForeignKey(a => a.SellerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasIndex(a => a.SellerId);
+                entity.Property(a => a.AccountHolderName).HasMaxLength(150);
+                entity.Property(a => a.AccountNumber).HasMaxLength(50);
+                entity.Property(a => a.IfscCode).HasMaxLength(20);
+                entity.Property(a => a.BankName).HasMaxLength(150);
+                entity.Property(a => a.BranchName).HasMaxLength(100);
+                entity.Property(a => a.AccountType).HasMaxLength(30);
+            });
+
+            // --- Invoice ---
+            modelBuilder.Entity<Invoice>(entity =>
+            {
+                entity.HasOne(i => i.Seller)
+                    .WithMany()
+                    .HasForeignKey(i => i.SellerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasIndex(i => i.SellerId);
+                entity.HasIndex(i => i.InvoiceNumber).IsUnique();
+                entity.Property(i => i.InvoiceNumber).HasMaxLength(50);
+                entity.Property(i => i.ServiceType).HasMaxLength(50);
+                entity.Property(i => i.Amount).HasPrecision(18, 2);
+                entity.Property(i => i.ShippingChargesAmount).HasPrecision(18, 2);
+                entity.Property(i => i.RechargeAmount).HasPrecision(18, 2);
+            });
 
             // --- Order ---
             modelBuilder.Entity<Order>().HasIndex(o => o.OrderRef).IsUnique();

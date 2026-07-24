@@ -50,10 +50,13 @@ namespace TryNextPost.API.Controllers.Weight
                 return Unauthorized(new { message = SystemMessage.InvalidToken });
 
             var result = await _service.AcceptAsync(userId, User.IsInRole("SuperAdmin"), id);
+            var message = result.WeightCharges > 0
+                ? SystemMessage.WeightDiscrepancyChargeDebited
+                : SystemMessage.WeightDiscrepancyAccepted;
             return Ok(new ApiResponse<WeightDiscrepancyListItemResponse>
             {
                 Success = true,
-                Message = SystemMessage.WeightDiscrepancyAccepted,
+                Message = message,
                 Data = result,
                 StatusCode = ApiStatusCode.Success
             });

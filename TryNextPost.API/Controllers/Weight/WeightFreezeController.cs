@@ -41,7 +41,9 @@ namespace TryNextPost.API.Controllers.Weight
             });
         }
 
+        /// <summary>Seller creates a Requested weight freeze.</summary>
         [HttpPost]
+        [Authorize(Roles = "Seller,SellerEmployee")]
         public async Task<IActionResult> Create([FromBody] CreateWeightFreezeRequest request)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -83,13 +85,34 @@ namespace TryNextPost.API.Controllers.Weight
             });
         }
 
+        [HttpPost("{id:long}/unfreeze")]
+        public async Task<IActionResult> Unfreeze(long id)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = SystemMessage.InvalidToken });
+
+            var result = await _service.UnfreezeAsync(userId, User.IsInRole("SuperAdmin"), id);
+            return Ok(new ApiResponse<WeightFreezeListItemResponse>
+            {
+                Success = true,
+                Message = SystemMessage.WeightFreezeUnfrozenSuccess,
+                Data = result,
+                StatusCode = ApiStatusCode.Success
+            });
+        }
+
         [HttpPost("import")]
+        [Authorize(Roles = "Seller,SellerEmployee")]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> Import(IFormFile file)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized(new { message = SystemMessage.InvalidToken });
+
+            if (file == null || file.Length == 0)
+                return BadRequest(new { message = SystemMessage.WeightFreezeImportFileRequired });
 
             var result = await _service.ImportCsvAsync(userId, file);
             return Ok(new ApiResponse<WeightFreezeImportResult>
@@ -99,6 +122,14 @@ namespace TryNextPost.API.Controllers.Weight
                 Data = result,
                 StatusCode = ApiStatusCode.Success
             });
+        }
+
+        [HttpGet("import/sample")]
+        [Authorize(Roles = "Seller,SellerEmployee")]
+        public IActionResult DownloadImportSample()
+        {
+            var (content, fileName) = _service.GetImportSampleCsv();
+            return File(content, "text/csv", fileName);
         }
 
         [HttpGet("export")]

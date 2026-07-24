@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using TryNextPost.Application.DTO.Weight;
 using TryNextPost.Application.IServices.Interface;
+using TryNextPost.Application.IServices.Interface.IWallet;
 using TryNextPost.Application.IServices.Interface.IWeight;
 using TryNextPost.Domain.Common;
 using TryNextPost.Domain.Entities;
@@ -18,13 +19,16 @@ namespace TryNextPost.Application.IServices.Class.Weight
 
         private readonly IWeightDiscrepancyRepository _repository;
         private readonly ISellerContextService _sellerContextService;
+        private readonly IWalletService _walletService;
 
         public WeightDiscrepancyService(
             IWeightDiscrepancyRepository repository,
-            ISellerContextService sellerContextService)
+            ISellerContextService sellerContextService,
+            IWalletService walletService)
         {
             _repository = repository;
             _sellerContextService = sellerContextService;
+            _walletService = walletService;
         }
 
         public async Task<WeightDiscrepancyListResponse> GetListAsync(
@@ -79,12 +83,19 @@ namespace TryNextPost.Application.IServices.Class.Weight
             if (entity.Status != WeightDiscrepancyStatus.ActionRequired)
                 throw new InvalidOperationException(SystemMessage.WeightDiscrepancyActionNotAllowed);
 
+            // Debit first when charge > 0 (idempotent). Zero charge skips debit gracefully.
+            await _walletService.DebitForWeightDiscrepancyAsync(
+                entity.SellerId,
+                entity.WeightCharges,
+                entity.WeightDiscrepancyId,
+                entity.AwbNumber,
+                userId);
+
             entity.Status = WeightDiscrepancyStatus.Accepted;
             entity.AcceptedAt = DateTime.UtcNow;
             entity.UpdatedAt = DateTime.UtcNow;
             entity.UpdatedBy = userId;
 
-            // Wallet debit is phase-2; accept only updates status for MVP.
             await _repository.UpdateAsync(entity);
             await _repository.SaveChangesAsync();
 
@@ -157,10 +168,12 @@ namespace TryNextPost.Application.IServices.Class.Weight
                 filter.CourierId);
 
             var sb = new StringBuilder();
-            sb.AppendLine("WeightAppliedDate,AWBNumber,OrderId,OrderRef,EnteredWeightGrams,AppliedWeightGrams,WeightCharges,Product,Courier,Status");
+            sb.AppendLine("SellerId,SellerName,WeightAppliedDate,AWBNumber,OrderId,OrderRef,EnteredWeightGrams,AppliedWeightGrams,WeightCharges,Product,Courier,Status");
 
             foreach (var item in items)
             {
+                sb.Append(Csv(item.SellerId.ToString(CultureInfo.InvariantCulture))).Append(',');
+                sb.Append(Csv(ResolveSellerName(item))).Append(',');
                 sb.Append(Csv(item.WeightAppliedDate.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture))).Append(',');
                 sb.Append(Csv(item.AwbNumber)).Append(',');
                 sb.Append(Csv(item.OrderId?.ToString())).Append(',');
@@ -251,6 +264,8 @@ namespace TryNextPost.Application.IServices.Class.Weight
             return new WeightDiscrepancyListItemResponse
             {
                 WeightDiscrepancyId = entity.WeightDiscrepancyId,
+                SellerId = entity.SellerId,
+                SellerName = ResolveSellerName(entity),
                 WeightAppliedDate = entity.WeightAppliedDate,
                 AwbNumber = entity.AwbNumber,
                 OrderId = entity.OrderId,
@@ -263,9 +278,14 @@ namespace TryNextPost.Application.IServices.Class.Weight
                 CourierId = entity.CourierId,
                 Status = (int)entity.Status,
                 StatusName = ToDisplayStatus(entity.Status),
-                DisputeRemarks = entity.DisputeRemarks
+                DisputeRemarks = entity.DisputeRemarks,
+                ClosedRemarks = entity.ClosedRemarks
             };
         }
+
+        private static string ResolveSellerName(WeightDiscrepancy entity)
+            => entity.Seller?.Company?.Name?.Trim()
+               ?? (entity.SellerId > 0 ? $"Seller #{entity.SellerId}" : string.Empty);
 
         private static string ToDisplayStatus(WeightDiscrepancyStatus status) => status switch
         {

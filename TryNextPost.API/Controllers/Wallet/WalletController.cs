@@ -38,6 +38,27 @@ namespace TryNextPost.API.Controllers.Wallet
             });
         }
 
+        [HttpGet("transactions")]
+        public async Task<IActionResult> GetTransactions([FromQuery] WalletTransactionFilterRequest filter)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = SystemMessage.InvalidToken });
+
+            var result = await _walletService.GetTransactionsAsync(
+                userId,
+                User.IsInRole("SuperAdmin"),
+                filter ?? new WalletTransactionFilterRequest());
+
+            return Ok(new ApiResponse<WalletTransactionListResponse>
+            {
+                Success = true,
+                Message = SystemMessage.WalletTransactionsFetchedSuccess,
+                Data = result,
+                StatusCode = ApiStatusCode.Success
+            });
+        }
+
         [HttpPost("recharge")]
         public async Task<IActionResult> Recharge([FromBody] WalletRechargeRequest request)
         {

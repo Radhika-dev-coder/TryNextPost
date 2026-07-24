@@ -20,6 +20,8 @@ namespace TryNextPost.Infrastructure.Repository
             return await _context.WeightDiscrepancies
                 .Include(w => w.Order)
                 .Include(w => w.Shipment)
+                .Include(w => w.Seller!)
+                    .ThenInclude(s => s.Company)
                 .FirstOrDefaultAsync(w => w.WeightDiscrepancyId == id && w.IsActive == true);
         }
 
@@ -99,6 +101,8 @@ namespace TryNextPost.Infrastructure.Repository
             var query = _context.WeightDiscrepancies
                 .AsNoTracking()
                 .Include(w => w.Order)
+                .Include(w => w.Seller!)
+                    .ThenInclude(s => s.Company)
                 .Where(w => w.IsActive == true);
 
             if (sellerId.HasValue)

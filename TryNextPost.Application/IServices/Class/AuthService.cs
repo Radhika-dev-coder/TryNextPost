@@ -7,6 +7,7 @@ using TryNextPost.Application.IServices.Interface;
 using TryNextPost.Application.Services.Interface;
 using TryNextPost.Domain.Common;
 using TryNextPost.Domain.Entities;
+using TryNextPost.Domain.Enums;
 using TryNextPost.Domain.IRepository;
 using LoginRequest = TryNextPost.Application.DTO.Auth.LoginRequest;
 using RegisterRequest = TryNextPost.Application.DTO.Auth.RegisterRequest;
@@ -66,10 +67,12 @@ namespace TryNextPost.Application.IServices.Class
                 throw new UnauthorizedAccessException(SystemMessage.InvalidCredentials);
 
             var user = await _identityService.GetUserByEmailAsync(request.Email);
-            var roles = await _identityService.GetUserRolesAsync(result.UserId);
+            // Use the same userId that passed credential validation (avoid any DTO/id mismatch).
+            var userId = result.UserId ?? user.UserId;
+            var roles = await _identityService.GetUserRolesAsync(userId);
 
             return await BuildLoginResponseAsync(
-                user.UserId,
+                userId,
                 user.Email,
                 roles,
                 request.DeviceId,
@@ -245,10 +248,12 @@ namespace TryNextPost.Application.IServices.Class
                 {
                     SellerId = (await _sellerRepository.GetByUserIdAsync(result.UserId)).SellerId,
                     IsOwner = true,
-                    Permissions = Domain.Enums.EmployeePermissionCode.All.ToList()
+                    Permissions = EmployeePermissionCode.All.ToList()
                 };
 
                 loginResponse.SellerContext = sellerContext;
+                loginResponse.RequiresKyc = false;
+                loginResponse.IsProfileComplete = true;
                 return loginResponse;
             }
             catch
@@ -314,31 +319,20 @@ namespace TryNextPost.Application.IServices.Class
             session.IpAddress = ipAddress;
             await _sessionRepository.SaveChangesAsync();
 
-            SellerContextDto? sellerContext = null;
-            try
-            {
-                var context = await _sellerContextService.ResolveAsync(user.UserId);
-                sellerContext = new SellerContextDto
-                {
-                    SellerId = context.SellerId,
-                    IsOwner = context.IsOwner,
-                    EmployeeId = context.EmployeeId,
-                    Permissions = context.Permissions.ToList()
-                };
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
+            var (sellerContext, requiresKyc, isProfileComplete) =
+                await ResolveSellerContextForLoginAsync(user.UserId, roles);
 
             return new LoginSuccessResponse
             {
-                Message = SystemMessage.LoginSuccess,
+                Message = requiresKyc ? SystemMessage.SellerProfileIncomplete : SystemMessage.LoginSuccess,
                 Token = session.JwtToken,
                 RefreshToken = newRefreshToken,
                 ExpiresAt = session.ExpiryAt,
                 RefreshTokenExpiryTime = refreshExpiry,
                 Roles = roles,
-                SellerContext = sellerContext
+                SellerContext = sellerContext,
+                RequiresKyc = requiresKyc,
+                IsProfileComplete = isProfileComplete
             };
         }
 
@@ -396,32 +390,92 @@ namespace TryNextPost.Application.IServices.Class
             session.JwtToken = _jwtService.GenerateToken(userId, email, roles, session.Id);
             await _sessionRepository.SaveChangesAsync();
 
-            SellerContextDto? sellerContext = null;
-            try
-            {
-                var context = await _sellerContextService.ResolveAsync(userId);
-                sellerContext = new SellerContextDto
-                {
-                    SellerId = context.SellerId,
-                    IsOwner = context.IsOwner,
-                    EmployeeId = context.EmployeeId,
-                    Permissions = context.Permissions.ToList()
-                };
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
+            var (sellerContext, requiresKyc, isProfileComplete) =
+                await ResolveSellerContextForLoginAsync(userId, roles);
 
             return new LoginSuccessResponse
             {
-                Message = message,
+                Message = requiresKyc ? SystemMessage.SellerProfileIncomplete : message,
                 Token = session.JwtToken,
                 RefreshToken = refreshToken,
                 ExpiresAt = session.ExpiryAt,
                 RefreshTokenExpiryTime = refreshExpiry,
                 Roles = roles,
-                SellerContext = sellerContext
+                SellerContext = sellerContext,
+                RequiresKyc = requiresKyc,
+                IsProfileComplete = isProfileComplete
             };
+        }
+
+        /// <summary>
+        /// Only SuperAdmin skips seller/KYC resolution (SellerContext = null, RequiresKyc = false, IsProfileComplete = null).
+        /// Admin is a seller — soft KYC via RequiresKyc; never block login.
+        /// SuperAdmin must NEVER call ResolveAsync (no seller row is expected).
+        /// </summary>
+        private async Task<(SellerContextDto? Context, bool RequiresKyc, bool? IsProfileComplete)> ResolveSellerContextForLoginAsync(
+            string userId,
+            List<string> roles)
+        {
+            roles ??= new List<string>();
+
+            // Fresh Identity roles — authoritative for SuperAdmin skip (never trust a stale list alone).
+            var identityRoles = await _identityService.GetUserRolesAsync(userId) ?? new List<string>();
+
+            // ONLY SuperAdmin skips seller/KYC entirely — do not call ResolveAsync.
+            if (IsSuperAdminRole(identityRoles) || IsSuperAdminRole(roles))
+                return (null, false, null);
+
+            // Non-seller platform roles (none today): no seller context, no KYC gate.
+            if (!IsSellerFacingRole(identityRoles) && !IsSellerFacingRole(roles))
+                return (null, false, null);
+
+            try
+            {
+                var context = await _sellerContextService.ResolveAsync(userId);
+                return (new SellerContextDto
+                {
+                    SellerId = context.SellerId,
+                    IsOwner = context.IsOwner,
+                    EmployeeId = context.EmployeeId,
+                    Permissions = context.Permissions.ToList()
+                }, false, true);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Defensive: if ResolveAsync was reached despite SuperAdmin, never block login / never RequiresKyc.
+                var latestRoles = await _identityService.GetUserRolesAsync(userId);
+                if (IsSuperAdminRole(latestRoles))
+                    return (null, false, null);
+
+                // Admin / Seller / SellerEmployee without seller row: tokens issued, FE shows KYC alert.
+                return (null, true, false);
+            }
+            catch (InvalidOperationException)
+            {
+                // ResolveAsync throws InvalidOperationException when SuperAdmin has no seller context.
+                var latestRoles = await _identityService.GetUserRolesAsync(userId);
+                if (IsSuperAdminRole(latestRoles))
+                    return (null, false, null);
+                throw;
+            }
+        }
+
+        private static bool IsSuperAdminRole(IEnumerable<string> roles)
+            => HasRole(roles, RoleEnum.SuperAdmin);
+
+        /// <summary>Roles that own or act as a seller and must complete KYC.</summary>
+        private static bool IsSellerFacingRole(IEnumerable<string> roles)
+            => HasRole(roles, RoleEnum.Seller)
+               || HasRole(roles, RoleEnum.SellerEmployee)
+               || HasRole(roles, RoleEnum.Admin);
+
+        private static bool HasRole(IEnumerable<string>? roles, RoleEnum role)
+        {
+            if (roles == null)
+                return false;
+
+            var expected = role.ToString(); // "SuperAdmin", "Admin", "Seller", "SellerEmployee"
+            return roles.Any(r => string.Equals(r, expected, StringComparison.OrdinalIgnoreCase));
         }
 
         private static string NormalizedIndianMobile(string mobile)

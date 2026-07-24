@@ -34,6 +34,7 @@ namespace TryNextPost.API.Controllers
             return Ok(result);
         }
 
+
         [HttpPost("check-phone")]
         public async Task<IActionResult> CheckPhone([FromQuery] string mobile)
         {
