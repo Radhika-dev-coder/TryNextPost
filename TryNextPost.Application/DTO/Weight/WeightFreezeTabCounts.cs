@@ -6,5 +6,6 @@ namespace TryNextPost.Application.DTO.Weight
         public int Requested { get; set; }
         public int Accepted { get; set; }
         public int Rejected { get; set; }
+        public int Unfrozen { get; set; }
     }
 }

@@ -25,7 +25,9 @@ using TryNextPost.Application.IServices.Interface.IEmployee;
 using TryNextPost.Application.IServices.Interface.ISettlement;
 using TryNextPost.Application.IServices.Interface.IRateCard;
 using TryNextPost.Application.IServices.Interface.IWeight;
+using TryNextPost.Application.IServices.Class.Billing;
 using TryNextPost.Application.IServices.Class.Wallet;
+using TryNextPost.Application.IServices.Interface.IBilling;
 using TryNextPost.Application.IServices.Interface.IWallet;
 using TryNextPost.Application.IServices.Interface.IPayment;
 using TryNextPost.Application.Services.Interface;
@@ -94,6 +96,10 @@ builder.Services.AddScoped<ICourierSettlementService, CourierSettlementService>(
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IWalletRechargeRepository, WalletRechargeRepository>();
 builder.Services.AddScoped<IWalletService, WalletService>();
+builder.Services.AddScoped<ICODSettlementRepository, CODSettlementRepository>();
+builder.Services.AddScoped<ISellerBankAccountRepository, SellerBankAccountRepository>();
+builder.Services.AddScoped<IInvoiceRepository, InvoiceRepository>();
+builder.Services.AddScoped<IBillingService, BillingService>();
 
 builder.Services.Configure<RazorpaySettings>(
 builder.Configuration.GetSection(RazorpaySettings.SectionName));

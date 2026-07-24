@@ -26,6 +26,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
         private readonly IWalletService _walletService;
         private readonly IRateCalculationService _rateCalculationService;
         private readonly IShipmentChargesRepository _shipmentChargesRepository;
+        private readonly IProductWeightFreezeRepository _productWeightFreezeRepository;
 
         public ShipmentService(
             ISellerRepository sellerRepository,
@@ -38,7 +39,8 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             ICourierAdapterFactory courierAdapterFactory,
             IWalletService walletService,
             IRateCalculationService rateCalculationService,
-            IShipmentChargesRepository shipmentChargesRepository)
+            IShipmentChargesRepository shipmentChargesRepository,
+            IProductWeightFreezeRepository productWeightFreezeRepository)
         {
             _sellerRepository = sellerRepository;
             _sellerContextService = sellerContextService;
@@ -51,6 +53,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             _walletService = walletService;
             _rateCalculationService = rateCalculationService;
             _shipmentChargesRepository = shipmentChargesRepository;
+            _productWeightFreezeRepository = productWeightFreezeRepository;
         }
 
         public async Task<GetShipmentRatesResponse> GetRatesAsync(
@@ -61,6 +64,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.ShipmentsCreate);
             var (order, seller) = await LoadOwnedOrderAsync(orderId, userId);
             EnsureOrderShippable(order);
+            await ApplyWeightFreezeIfApplicableAsync(order);
 
             var warehouse = await ResolveWarehouseAddressAsync(order, seller);
             var rateRequest = BuildRateRequest(order, warehouse);
@@ -160,6 +164,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
 
             var (order, seller) = await LoadOwnedOrderAsync(request.OrderId, userId);
             EnsureOrderShippable(order);
+            await ApplyWeightFreezeIfApplicableAsync(order);
 
             if (await _shipmentRepository.HasActiveShipmentAsync(order.OrderId))
                 throw new InvalidOperationException(SystemMessage.ShipmentAlreadyExists);
@@ -320,48 +325,72 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             if (string.IsNullOrWhiteSpace(shipment.AwbNumber))
                 throw new InvalidOperationException(SystemMessage.AwbRequired);
 
-            if (!_courierAdapterFactory.TryResolve(shipment.Courier?.CourierCode, out var adapter) || adapter is null)
-                throw new InvalidOperationException(SystemMessage.CourierNotSupported);
+            CourierLabelResponse? labelResponse = null;
 
-            CourierLabelResponse labelResponse;
-            try
+            if (_courierAdapterFactory.TryResolve(shipment.Courier?.CourierCode, out var adapter) && adapter is not null)
             {
-                labelResponse = await adapter.GetLabelAsync(
-                    new CourierLabelRequest { AwbNumber = shipment.AwbNumber },
-                    cancellationToken);
-            }
-            catch (NotImplementedException ex)
-            {
-                throw new InvalidOperationException($"{SystemMessage.ShipmentLabelFailed} {ex.Message}");
-            }
-
-            if (labelResponse == null || !labelResponse.Success)
-            {
-                throw new InvalidOperationException(
-                    labelResponse?.Message ?? SystemMessage.ShipmentLabelFailed);
+                try
+                {
+                    labelResponse = await adapter.GetLabelAsync(
+                        new CourierLabelRequest { AwbNumber = shipment.AwbNumber },
+                        cancellationToken);
+                }
+                catch (NotImplementedException)
+                {
+                    labelResponse = null;
+                }
             }
 
-            if (!string.IsNullOrWhiteSpace(labelResponse.LabelUrl)
-                && string.IsNullOrWhiteSpace(shipment.LabelUrl))
+            if (labelResponse != null && labelResponse.Success)
             {
-                shipment.LabelUrl = labelResponse.LabelUrl;
-                shipment.UpdatedAt = DateTime.UtcNow;
-                shipment.UpdatedBy = userId;
-                await _shipmentRepository.UpdateAsync(shipment);
-                await _shipmentRepository.SaveChangesAsync();
+                if (!string.IsNullOrWhiteSpace(labelResponse.LabelUrl)
+                    && string.IsNullOrWhiteSpace(shipment.LabelUrl))
+                {
+                    shipment.LabelUrl = labelResponse.LabelUrl;
+                    shipment.UpdatedAt = DateTime.UtcNow;
+                    shipment.UpdatedBy = userId;
+                    await _shipmentRepository.UpdateAsync(shipment);
+                    await _shipmentRepository.SaveChangesAsync();
+                }
+
+                return new ShipmentLabelResponse
+                {
+                    ShipmentId = shipment.ShipmentId,
+                    AwbNumber = shipment.AwbNumber,
+                    LabelUrl = labelResponse.LabelUrl ?? shipment.LabelUrl,
+                    ContentType = labelResponse.ContentType,
+                    LabelBase64 = labelResponse.LabelContent == null
+                        ? null
+                        : Convert.ToBase64String(labelResponse.LabelContent),
+                    IsStub = labelResponse.IsStub,
+                    Message = labelResponse.Message ?? SystemMessage.ShipmentLabelFetchedSuccess
+                };
             }
 
+            // Fallback: stored URL or local stub text label (no courier credentials required).
+            if (!string.IsNullOrWhiteSpace(shipment.LabelUrl))
+            {
+                return new ShipmentLabelResponse
+                {
+                    ShipmentId = shipment.ShipmentId,
+                    AwbNumber = shipment.AwbNumber,
+                    LabelUrl = shipment.LabelUrl,
+                    ContentType = "text/html",
+                    IsStub = true,
+                    Message = SystemMessage.ShipmentLabelFetchedSuccess
+                };
+            }
+
+            var stubText = $"[STUB LABEL] AWB:{shipment.AwbNumber} Courier:{shipment.Courier?.CourierCode}";
             return new ShipmentLabelResponse
             {
                 ShipmentId = shipment.ShipmentId,
                 AwbNumber = shipment.AwbNumber,
-                LabelUrl = labelResponse.LabelUrl ?? shipment.LabelUrl,
-                ContentType = labelResponse.ContentType,
-                LabelBase64 = labelResponse.LabelContent == null
-                    ? null
-                    : Convert.ToBase64String(labelResponse.LabelContent),
-                IsStub = labelResponse.IsStub,
-                Message = labelResponse.Message ?? SystemMessage.ShipmentLabelFetchedSuccess
+                LabelUrl = shipment.LabelUrl,
+                ContentType = "text/plain",
+                LabelBase64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(stubText)),
+                IsStub = true,
+                Message = "[STUB] Local label — courier label API unavailable."
             };
         }
 
@@ -373,6 +402,24 @@ namespace TryNextPost.Application.IServices.Class.Shipment
         {
             var shipment = await LoadOwnedShipmentAsync(shipmentId, userId);
 
+            // Idempotent: already cancelled → ensure refund exists, return success.
+            if (shipment.Status == ShipmentStatus.Cancelled)
+            {
+                var wallet = await RefundShipmentChargeAsync(shipment, userId);
+                return new CancelShipmentResponse
+                {
+                    ShipmentId = shipment.ShipmentId,
+                    AwbNumber = shipment.AwbNumber,
+                    Status = (int)shipment.Status,
+                    StatusName = shipment.Status.ToString(),
+                    RefundedAmount = shipment.ChargedAmount,
+                    WalletBalanceAfterRefund = wallet.Balance,
+                    AlreadyCancelled = true,
+                    IsStub = true,
+                    Message = SystemMessage.ShipmentAlreadyCancelled
+                };
+            }
+
             if (!ShipmentStatusTransitions.IsCancellable(shipment.Status))
                 throw new InvalidOperationException(SystemMessage.ShipmentNotCancellable);
 
@@ -381,30 +428,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             if (string.IsNullOrWhiteSpace(shipment.AwbNumber))
                 throw new InvalidOperationException(SystemMessage.AwbRequired);
 
-            if (!_courierAdapterFactory.TryResolve(shipment.Courier?.CourierCode, out var adapter) || adapter is null)
-                throw new InvalidOperationException(SystemMessage.CourierNotSupported);
-
-            CourierCancelResponse cancelResponse;
-            try
-            {
-                cancelResponse = await adapter.CancelAsync(
-                    new CourierCancelRequest
-                    {
-                        AwbNumber = shipment.AwbNumber,
-                        Reason = request.Reason
-                    },
-                    cancellationToken);
-            }
-            catch (NotImplementedException ex)
-            {
-                throw new InvalidOperationException($"{SystemMessage.ShipmentCancelFailed} {ex.Message}");
-            }
-
-            if (cancelResponse == null || !cancelResponse.Success)
-            {
-                throw new InvalidOperationException(
-                    cancelResponse?.Message ?? SystemMessage.ShipmentCancelFailed);
-            }
+            var cancelResponse = await TryCancelWithCourierAsync(shipment, request.Reason, cancellationToken);
 
             shipment.Status = ShipmentStatus.Cancelled;
             shipment.UpdatedAt = DateTime.UtcNow;
@@ -424,7 +448,19 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 EventTime = DateTime.UtcNow,
                 CreatedAt = DateTime.UtcNow
             });
+
+            // Allow re-booking: revert order to Pending when it was Confirmed by booking.
+            if (shipment.Order != null && shipment.Order.Status == OrderStatus.Confirmed)
+            {
+                shipment.Order.Status = OrderStatus.Pending;
+                shipment.Order.UpdatedAt = DateTime.UtcNow;
+                shipment.Order.UpdatedBy = userId;
+                await _orderRepository.UpdateAsync(shipment.Order);
+            }
+
             await _shipmentRepository.SaveChangesAsync();
+
+            var walletAfterRefund = await RefundShipmentChargeAsync(shipment, userId);
 
             return new CancelShipmentResponse
             {
@@ -432,6 +468,9 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 AwbNumber = shipment.AwbNumber,
                 Status = (int)shipment.Status,
                 StatusName = shipment.Status.ToString(),
+                RefundedAmount = shipment.ChargedAmount,
+                WalletBalanceAfterRefund = walletAfterRefund.Balance,
+                AlreadyCancelled = false,
                 IsStub = cancelResponse.IsStub,
                 Message = cancelResponse.Message ?? SystemMessage.ShipmentCancelledSuccess
             };
@@ -447,39 +486,6 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             if (string.IsNullOrWhiteSpace(shipment.AwbNumber))
                 throw new InvalidOperationException(SystemMessage.AwbRequired);
 
-            if (!_courierAdapterFactory.TryResolve(shipment.Courier?.CourierCode, out var adapter) || adapter is null)
-                throw new InvalidOperationException(SystemMessage.CourierNotSupported);
-
-            CourierTrackResponse trackResponse;
-            try
-            {
-                trackResponse = await adapter.TrackAsync(
-                    new CourierTrackRequest { AwbNumber = shipment.AwbNumber },
-                    cancellationToken);
-            }
-            catch (NotImplementedException ex)
-            {
-                throw new InvalidOperationException($"{SystemMessage.ShipmentTrackFailed} {ex.Message}");
-            }
-
-            if (trackResponse == null || !trackResponse.Success)
-            {
-                throw new InvalidOperationException(
-                    trackResponse?.Message ?? SystemMessage.ShipmentTrackFailed);
-            }
-
-            // Soft-sync local status from courier current status when parseable + allowed.
-            if (ShipmentStatusTransitions.TryParseStatus(trackResponse.CurrentStatus, out var mapped)
-                && mapped != shipment.Status
-                && ShipmentStatusTransitions.CanTransition(shipment.Status, mapped))
-            {
-                shipment.Status = mapped;
-                shipment.UpdatedAt = DateTime.UtcNow;
-                shipment.UpdatedBy = userId;
-                await _shipmentRepository.UpdateAsync(shipment);
-                await _shipmentRepository.SaveChangesAsync();
-            }
-
             var localHistory = await _shipmentRepository.GetTrackingHistoryAsync(shipment.ShipmentId);
             var events = new List<ShipmentTrackEventDto>();
 
@@ -493,21 +499,61 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 FromLocalHistory = true
             }));
 
-            if (trackResponse.Events != null)
+            // Optional courier poll — never fail if local history exists (no real API required).
+            CourierTrackResponse? trackResponse = null;
+            if (_courierAdapterFactory.TryResolve(shipment.Courier?.CourierCode, out var adapter) && adapter is not null)
             {
-                foreach (var e in trackResponse.Events)
+                try
                 {
-                    events.Add(new ShipmentTrackEventDto
-                    {
-                        EventTime = e.EventTime,
-                        Status = e.Status,
-                        StatusCode = e.StatusCode,
-                        Location = e.Location,
-                        Description = e.Description,
-                        FromLocalHistory = false
-                    });
+                    trackResponse = await adapter.TrackAsync(
+                        new CourierTrackRequest { AwbNumber = shipment.AwbNumber },
+                        cancellationToken);
+                }
+                catch (NotImplementedException)
+                {
+                    trackResponse = null;
+                }
+                catch (Exception)
+                {
+                    // Keep local history as source of truth when courier is unavailable.
+                    trackResponse = null;
                 }
             }
+
+            if (trackResponse != null && trackResponse.Success)
+            {
+                // Soft-sync only from real (non-stub) courier status.
+                if (!trackResponse.IsStub
+                    && ShipmentStatusTransitions.TryParseStatus(trackResponse.CurrentStatus, out var mapped)
+                    && mapped != shipment.Status
+                    && ShipmentStatusTransitions.CanTransition(shipment.Status, mapped))
+                {
+                    shipment.Status = mapped;
+                    shipment.UpdatedAt = DateTime.UtcNow;
+                    shipment.UpdatedBy = userId;
+                    await _shipmentRepository.UpdateAsync(shipment);
+                    await _shipmentRepository.SaveChangesAsync();
+                }
+
+                if (trackResponse.Events != null)
+                {
+                    foreach (var e in trackResponse.Events)
+                    {
+                        events.Add(new ShipmentTrackEventDto
+                        {
+                            EventTime = e.EventTime,
+                            Status = e.Status,
+                            StatusCode = e.StatusCode,
+                            Location = e.Location,
+                            Description = e.Description,
+                            FromLocalHistory = false
+                        });
+                    }
+                }
+            }
+
+            if (events.Count == 0 && (trackResponse == null || !trackResponse.Success))
+                throw new InvalidOperationException(SystemMessage.ShipmentTrackFailed);
 
             return new ShipmentTrackResponse
             {
@@ -515,9 +561,9 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 AwbNumber = shipment.AwbNumber,
                 Status = (int)shipment.Status,
                 StatusName = shipment.Status.ToString(),
-                CourierCurrentStatus = trackResponse.CurrentStatus,
-                IsStub = trackResponse.IsStub,
-                Message = trackResponse.Message ?? SystemMessage.ShipmentTrackedSuccess,
+                CourierCurrentStatus = trackResponse?.CurrentStatus ?? shipment.Status.ToString(),
+                IsStub = trackResponse?.IsStub ?? true,
+                Message = trackResponse?.Message ?? SystemMessage.ShipmentTrackedSuccess,
                 Events = events.OrderByDescending(e => e.EventTime).ToList()
             };
         }
@@ -734,6 +780,65 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 throw new UnauthorizedAccessException(SystemMessage.Unauthorized);
 
             return shipment;
+        }
+
+        private async Task<DTO.Wallet.WalletBalanceResponse> RefundShipmentChargeAsync(
+            Domain.Entities.Shipment shipment,
+            string userId)
+        {
+            return await _walletService.CreditForShipmentRefundAsync(
+                userId,
+                shipment.ChargedAmount,
+                shipment.ShipmentId,
+                shipment.AwbNumber,
+                userId);
+        }
+
+        private async Task<CourierCancelResponse> TryCancelWithCourierAsync(
+            Domain.Entities.Shipment shipment,
+            string? reason,
+            CancellationToken cancellationToken)
+        {
+            if (!_courierAdapterFactory.TryResolve(shipment.Courier?.CourierCode, out var adapter) || adapter is null)
+            {
+                return new CourierCancelResponse
+                {
+                    Success = true,
+                    IsStub = true,
+                    CourierCode = shipment.Courier?.CourierCode ?? string.Empty,
+                    Message = "[STUB] Local cancel — courier adapter not registered."
+                };
+            }
+
+            try
+            {
+                var cancelResponse = await adapter.CancelAsync(
+                    new CourierCancelRequest
+                    {
+                        AwbNumber = shipment.AwbNumber!,
+                        Reason = reason
+                    },
+                    cancellationToken);
+
+                if (cancelResponse == null || !cancelResponse.Success)
+                {
+                    throw new InvalidOperationException(
+                        cancelResponse?.Message ?? SystemMessage.ShipmentCancelFailed);
+                }
+
+                return cancelResponse;
+            }
+            catch (NotImplementedException)
+            {
+                // Credentials configured but HTTP not wired — still cancel locally.
+                return new CourierCancelResponse
+                {
+                    Success = true,
+                    IsStub = true,
+                    CourierCode = shipment.Courier?.CourierCode ?? string.Empty,
+                    Message = "[STUB] Local cancel — courier cancel API not implemented yet."
+                };
+            }
         }
 
         private static void EnsureOrderShippable(Domain.Entities.Order order)
@@ -1081,6 +1186,79 @@ namespace TryNextPost.Application.IServices.Class.Shipment
         private static decimal ToKg(decimal weightGrams)
         {
             return Math.Max(weightGrams / 1000m, 0.1m);
+        }
+
+        /// <summary>
+        /// Nimbus-like: when order items match an Accepted + AutoApply freeze (by ProductId/SKU),
+        /// override in-memory package weight/dims for rate + book. Unfrozen/Rejected never apply.
+        /// Does not persist order changes.
+        /// </summary>
+        private async Task ApplyWeightFreezeIfApplicableAsync(Domain.Entities.Order order)
+        {
+            if (order.OrderItems == null || order.OrderItems.Count == 0)
+                return;
+
+            var productKeys = order.OrderItems
+                .Select(i => i.Sku)
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(s => s!.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (productKeys.Count == 0)
+                return;
+
+            var freezes = await _productWeightFreezeRepository.GetApplicableAcceptedAsync(
+                order.SellerId,
+                productKeys);
+
+            if (freezes.Count == 0)
+                return;
+
+            ProductWeightFreeze? MatchFreeze(OrderItem item)
+            {
+                if (string.IsNullOrWhiteSpace(item.Sku))
+                    return null;
+
+                var key = item.Sku.Trim();
+                return freezes.FirstOrDefault(f =>
+                    (!string.IsNullOrWhiteSpace(f.Sku)
+                     && string.Equals(f.Sku.Trim(), key, StringComparison.OrdinalIgnoreCase))
+                    || string.Equals(f.ProductId.Trim(), key, StringComparison.OrdinalIgnoreCase));
+            }
+
+            decimal frozenWeight = 0;
+            var matchedAny = false;
+            ProductWeightFreeze? primaryFreeze = null;
+
+            foreach (var item in order.OrderItems)
+            {
+                var freeze = MatchFreeze(item);
+                if (freeze == null)
+                    continue;
+
+                matchedAny = true;
+                primaryFreeze ??= freeze;
+                var qty = item.Qty > 0 ? item.Qty : 1;
+                frozenWeight += freeze.WeightGrams * qty;
+            }
+
+            if (!matchedAny || frozenWeight <= 0)
+                return;
+
+            order.WeightGrams = frozenWeight;
+
+            if (primaryFreeze != null
+                && primaryFreeze.LengthCm > 0
+                && primaryFreeze.BreadthCm > 0
+                && primaryFreeze.HeightCm > 0)
+            {
+                order.LengthCm = primaryFreeze.LengthCm;
+                order.BreadthCm = primaryFreeze.BreadthCm;
+                order.HeightCm = primaryFreeze.HeightCm;
+                order.VolumetricWeightGrams =
+                    (primaryFreeze.LengthCm * primaryFreeze.BreadthCm * primaryFreeze.HeightCm) / 5000m * 1000m;
+            }
         }
 
         private static decimal GetChargeableWeightGrams(Domain.Entities.Order order)

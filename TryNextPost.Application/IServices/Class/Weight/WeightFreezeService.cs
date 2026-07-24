@@ -53,7 +53,8 @@ namespace TryNextPost.Application.IServices.Class.Weight
                 All = await _repository.GetCountByStatusAsync(sellerId, null),
                 Requested = await _repository.GetCountByStatusAsync(sellerId, WeightFreezeStatus.Requested),
                 Accepted = await _repository.GetCountByStatusAsync(sellerId, WeightFreezeStatus.Accepted),
-                Rejected = await _repository.GetCountByStatusAsync(sellerId, WeightFreezeStatus.Rejected)
+                Rejected = await _repository.GetCountByStatusAsync(sellerId, WeightFreezeStatus.Rejected),
+                Unfrozen = await _repository.GetCountByStatusAsync(sellerId, WeightFreezeStatus.Unfrozen)
             };
 
             return new WeightFreezeListResponse
@@ -70,6 +71,9 @@ namespace TryNextPost.Application.IServices.Class.Weight
         {
             await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.ShipmentsView);
             var seller = await _sellerContextService.ResolveSellerAsync(userId);
+
+            if (await _repository.HasActiveDuplicateAsync(seller.SellerId, request.ProductId))
+                throw new InvalidOperationException(SystemMessage.WeightFreezeDuplicateActive);
 
             var entity = new ProductWeightFreeze
             {
@@ -131,16 +135,48 @@ namespace TryNextPost.Application.IServices.Class.Weight
             return Map(entity);
         }
 
+        public async Task<WeightFreezeListItemResponse> UnfreezeAsync(string userId, bool isSuperAdmin, long id)
+        {
+            var entity = await _repository.GetByIdAsync(id)
+                ?? throw new KeyNotFoundException(SystemMessage.WeightFreezeNotFound);
+
+            if (entity.Status != WeightFreezeStatus.Accepted)
+                throw new InvalidOperationException(SystemMessage.WeightFreezeUnfreezeNotAllowed);
+
+            if (!isSuperAdmin)
+            {
+                await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.ShipmentsView);
+                var seller = await _sellerContextService.ResolveSellerAsync(userId);
+                if (entity.SellerId != seller.SellerId)
+                    throw new UnauthorizedAccessException(SystemMessage.Unauthorized);
+            }
+
+            entity.Status = WeightFreezeStatus.Unfrozen;
+            entity.ActionRemarks = string.IsNullOrWhiteSpace(entity.ActionRemarks)
+                ? SystemMessage.WeightFreezeUnfrozenRemark
+                : entity.ActionRemarks;
+            entity.ActionedAt = DateTime.UtcNow;
+            entity.ActionedBy = userId;
+            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UpdatedBy = userId;
+
+            await _repository.UpdateAsync(entity);
+            await _repository.SaveChangesAsync();
+
+            return Map(entity);
+        }
+
         public async Task<WeightFreezeImportResult> ImportCsvAsync(string userId, IFormFile file)
         {
             await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.ShipmentsView);
             var seller = await _sellerContextService.ResolveSellerAsync(userId);
 
             if (file == null || file.Length == 0)
-                throw new InvalidOperationException(SystemMessage.WeightFreezeImportEmpty);
+                throw new InvalidOperationException(SystemMessage.WeightFreezeImportFileRequired);
 
             var result = new WeightFreezeImportResult();
             var toAdd = new List<ProductWeightFreeze>();
+            var pendingPids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             using var reader = new StreamReader(file.OpenReadStream(), Encoding.UTF8);
             var headerLine = await reader.ReadLineAsync();
@@ -171,8 +207,7 @@ namespace TryNextPost.Application.IServices.Class.Weight
             var autoIdx = IndexOf("autoapply", "auto_apply");
 
             if (pidIdx < 0 || nameIdx < 0 || wIdx < 0)
-                throw new InvalidOperationException(
-                    "CSV must include ProductId (or PID), ProductName, and WeightGrams columns.");
+                throw new InvalidOperationException(SystemMessage.WeightFreezeImportMissingColumns);
 
             var lineNo = 1;
             while (!reader.EndOfStream)
@@ -192,7 +227,7 @@ namespace TryNextPost.Application.IServices.Class.Weight
                     if (string.IsNullOrWhiteSpace(pid) || string.IsNullOrWhiteSpace(name))
                     {
                         result.SkippedCount++;
-                        result.Errors.Add($"Line {lineNo}: ProductId and ProductName are required.");
+                        result.Errors.Add(string.Format(SystemMessage.WeightFreezeImportLineProductRequired, lineNo));
                         continue;
                     }
 
@@ -200,7 +235,14 @@ namespace TryNextPost.Application.IServices.Class.Weight
                         || weight <= 0)
                     {
                         result.SkippedCount++;
-                        result.Errors.Add($"Line {lineNo}: Invalid WeightGrams.");
+                        result.Errors.Add(string.Format(SystemMessage.WeightFreezeImportLineInvalidWeight, lineNo));
+                        continue;
+                    }
+
+                    if (pendingPids.Contains(pid) || await _repository.HasActiveDuplicateAsync(seller.SellerId, pid))
+                    {
+                        result.SkippedCount++;
+                        result.Errors.Add(string.Format(SystemMessage.WeightFreezeImportLineDuplicate, lineNo, pid));
                         continue;
                     }
 
@@ -235,11 +277,12 @@ namespace TryNextPost.Application.IServices.Class.Weight
                         CreatedAt = DateTime.UtcNow,
                         CreatedBy = userId
                     });
+                    pendingPids.Add(pid);
                 }
-                catch (Exception ex)
+                catch
                 {
                     result.SkippedCount++;
-                    result.Errors.Add($"Line {lineNo}: {ex.Message}");
+                    result.Errors.Add(string.Format(SystemMessage.WeightFreezeImportLineError, lineNo));
                 }
             }
 
@@ -251,6 +294,16 @@ namespace TryNextPost.Application.IServices.Class.Weight
 
             result.ImportedCount = toAdd.Count;
             return result;
+        }
+
+        public (byte[] Content, string FileName) GetImportSampleCsv()
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("ProductId,ProductName,SKU,LengthCm,BreadthCm,HeightCm,WeightGrams,AutoApply");
+            sb.AppendLine("PID-2001,Sample Product,SKU-001,10,8,5,250,true");
+            sb.AppendLine("PID-2002,Another Product,SKU-002,12,10,6,500,true");
+            var bytes = Encoding.UTF8.GetBytes(sb.ToString());
+            return (bytes, "weight-freeze-sample.csv");
         }
 
         public async Task<(byte[] Content, string FileName)> ExportCsvAsync(
@@ -270,10 +323,12 @@ namespace TryNextPost.Application.IServices.Class.Weight
                 filter.ProductId);
 
             var sb = new StringBuilder();
-            sb.AppendLine("PID,ProductName,SKU,LengthCm,BreadthCm,HeightCm,WeightGrams,AutoApply,Status");
+            sb.AppendLine("SellerId,SellerName,PID,ProductName,SKU,LengthCm,BreadthCm,HeightCm,WeightGrams,AutoApply,Status");
 
             foreach (var item in items)
             {
+                sb.Append(Csv(item.SellerId.ToString(CultureInfo.InvariantCulture))).Append(',');
+                sb.Append(Csv(ResolveSellerName(item))).Append(',');
                 sb.Append(Csv(item.ProductId)).Append(',');
                 sb.Append(Csv(item.ProductName)).Append(',');
                 sb.Append(Csv(item.Sku)).Append(',');
@@ -315,6 +370,7 @@ namespace TryNextPost.Application.IServices.Class.Weight
                 "requested" => WeightFreezeStatus.Requested,
                 "accepted" => WeightFreezeStatus.Accepted,
                 "rejected" => WeightFreezeStatus.Rejected,
+                "unfrozen" => WeightFreezeStatus.Unfrozen,
                 _ => throw new InvalidOperationException(SystemMessage.InvalidWeightFreezeStatusTab)
             };
         }
@@ -324,6 +380,8 @@ namespace TryNextPost.Application.IServices.Class.Weight
             return new WeightFreezeListItemResponse
             {
                 ProductWeightFreezeId = entity.ProductWeightFreezeId,
+                SellerId = entity.SellerId,
+                SellerName = ResolveSellerName(entity),
                 ProductId = entity.ProductId,
                 ProductName = entity.ProductName,
                 Sku = entity.Sku,
@@ -340,11 +398,18 @@ namespace TryNextPost.Application.IServices.Class.Weight
             };
         }
 
+        private static string ResolveSellerName(ProductWeightFreeze entity)
+            => entity.Seller?.Company?.Name?.Trim()
+               ?? (entity.SellerId > 0
+                   ? string.Format(SystemMessage.SellerNameFallback, entity.SellerId)
+                   : string.Empty);
+
         private static string ToDisplayStatus(WeightFreezeStatus status) => status switch
         {
             WeightFreezeStatus.Requested => "Requested",
             WeightFreezeStatus.Accepted => "Accepted",
             WeightFreezeStatus.Rejected => "Rejected",
+            WeightFreezeStatus.Unfrozen => "Unfrozen",
             _ => status.ToString()
         };
 

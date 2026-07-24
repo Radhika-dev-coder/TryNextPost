@@ -23,6 +23,16 @@ namespace TryNextPost.Domain.IRepository
 
         Task<int> GetCountByStatusAsync(long? sellerId, WeightFreezeStatus? status);
 
+        /// <summary>
+        /// Active Requested/Accepted freeze for the same seller + product id (case-insensitive).
+        /// </summary>
+        Task<bool> HasActiveDuplicateAsync(long sellerId, string productId, long? excludeId = null);
+
+        /// <summary>
+        /// Accepted + AutoApply freezes for a seller that may match the given product keys (PID/SKU).
+        /// </summary>
+        Task<List<ProductWeightFreeze>> GetApplicableAcceptedAsync(long sellerId, IEnumerable<string> productKeys);
+
         Task AddAsync(ProductWeightFreeze entity);
         Task AddRangeAsync(IEnumerable<ProductWeightFreeze> entities);
         Task UpdateAsync(ProductWeightFreeze entity);

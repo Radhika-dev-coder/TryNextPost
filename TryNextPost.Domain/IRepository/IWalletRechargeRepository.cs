@@ -8,6 +8,7 @@ namespace TryNextPost.Domain.IRepository
         Task<WalletRecharge?> GetByIdAsync(long walletRechargeId);
         Task<WalletRecharge?> GetByGatewayOrderIdAsync(string gatewayOrderId);
         Task UpdateAsync(WalletRecharge recharge);
+        Task<decimal> SumPaidForSellerPeriodAsync(long sellerId, DateTime periodFrom, DateTime periodTo);
         Task SaveChangesAsync();
     }
 }
