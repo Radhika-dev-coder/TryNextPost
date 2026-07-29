@@ -16,5 +16,9 @@ namespace TryNextPost.Application.IServices.Interface.IBilling
 
         Task<InvoiceListResponse> GetInvoicesAsync(string userId, InvoiceFilterRequest filter);
         Task<(byte[] Content, string FileName)> DownloadInvoiceCsvAsync(string userId, long invoiceId);
+
+        Task<PriceCalculatorResponse> CalculatePriceAsync(string userId, PriceCalculatorRequest request);
+
+        Task<RateChartResponse> GetRateChartAsync(string userId, RateChartRequest request);
     }
 }

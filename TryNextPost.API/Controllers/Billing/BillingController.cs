@@ -15,10 +15,17 @@ namespace TryNextPost.API.Controllers.Billing
     public class BillingController : ControllerBase
     {
         private readonly IBillingService _billingService;
+        private readonly ITdsCertificateService _tdsCertificateService;
+        private readonly ICreditNoteService _creditNoteService;
 
-        public BillingController(IBillingService billingService)
+        public BillingController(
+            IBillingService billingService,
+            ITdsCertificateService tdsCertificateService,
+            ICreditNoteService creditNoteService)
         {
             _billingService = billingService;
+            _tdsCertificateService = tdsCertificateService;
+            _creditNoteService = creditNoteService;
         }
 
         [HttpGet("shipping-charges")]
@@ -140,6 +147,8 @@ namespace TryNextPost.API.Controllers.Billing
             });
         }
 
+
+
         [HttpGet("invoices")]
         public async Task<IActionResult> GetInvoices([FromQuery] InvoiceFilterRequest filter)
         {
@@ -168,6 +177,104 @@ namespace TryNextPost.API.Controllers.Billing
             return File(content, "text/csv", fileName);
         }
 
+        [HttpGet("tds")]
+        public async Task<IActionResult> GetTdsCertificates([FromQuery] TdsCertificateFilterRequest filter)
+        {
+            var userId = RequireUserId();
+            if (userId == null)
+                return Unauthorized(new { message = SystemMessage.InvalidToken });
+
+            var result = await _tdsCertificateService.GetForSellerAsync(userId, filter ?? new TdsCertificateFilterRequest());
+            return Ok(new ApiResponse<TdsCertificateListResponse>
+            {
+                Success = true,
+                Message = SystemMessage.TdsCertificatesFetchedSuccess,
+                Data = result,
+                StatusCode = ApiStatusCode.Success
+            });
+        }
+
+        [HttpGet("tds/{id:long}/download")]
+        public async Task<IActionResult> DownloadTdsCertificate(long id)
+        {
+            var userId = RequireUserId();
+            if (userId == null)
+                return Unauthorized(new { message = SystemMessage.InvalidToken });
+
+            var (content, fileName, contentType) = await _tdsCertificateService.DownloadForSellerAsync(userId, id);
+            return File(content, contentType, fileName);
+        }
+
         private string? RequireUserId() => User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        [HttpPost("price-calculator")]
+        public async Task<IActionResult> CalculatePrice([FromBody] PriceCalculatorRequest request)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = SystemMessage.InvalidToken });
+            if (request == null)
+                return BadRequest(new { message = SystemMessage.RequestBodyNull });
+            var result = await _billingService.CalculatePriceAsync(userId, request);
+            return Ok(new ApiResponse<PriceCalculatorResponse>
+            {
+                Success = true,
+                Message = SystemMessage.PriceCalculatedSuccess,
+                Data = result,
+                StatusCode = ApiStatusCode.Success
+            });
+
+        }
+        [HttpGet("rate-chart")]
+        public async Task<IActionResult> GetRateChart([FromQuery] RateChartRequest request)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = SystemMessage.InvalidToken });
+
+            request ??= new RateChartRequest();
+            var result = await _billingService.GetRateChartAsync(userId, request);
+            var message = !string.IsNullOrWhiteSpace(result.InfoMessage)
+                ? result.InfoMessage
+                : SystemMessage.RateChartSuccess;
+            return Ok(new ApiResponse<RateChartResponse>
+            {
+                Success = true,
+                Message = message,
+                Data = result,
+                StatusCode = ApiStatusCode.Success
+            });
+        }
+
+        [HttpGet("credit-notes")]
+        public async Task<IActionResult> GetCreditNotes([FromQuery] CreditNoteFilterRequest filter)
+        {
+            var userId = RequireUserId();
+            if (userId == null)
+                return Unauthorized(new
+                {
+                    message = SystemMessage.InvalidToken
+                });
+            var result = await _creditNoteService.GetForSellerAsync(
+            userId, filter ?? new CreditNoteFilterRequest());
+            return Ok(new ApiResponse<CreditNoteListResponse>
+            {
+                Success = true,
+                Message = SystemMessage.CreditNotesFetchedSuccess,
+                Data = result,
+                StatusCode = ApiStatusCode.Success
+            });
+        }
+
+        [HttpGet("credit-notes/{id:long}/download")]
+        public async Task<IActionResult> DownloadCreditNote(long id)
+        {
+            var userId = RequireUserId();
+            if (userId == null)
+                return Unauthorized(new { message = SystemMessage.InvalidToken });
+            var (content, fileName) = await _creditNoteService.DownloadCsvForSellerAsync(userId, id);
+            return File(content, "text/csv", fileName);
+        }
+
     }
 }

@@ -123,20 +123,7 @@ namespace TryNextPost.Infrastructure.Repository
         /// </summary>
         public async Task<List<(long ShipmentId, decimal CodAmount)>> GetUnsettledDeliveredCodShipmentsAsync(long sellerId)
         {
-            var existingIds = _context.CODSettlements
-                .Where(c => c.SellerId == sellerId)
-                .Select(c => c.ShipmentId);
-
-            var rows = await _context.Shipments
-                .AsNoTracking()
-                .Include(s => s.Order)
-                .Where(s =>
-                    s.IsActive == true
-                    && s.Status == ShipmentStatus.Delivered
-                    && s.Order != null
-                    && s.Order.SellerId == sellerId
-                    && s.Order.PaymentMode == PaymentMode.COD
-                    && !existingIds.Contains(s.ShipmentId))
+            var rows = await UnsettledDeliveredCodQuery(sellerId)
                 .Select(s => new
                 {
                     s.ShipmentId,
@@ -145,6 +132,80 @@ namespace TryNextPost.Infrastructure.Repository
                 .ToListAsync();
 
             return rows.Select(r => (r.ShipmentId, r.Amount)).ToList();
+        }
+
+        public async Task<bool> HasUnsettledDeliveredCodShipmentsAsync(long sellerId)
+        {
+            return await UnsettledDeliveredCodQuery(sellerId).AnyAsync();
+        }
+
+        private IQueryable<Shipment> UnsettledDeliveredCodQuery(long sellerId)
+        {
+            var existingIds = _context.CODSettlements
+                .AsNoTracking()
+                .Where(c => c.SellerId == sellerId)
+                .Select(c => c.ShipmentId);
+
+            return _context.Shipments
+                .AsNoTracking()
+                .Where(s =>
+                    s.IsActive == true
+                    && s.Status == ShipmentStatus.Delivered
+                    && s.Order != null
+                    && s.Order.SellerId == sellerId
+                    && s.Order.PaymentMode == PaymentMode.COD
+                    && !existingIds.Contains(s.ShipmentId));
+        }
+
+        public async Task<(List<CODSettlement> Items, int TotalCount)> GetFilteredForAdminAsync(
+            long? sellerId,
+            SettlementStatus? status,
+            DateTime? fromDate,
+            DateTime? toDate,
+            int page,
+            int pageSize)
+        {
+            var query = _context.CODSettlements
+                .AsNoTracking()
+                .Include(c => c.Shipment)
+                .Where(c => c.IsActive == true);
+
+            if (sellerId.HasValue && sellerId.Value > 0)
+                query = query.Where(c => c.SellerId == sellerId.Value);
+
+            if (status.HasValue)
+                query = query.Where(c => c.Status == status.Value);
+
+            if (fromDate.HasValue)
+                query = query.Where(c => (c.SettlementDate ?? c.CreatedAt) >= fromDate.Value);
+
+            if (toDate.HasValue)
+            {
+                var end = toDate.Value.Date.AddDays(1);
+                query = query.Where(c => (c.SettlementDate ?? c.CreatedAt) < end);
+            }
+
+            var total = await query.CountAsync();
+            var items = await query
+                .OrderByDescending(c => c.SettlementDate ?? c.CreatedAt)
+                .ThenByDescending(c => c.CodSettlementId)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, total);
+        }
+
+        public async Task<decimal> SumByStatusForAdminAsync(long? sellerId, SettlementStatus status)
+        {
+            var query = _context.CODSettlements
+                .AsNoTracking()
+                .Where(c => c.IsActive == true && c.Status == status);
+
+            if (sellerId.HasValue && sellerId.Value > 0)
+                query = query.Where(c => c.SellerId == sellerId.Value);
+
+            return await query.SumAsync(c => (decimal?)(c.CollectedAmount > 0 ? c.CollectedAmount : c.CodAmount)) ?? 0m;
         }
 
         public async Task SaveChangesAsync()

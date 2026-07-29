@@ -1,6 +1,7 @@
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using System.Globalization;
 using System.Text;
-using Microsoft.AspNetCore.Http;
 using TryNextPost.Application.DTO.Weight;
 using TryNextPost.Application.IServices.Interface;
 using TryNextPost.Application.IServices.Interface.IWeight;
@@ -15,13 +16,15 @@ namespace TryNextPost.Application.IServices.Class.Weight
     {
         private readonly IProductWeightFreezeRepository _repository;
         private readonly ISellerContextService _sellerContextService;
+        private readonly IWebHostEnvironment _env;
 
         public WeightFreezeService(
             IProductWeightFreezeRepository repository,
-            ISellerContextService sellerContextService)
+            ISellerContextService sellerContextService,IWebHostEnvironment env)
         {
             _repository = repository;
             _sellerContextService = sellerContextService;
+            _env = env;
         }
 
         public async Task<WeightFreezeListResponse> GetListAsync(
@@ -86,6 +89,7 @@ namespace TryNextPost.Application.IServices.Class.Weight
                 HeightCm = request.HeightCm,
                 WeightGrams = request.WeightGrams,
                 AutoApply = request.AutoApply,
+                ImageUrl = request.ImageUrl,
                 Status = WeightFreezeStatus.Requested,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
@@ -394,7 +398,9 @@ namespace TryNextPost.Application.IServices.Class.Weight
                 Status = (int)entity.Status,
                 StatusName = ToDisplayStatus(entity.Status),
                 ActionRemarks = entity.ActionRemarks,
+                ImageUrl = entity.ImageUrl,
                 CreatedAt = entity.CreatedAt
+
             };
         }
 
@@ -458,6 +464,35 @@ namespace TryNextPost.Application.IServices.Class.Weight
 
             result.Add(sb.ToString());
             return result;
+        }
+
+        public async Task<WeightFreezeImageUploadResponse> UploadImageAsync(string userId, IFormFile file)
+        {
+            await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.ShipmentsView);
+
+            await _sellerContextService.ResolveSellerAsync(userId);
+            if (file == null || file.Length == 0)
+                throw new InvalidOperationException(SystemMessage.WeightFreezeImageRequired);
+            var allowed = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+            var ext = Path.GetExtension(file.FileName)?.ToLowerInvariant() ?? "";
+            if (!allowed.Contains(ext))
+                throw new InvalidOperationException(SystemMessage.WeightFreezeImageInvalidType);
+            const long maxBytes = 2 * 1024 * 1024; // 2 MB
+            if (file.Length > maxBytes)
+                throw new InvalidOperationException(SystemMessage.WeightFreezeImageTooLarge);
+
+            var folder = Path.Combine(_env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot"),
+                "uploads", "weight-freeze");
+            Directory.CreateDirectory(folder);
+            var fileName = $"{Guid.NewGuid():N}{ext}";
+            var physicalPath = Path.Combine(folder, fileName);
+            await using (var stream = new FileStream(physicalPath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            var imageUrl = $"/uploads/weight-freeze/{fileName}";
+            return new WeightFreezeImageUploadResponse { ImageUrl = imageUrl };
         }
     }
 }

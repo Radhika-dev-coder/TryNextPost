@@ -19,6 +19,13 @@ namespace TryNextPost.Domain.Entities
         public decimal CollectedAmount { get; set; }
         public DateTime? SettlementDate { get; set; }
         public SettlementStatus Status { get; set; } = SettlementStatus.Pending;
+
+        [MaxLength(100)]
+        public string? PaymentReference { get; set; }
+
+        [MaxLength(500)]
+        public string? Remark { get; set; }
+
         public Shipment? Shipment { get; set; }
     }
 }

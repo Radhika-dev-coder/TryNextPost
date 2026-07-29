@@ -25,6 +25,19 @@ namespace TryNextPost.Domain.IRepository
 
         Task<List<(long ShipmentId, decimal CodAmount)>> GetUnsettledDeliveredCodShipmentsAsync(long sellerId);
 
+        /// <summary>Cheap existence check — true if any delivered COD shipment lacks a settlement row.</summary>
+        Task<bool> HasUnsettledDeliveredCodShipmentsAsync(long sellerId);
+
+        Task<(List<CODSettlement> Items, int TotalCount)> GetFilteredForAdminAsync(
+            long? sellerId,
+            SettlementStatus? status,
+            DateTime? fromDate,
+            DateTime? toDate,
+            int page,
+            int pageSize);
+
+        Task<decimal> SumByStatusForAdminAsync(long? sellerId, SettlementStatus status);
+
         Task SaveChangesAsync();
     }
 }

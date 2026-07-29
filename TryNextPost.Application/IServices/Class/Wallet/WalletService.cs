@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TryNextPost.Application.Common.Settings;
 using TryNextPost.Application.DTO.Wallet;
@@ -20,6 +22,7 @@ namespace TryNextPost.Application.IServices.Class.Wallet
         private readonly RazorpaySettings _razorpaySettings;
         private readonly ISellerContextService _sellerContextService;
         private readonly ISellerRepository _sellerRepository;
+        private readonly ILogger<WalletService> _logger;
 
         public WalletService(
             IWalletRepository walletRepository,
@@ -27,7 +30,8 @@ namespace TryNextPost.Application.IServices.Class.Wallet
             IRazorpayPaymentGateway razorpay,
             IOptions<RazorpaySettings> razorpaySettings,
             ISellerContextService sellerContextService,
-            ISellerRepository sellerRepository)
+            ISellerRepository sellerRepository,
+            ILogger<WalletService> logger)
         {
             _walletRepository = walletRepository;
             _rechargeRepository = rechargeRepository;
@@ -35,6 +39,7 @@ namespace TryNextPost.Application.IServices.Class.Wallet
             _razorpaySettings = razorpaySettings.Value;
             _sellerContextService = sellerContextService;
             _sellerRepository = sellerRepository;
+            _logger = logger;
         }
 
         public async Task<WalletBalanceResponse> GetOrCreateBalanceAsync(string userId)
@@ -266,6 +271,7 @@ namespace TryNextPost.Application.IServices.Class.Wallet
             var pageSize = filter.PageSize < 1 ? 50 : Math.Min(filter.PageSize, 200);
             var txnType = ParseTxnType(filter.TxnType);
 
+            var sw = Stopwatch.StartNew();
             var (items, totalCount) = await _walletRepository.GetTransactionsFilteredAsync(
                 wallet.WalletId,
                 txnType,
@@ -274,8 +280,14 @@ namespace TryNextPost.Application.IServices.Class.Wallet
                 filter.Search,
                 page,
                 pageSize);
+            var filterMs = sw.ElapsedMilliseconds;
 
-            var closingBalances = await BuildClosingBalanceMapAsync(wallet);
+            sw.Restart();
+            var closingBalances = await BuildClosingBalanceMapForPageAsync(wallet, items);
+            var balanceMs = sw.ElapsedMilliseconds;
+            _logger.LogInformation(
+                "Wallet GetTransactionsAsync seller={SellerId} page={Page}/{PageSize} rows={Rows} filterMs={FilterMs} closingBalanceMs={BalanceMs}",
+                sellerId, page, pageSize, items.Count, filterMs, balanceMs);
 
             var mapped = items.Select(t =>
             {
@@ -307,22 +319,48 @@ namespace TryNextPost.Application.IServices.Class.Wallet
             };
         }
 
-        private async Task<Dictionary<long, decimal>> BuildClosingBalanceMapAsync(Domain.Entities.Wallet wallet)
+        /// <summary>
+        /// Closing balance = wallet balance after each successful txn.
+        /// Only walks successful txns from newest down through the oldest row on this page
+        /// (not a fixed 10k history load).
+        /// </summary>
+        private async Task<Dictionary<long, decimal>> BuildClosingBalanceMapForPageAsync(
+            Domain.Entities.Wallet wallet,
+            List<Transaction> pageItems)
         {
-            // Walk newest → oldest successful txns; closing = balance after that txn.
-            var recent = await _walletRepository.GetSuccessfulTransactionsNewestFirstAsync(
-                wallet.WalletId,
-                take: 10000);
-
             var map = new Dictionary<long, decimal>();
+            if (pageItems.Count == 0)
+                return map;
+
+            var pageIds = pageItems.Select(t => t.TxnId).ToHashSet();
+            var oldest = pageItems
+                .OrderBy(t => t.CreatedAt ?? DateTime.MinValue)
+                .ThenBy(t => t.TxnId)
+                .First();
+
+            var untilAt = oldest.CreatedAt ?? DateTime.MinValue;
+            var recent = await _walletRepository.GetSuccessfulTransactionsNewestFirstUntilAsync(
+                wallet.WalletId,
+                untilAt,
+                oldest.TxnId);
+
             var running = wallet.Balance;
+            var remaining = pageIds.Count;
             foreach (var t in recent)
             {
-                map[t.TxnId] = running;
+                if (pageIds.Contains(t.TxnId))
+                {
+                    map[t.TxnId] = running;
+                    remaining--;
+                }
+
                 if (t.TxnType == TransactionType.Debit)
                     running += t.Amount;
                 else
                     running -= t.Amount;
+
+                if (remaining == 0)
+                    break;
             }
 
             return map;

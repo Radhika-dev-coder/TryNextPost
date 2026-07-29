@@ -24,12 +24,15 @@ namespace TryNextPost.Domain.IRepository
             ShipmentStatus? statusFilter,
             int page,
             int pageSize,
-            string? searchQuery);
+            string? searchQuery,
+            OrderCategoryEnum? orderCategory = null);
         Task<int> GetBySellerFilteredCountAsync(
             long sellerId,
             ShipmentStatus? statusFilter,
-            string? searchQuery);
-        Task<int> GetCountBySellerAndStatusAsync(long sellerId, ShipmentStatus? statusFilter);
+            string? searchQuery,
+            OrderCategoryEnum? orderCategory = null);
+        Task<int> GetCountBySellerAndStatusAsync(long sellerId, ShipmentStatus? statusFilter, OrderCategoryEnum? orderCategory = null);
+        Task<Dictionary<ShipmentStatus, int>> GetStatusCountsBySellerAsync(long sellerId, OrderCategoryEnum? orderCategory = null);
         Task SaveChangesAsync();
         Task UpdateAsync(Shipment shipment);
     }

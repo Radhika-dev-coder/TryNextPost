@@ -21,9 +21,6 @@ namespace TryNextPost.API.Controllers.Weight
             _service = service;
         }
 
-        /// <summary>
-        /// List product weight freeze requests. Sellers see own; SuperAdmin sees all.
-        /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetList([FromQuery] WeightFreezeFilterRequest filter)
         {
@@ -41,7 +38,6 @@ namespace TryNextPost.API.Controllers.Weight
             });
         }
 
-        /// <summary>Seller creates a Requested weight freeze.</summary>
         [HttpPost]
         [Authorize(Roles = "Seller,SellerEmployee")]
         public async Task<IActionResult> Create([FromBody] CreateWeightFreezeRequest request)
@@ -62,8 +58,27 @@ namespace TryNextPost.API.Controllers.Weight
                 StatusCode = ApiStatusCode.Success
             });
         }
+        
+        [HttpPost("upload-image")]
+        [Authorize(Roles = "Seller,SellerEmployee")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UploadImage(IFormFile file)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = SystemMessage.InvalidToken });
+            if (file == null || file.Length == 0)
+                return BadRequest(new { message = SystemMessage.WeightFreezeImageRequired });
+            var result = await _service.UploadImageAsync(userId, file);
+            return Ok(new ApiResponse<WeightFreezeImageUploadResponse>
+            {
+                Success = true,
+                Message = SystemMessage.WeightFreezeImageUploadSuccess,
+                Data = result,
+                StatusCode = ApiStatusCode.Success
+            });
+        }
 
-        /// <summary>SuperAdmin accept/reject a freeze request.</summary>
         [HttpPost("{id:long}/action")]
         [Authorize(Roles = "SuperAdmin")]
         public async Task<IActionResult> TakeAction(long id, [FromBody] WeightFreezeActionRequest request)

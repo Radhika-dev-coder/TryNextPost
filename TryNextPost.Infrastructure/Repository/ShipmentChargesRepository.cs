@@ -88,6 +88,23 @@ namespace TryNextPost.Infrastructure.Repository
             ).SumAsync() ?? 0m;
         }
 
+        public async Task<Dictionary<long, decimal>> GetSellerChargesByShipmentIdsAsync(
+            IEnumerable<long> shipmentIds)
+        {
+            var ids = shipmentIds.Distinct().ToList();
+            if (ids.Count == 0)
+                return new Dictionary<long, decimal>();
+
+            var rows = await _context.ShipmentCharges
+                .AsNoTracking()
+                .Where(c => c.IsActive == true && ids.Contains(c.ShipmentId))
+                .GroupBy(c => c.ShipmentId)
+                .Select(g => new { ShipmentId = g.Key, Total = g.Sum(x => x.SellerCharge) })
+                .ToListAsync();
+
+            return rows.ToDictionary(r => r.ShipmentId, r => r.Total);
+        }
+
         public async Task SaveChangesAsync()
         {
             await _context.SaveChangesAsync();

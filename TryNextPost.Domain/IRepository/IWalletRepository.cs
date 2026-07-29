@@ -27,6 +27,15 @@ namespace TryNextPost.Domain.IRepository
         /// </summary>
         Task<List<Transaction>> GetSuccessfulTransactionsNewestFirstAsync(long walletId, int take);
 
+        /// <summary>
+        /// Newest-first successful txns from current back through <paramref name="untilCreatedAt"/> /
+        /// <paramref name="untilTxnId"/> (inclusive). Used for page-scoped closing balances.
+        /// </summary>
+        Task<List<Transaction>> GetSuccessfulTransactionsNewestFirstUntilAsync(
+            long walletId,
+            DateTime untilCreatedAt,
+            long untilTxnId);
+
         Task SaveChangesAsync();
     }
 }

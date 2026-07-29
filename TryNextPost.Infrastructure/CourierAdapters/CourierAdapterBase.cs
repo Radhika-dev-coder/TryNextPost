@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using TryNextPost.Application.Common.Settings;
 using TryNextPost.Application.DTO.Courier;
+using TryNextPost.Application.IServices.Class.RateCard;
 using TryNextPost.Application.IServices.Interface.Courier;
 
 namespace TryNextPost.Infrastructure.CourierAdapters
@@ -142,7 +143,12 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 
             var weightFactor = Math.Max(request.WeightKg, 0.5m);
             var baseCharge = 40m + (weightFactor * 25m);
-            var codCharge = request.IsCod ? 30m : 0m;
+            var codCharge = RateCalculationService.ResolveCodCharge(
+                request.IsCod,
+                request.SupportsCod,
+                request.CodChargeType,
+                request.CodChargeValue,
+                request.CodAmount);
 
             return new CourierRateResponse
             {

@@ -15,7 +15,9 @@ namespace TryNextPost.Application.DTO.Order
         public string ProductSummary { get; set; } = string.Empty;
         public string PaymentMode { get; set; } = string.Empty;
         public string CustomerName { get; set; } = string.Empty;
+        public string? CustomerCompanyName { get; set; }
         public string CustomerMobile { get; set; } = string.Empty;
+        public int OrderCategory { get; set; }
         public decimal WeightGrams { get; set; }
         public string? IvrStatus { get; set; }
         public string? WhatsAppStatus { get; set; }

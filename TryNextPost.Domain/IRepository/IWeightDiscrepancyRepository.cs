@@ -32,5 +32,11 @@ namespace TryNextPost.Domain.IRepository
         Task AddAsync(WeightDiscrepancy entity);
         Task UpdateAsync(WeightDiscrepancy entity);
         Task SaveChangesAsync();
+
+        /// <summary>
+        /// Accepted weight-discrepancy charges keyed by ShipmentId (sums when multiple rows exist).
+        /// </summary>
+        Task<Dictionary<long, decimal>> GetAcceptedWeightChargesByShipmentIdsAsync(
+            IEnumerable<long> shipmentIds);
     }
 }

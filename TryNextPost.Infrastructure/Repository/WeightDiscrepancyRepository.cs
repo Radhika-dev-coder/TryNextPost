@@ -89,6 +89,27 @@ namespace TryNextPost.Infrastructure.Repository
             await _context.SaveChangesAsync();
         }
 
+        public async Task<Dictionary<long, decimal>> GetAcceptedWeightChargesByShipmentIdsAsync(
+            IEnumerable<long> shipmentIds)
+        {
+            var ids = shipmentIds.Distinct().ToList();
+            if (ids.Count == 0)
+                return new Dictionary<long, decimal>();
+
+            var rows = await _context.WeightDiscrepancies
+                .AsNoTracking()
+                .Where(w =>
+                    w.IsActive == true
+                    && w.ShipmentId != null
+                    && ids.Contains(w.ShipmentId.Value)
+                    && w.Status == WeightDiscrepancyStatus.Accepted)
+                .GroupBy(w => w.ShipmentId!.Value)
+                .Select(g => new { ShipmentId = g.Key, Total = g.Sum(x => x.WeightCharges) })
+                .ToListAsync();
+
+            return rows.ToDictionary(r => r.ShipmentId, r => r.Total);
+        }
+
         private IQueryable<WeightDiscrepancy> BuildQuery(
             long? sellerId,
             WeightDiscrepancyStatus? statusFilter,

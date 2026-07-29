@@ -23,5 +23,7 @@ namespace TryNextPost.Application.DTO.Weight
         public string StatusName { get; set; } = string.Empty;
         public string? ActionRemarks { get; set; }
         public DateTime? CreatedAt { get; set; }
+
+        public string? ImageUrl { get; set; }
     }
 }

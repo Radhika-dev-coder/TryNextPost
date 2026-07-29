@@ -5,9 +5,7 @@ using TryNextPost.Infrastructure.AppDbContexts;
 
 namespace TryNextPost.Infrastructure.Seeder
 {
-    /// <summary>
-    /// Seeds 5 zones (Z1–Z5) from pincode prefix and sample rate cards for all couriers.
-    /// </summary>
+
     public static class RateCardSeeder
     {
         private static readonly (string Code, string Name)[] Zones =
@@ -77,7 +75,7 @@ namespace TryNextPost.Infrastructure.Seeder
 
         private static string ResolveZoneCode(int prefix)
         {
-            // Simple MVP mapping by first digit of prefix.
+
             var firstDigit = prefix / 10;
             return firstDigit switch
             {
@@ -165,12 +163,75 @@ namespace TryNextPost.Infrastructure.Seeder
 
                 logger?.LogInformation("Prepared rate cards for courier {Code}", courier.CourierCode);
             }
-
             if (pending.Count > 0)
             {
                 db.CourierRateCards.AddRange(pending);
                 await db.SaveChangesAsync();
                 logger?.LogInformation("Seeded {Count} rate card rows", pending.Count);
+            }
+
+            await SeedRtoRateCardsAsync(db, logger);
+        }
+
+        private static async Task SeedRtoRateCardsAsync(AppDbContext db, ILogger? logger)
+        {
+            var surfaceCards = await db.CourierRateCards
+                .AsNoTracking()
+                .Where(r => r.IsActive == true && r.ServiceCode == "SURFACE")
+                .ToListAsync();
+
+            if (surfaceCards.Count == 0)
+                return;
+
+            var existingRtoKeys = await db.CourierRateCards
+                .AsNoTracking()
+                .Where(r => r.ServiceCode == "RTO")
+                .Select(r => new
+                {
+                    r.CourierId,
+                    r.FromZoneId,
+                    r.ToZoneId,
+                    r.WeightFromGrams,
+                    r.WeightToGrams
+                })
+                .ToListAsync();
+
+            var existingSet = existingRtoKeys
+                .Select(r => (r.CourierId, r.FromZoneId, r.ToZoneId, r.WeightFromGrams, r.WeightToGrams))
+                .ToHashSet();
+
+            var pending = new List<CourierRateCard>();
+
+            foreach (var surface in surfaceCards)
+            {
+                var key = (surface.CourierId, surface.FromZoneId, surface.ToZoneId,
+                    surface.WeightFromGrams, surface.WeightToGrams);
+                if (existingSet.Contains(key))
+                    continue;
+
+                pending.Add(new CourierRateCard
+                {
+                    CourierId = surface.CourierId,
+                    FromZoneId = surface.FromZoneId,
+                    ToZoneId = surface.ToZoneId,
+                    WeightFromGrams = surface.WeightFromGrams,
+                    WeightToGrams = surface.WeightToGrams,
+                    CourierCost = surface.CourierCost,
+                    SellerCharge = surface.SellerCharge,
+                    ServiceCode = "RTO",
+                    EstimatedDays = surface.EstimatedDays + 1,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = "RateCardSeeder"
+                });
+                existingSet.Add(key);
+            }
+
+            if (pending.Count > 0)
+            {
+                db.CourierRateCards.AddRange(pending);
+                await db.SaveChangesAsync();
+                logger?.LogInformation("Seeded {Count} RTO rate card rows from SURFACE cards", pending.Count);
             }
         }
     }

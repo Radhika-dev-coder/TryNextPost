@@ -5,6 +5,7 @@ namespace TryNextPost.Domain.IRepository
     public interface IInvoiceRepository
     {
         Task<List<Invoice>> GetBySellerAndPeriodAsync(long sellerId, DateTime periodFrom, DateTime periodTo);
+        Task<bool> ExistsForSellerPeriodAsync(long sellerId, DateTime periodFrom, DateTime periodTo);
         Task<Invoice?> GetByIdAsync(long invoiceId);
         Task AddAsync(Invoice invoice);
         Task AddRangeAsync(IEnumerable<Invoice> invoices);

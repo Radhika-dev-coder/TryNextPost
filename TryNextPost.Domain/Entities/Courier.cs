@@ -36,6 +36,18 @@ namespace TryNextPost.Domain.Entities
         public bool SupportsPrepaid { get; set; }
         public decimal? MaxWeightLimit { get; set; }
 
+        /// <summary>
+        /// COD handling fee type set by SuperAdmin (Flat ₹ or % of collectable amount).
+        /// Default Flat preserves legacy ₹30 behaviour.
+        /// </summary>
+        public CodChargeType CodChargeType { get; set; } = CodChargeType.Flat;
+
+        /// <summary>
+        /// Flat amount (₹) when CodChargeType=Flat, or percentage when CodChargeType=Percentage.
+        /// Default 30 = legacy flat COD fee.
+        /// </summary>
+        public decimal CodChargeValue { get; set; } = 30m;
+
         // Navigation
         public ICollection<Shipment>? Shipments { get; set; }
         public ICollection<CourierServiceability>? Serviceabilities { get; set; }

@@ -10,5 +10,7 @@ namespace TryNextPost.Application.DTO.Weight
         public decimal HeightCm { get; set; }
         public decimal WeightGrams { get; set; }
         public bool AutoApply { get; set; } = true;
+
+        public string? ImageUrl { get; set; }
     }
 }

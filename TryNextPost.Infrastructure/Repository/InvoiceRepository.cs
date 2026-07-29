@@ -29,6 +29,20 @@ namespace TryNextPost.Infrastructure.Repository
                 .ToListAsync();
         }
 
+        public async Task<bool> ExistsForSellerPeriodAsync(
+            long sellerId,
+            DateTime periodFrom,
+            DateTime periodTo)
+        {
+            return await _context.Invoices
+                .AsNoTracking()
+                .AnyAsync(i =>
+                    i.SellerId == sellerId
+                    && i.IsActive == true
+                    && i.PeriodFrom == periodFrom
+                    && i.PeriodTo == periodTo);
+        }
+
         public async Task<Invoice?> GetByIdAsync(long invoiceId)
         {
             return await _context.Invoices

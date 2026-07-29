@@ -1,6 +1,7 @@
 using TryNextPost.Application.DTO.Courier;
 using TryNextPost.Application.DTO.Shipment;
 using TryNextPost.Application.Helpers;
+using TryNextPost.Application.IServices.Class.RateCard;
 using TryNextPost.Application.IServices.Interface;
 using TryNextPost.Application.IServices.Interface.Courier;
 using TryNextPost.Application.IServices.Interface.IShipment;
@@ -83,7 +84,11 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                     rateRequest.DestinationPincode,
                     order.WeightGrams,
                     order.VolumetricWeightGrams,
-                    isCod);
+                    isCod,
+                    courier.CodChargeType,
+                    courier.CodChargeValue,
+                    rateRequest.CodAmount,
+                    courier.SupportsCOD);
 
                 if (rateCardQuotes.Count > 0)
                 {
@@ -112,7 +117,8 @@ namespace TryNextPost.Application.IServices.Class.Shipment
 
                 try
                 {
-                    var response = await adapter.GetRatesAsync(rateRequest, cancellationToken);
+                    var adapterRequest = BuildRateRequest(order, warehouse, courier);
+                    var response = await adapter.GetRatesAsync(adapterRequest, cancellationToken);
                     if (response?.Rates == null || response.Rates.Count == 0)
                         continue;
 
@@ -174,7 +180,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 throw new InvalidOperationException(SystemMessage.CourierNotSupported);
 
             var warehouse = await ResolveWarehouseAddressAsync(order, seller);
-            var rateRequest = BuildRateRequest(order, warehouse);
+            var rateRequest = BuildRateRequest(order, warehouse, courier);
             var rateQuote = await ResolveRateQuoteAsync(
                 order,
                 warehouse,
@@ -270,7 +276,8 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 rateRequest,
                 order,
                 request,
-                userId);
+                userId,
+                courier);
             await _shipmentChargesRepository.AddAsync(charges);
             await _shipmentChargesRepository.SaveChangesAsync();
 
@@ -691,24 +698,26 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             var page = request.Page < 1 ? 1 : request.Page;
             var pageSize = request.PageSize < 1 ? 20 : Math.Min(request.PageSize, 100);
             var statusFilter = ParseStatusTab(request.StatusTab);
+            var orderCategory = request.OrderCategory;
 
             var shipments = await _shipmentRepository.GetBySellerFilteredAsync(
-                seller.SellerId, statusFilter, page, pageSize, request.SearchQuery);
+                seller.SellerId, statusFilter, page, pageSize, request.SearchQuery, orderCategory);
             var totalCount = await _shipmentRepository.GetBySellerFilteredCountAsync(
-                seller.SellerId, statusFilter, request.SearchQuery);
+                seller.SellerId, statusFilter, request.SearchQuery, orderCategory);
+            var statusCounts = await _shipmentRepository.GetStatusCountsBySellerAsync(seller.SellerId, orderCategory);
 
             var tabCounts = new ShipmentTabCounts
             {
-                All = await _shipmentRepository.GetCountBySellerAndStatusAsync(seller.SellerId, null),
-                Booked = await _shipmentRepository.GetCountBySellerAndStatusAsync(seller.SellerId, ShipmentStatus.Booked),
-                PendingPickup = await _shipmentRepository.GetCountBySellerAndStatusAsync(seller.SellerId, ShipmentStatus.PendingPickup),
-                PickedUp = await _shipmentRepository.GetCountBySellerAndStatusAsync(seller.SellerId, ShipmentStatus.PickedUp),
-                InTransit = await _shipmentRepository.GetCountBySellerAndStatusAsync(seller.SellerId, ShipmentStatus.InTransit),
-                OutForDelivery = await _shipmentRepository.GetCountBySellerAndStatusAsync(seller.SellerId, ShipmentStatus.OutForDelivery),
-                Delivered = await _shipmentRepository.GetCountBySellerAndStatusAsync(seller.SellerId, ShipmentStatus.Delivered),
-                Rto = await _shipmentRepository.GetCountBySellerAndStatusAsync(seller.SellerId, ShipmentStatus.RTO),
-                Exception = await _shipmentRepository.GetCountBySellerAndStatusAsync(seller.SellerId, ShipmentStatus.Exception),
-                Cancelled = await _shipmentRepository.GetCountBySellerAndStatusAsync(seller.SellerId, ShipmentStatus.Cancelled)
+                All = statusCounts.Values.Sum(),
+                Booked = statusCounts.GetValueOrDefault(ShipmentStatus.Booked),
+                PendingPickup = statusCounts.GetValueOrDefault(ShipmentStatus.PendingPickup),
+                PickedUp = statusCounts.GetValueOrDefault(ShipmentStatus.PickedUp),
+                InTransit = statusCounts.GetValueOrDefault(ShipmentStatus.InTransit),
+                OutForDelivery = statusCounts.GetValueOrDefault(ShipmentStatus.OutForDelivery),
+                Delivered = statusCounts.GetValueOrDefault(ShipmentStatus.Delivered),
+                Rto = statusCounts.GetValueOrDefault(ShipmentStatus.RTO),
+                Exception = statusCounts.GetValueOrDefault(ShipmentStatus.Exception),
+                Cancelled = statusCounts.GetValueOrDefault(ShipmentStatus.Cancelled)
             };
 
             return new ShipmentListResponse
@@ -915,7 +924,10 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             return courier;
         }
 
-        private static CourierRateRequest BuildRateRequest(Domain.Entities.Order order, Address warehouse)
+        private static CourierRateRequest BuildRateRequest(
+            Domain.Entities.Order order,
+            Address warehouse,
+            Courier? courier = null)
         {
             var isReverse = order.OrderType == OrderTypeEnum.Reverse
                 || order.OrderType == OrderTypeEnum.ReverseQC;
@@ -936,7 +948,10 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 CodAmount = isCod
                     ? (order.CollectableAmount ?? order.FinalPayableAmount)
                     : null,
-                PaymentMode = order.PaymentMode.ToString()
+                PaymentMode = order.PaymentMode.ToString(),
+                CodChargeType = courier?.CodChargeType ?? CodChargeType.Flat,
+                CodChargeValue = courier?.CodChargeValue ?? 0m,
+                SupportsCod = courier?.SupportsCOD ?? true
             };
         }
 
@@ -1030,7 +1045,8 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             CourierRateRequest rateRequest,
             Domain.Entities.Order order,
             ConfirmShipmentRequest request,
-            string userId)
+            string userId,
+            Courier? courier = null)
         {
             if (rateQuote != null)
             {
@@ -1051,7 +1067,14 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 };
             }
 
-            var codCharge = rateRequest.IsCod ? 30m : 0m;
+            var codCharge = courier != null
+                ? RateCalculationService.ResolveCodCharge(
+                    rateRequest.IsCod,
+                    courier.SupportsCOD,
+                    courier.CodChargeType,
+                    courier.CodChargeValue,
+                    rateRequest.CodAmount)
+                : 0m;
             var sellerCharge = request.ChargeAmount - codCharge;
             var courierCost = Math.Round(sellerCharge * 0.75m, 2);
 
@@ -1087,7 +1110,11 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 order.WeightGrams,
                 order.VolumetricWeightGrams,
                 rateRequest.IsCod,
-                serviceCode);
+                serviceCode,
+                courier.CodChargeType,
+                courier.CodChargeValue,
+                rateRequest.CodAmount,
+                courier.SupportsCOD);
 
             return quote;
         }
@@ -1100,7 +1127,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             ICourierAdapter adapter,
             CancellationToken cancellationToken)
         {
-            var rateRequest = BuildRateRequest(order, warehouse);
+            var rateRequest = BuildRateRequest(order, warehouse, courier);
 
             CourierRateResponse? rateResponse;
             try
