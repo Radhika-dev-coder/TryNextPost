@@ -30,7 +30,7 @@ namespace TryNextPost.API.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody]LoginRequest request)
+        public async Task<IActionResult> Login(LoginRequest request)
         {
 
                 var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
