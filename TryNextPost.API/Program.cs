@@ -27,8 +27,12 @@ using TryNextPost.Application.IServices.Interface.IRateCard;
 using TryNextPost.Application.IServices.Interface.IWeight;
 using TryNextPost.Application.IServices.Class.Billing;
 using TryNextPost.Application.IServices.Class.Wallet;
+using TryNextPost.Application.IServices.Class.Admin;
+using TryNextPost.Application.IServices.Class.Dashboard;
 using TryNextPost.Application.IServices.Interface.IBilling;
 using TryNextPost.Application.IServices.Interface.IWallet;
+using TryNextPost.Application.IServices.Interface.IAdmin;
+using TryNextPost.Application.IServices.Interface.IDashboard;
 using TryNextPost.Application.IServices.Interface.IPayment;
 using TryNextPost.Application.Services.Interface;
 using TryNextPost.Application.Validators.Order;
@@ -99,7 +103,12 @@ builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddScoped<ICODSettlementRepository, CODSettlementRepository>();
 builder.Services.AddScoped<ISellerBankAccountRepository, SellerBankAccountRepository>();
 builder.Services.AddScoped<IInvoiceRepository, InvoiceRepository>();
+builder.Services.AddScoped<ITdsCertificateRepository, TdsCertificateRepository>();
 builder.Services.AddScoped<IBillingService, BillingService>();
+builder.Services.AddScoped<ITdsCertificateService, TdsCertificateService>();
+builder.Services.AddScoped<ICourierAdminService, CourierAdminService>();
+builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 builder.Services.Configure<RazorpaySettings>(
 builder.Configuration.GetSection(RazorpaySettings.SectionName));
@@ -138,7 +147,11 @@ builder.Services.AddScoped<ICourierAdapter, IndiaPostAdapter>();
 builder.Services.AddScoped<ICourierAdapter, ShadowfaxAdapter>();
 builder.Services.AddScoped<ICourierAdapterFactory, CourierAdapterFactory>();
 
-    #endregion
+builder.Services.AddScoped<ICreditNoteRepository, CreditNoteRepository>();
+builder.Services.AddScoped<ICreditNoteService, CreditNoteService>();
+builder.Services.AddScoped<ICodSettlementService, CodSettlementService>();
+
+#endregion
 
 #region JWT
 
@@ -345,7 +358,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 app.UseMiddleware<ExceptionMiddleware>();
-
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 

@@ -10,6 +10,7 @@ namespace TryNextPost.Application.IServices.Interface.IOrder
     public interface IOrderService
     {
         Task<long> CreateForwardOrderAsync(CreateForwardOrderRequest request, string userId);
+        Task<long> CreateB2BOrderAsync(CreateB2BOrderRequest request, string userId);
         Task UpdateOrderAsync(long orderId, UpdateForwardOrderRequest request, string userId);
 
         Task CancelOrderAsync(long orderId, string userId);

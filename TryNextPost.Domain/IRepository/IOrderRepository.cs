@@ -18,7 +18,8 @@ namespace TryNextPost.Domain.IRepository
         Task SaveChangesAsync();
         Task UpdateAsync(Order order);
         Task UpdateOrderItem(OrderItem orderitem);
-        Task<int> GetOrdersCountAsync(long sellerId, OrderStatus? statusFilter);
+        Task<int> GetOrdersCountAsync(long sellerId, OrderStatus? statusFilter, OrderCategoryEnum? orderCategory = null);
+        Task<Dictionary<OrderStatus, int>> GetStatusCountsBySellerAsync(long sellerId, OrderCategoryEnum? orderCategory = null);
         Task<Order?> GetByOrderRefAsync(string orderRef);
 
         Task<List<Order>> GetOrdersFilteredAsync(long sellerId, OrderFilterCriteria filter, OrderStatus? statusFilter);

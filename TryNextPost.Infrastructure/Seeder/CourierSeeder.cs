@@ -39,6 +39,8 @@ namespace TryNextPost.Infrastructure.Seeder
                     SupportsCOD = row.Cod,
                     SupportsPrepaid = row.Prepaid,
                     MaxWeightLimit = row.MaxWeightKg,
+                    CodChargeType = Domain.Enums.CodChargeType.Flat,
+                    CodChargeValue = 30m,
                     IsActive = true,
                     CreatedAt = DateTime.UtcNow,
                     CreatedBy = "CourierSeeder"

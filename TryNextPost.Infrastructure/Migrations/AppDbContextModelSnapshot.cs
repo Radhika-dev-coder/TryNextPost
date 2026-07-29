@@ -236,6 +236,14 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.Property<bool?>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<string>("PaymentReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Remark")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<long>("SellerId")
                         .HasColumnType("bigint");
 
@@ -315,6 +323,13 @@ namespace TryNextPost.Infrastructure.Migrations
 
                     b.Property<string>("ApiSecret")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("CodChargeType")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("CodChargeValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("ContactEmail")
                         .HasColumnType("nvarchar(max)");
@@ -590,6 +605,78 @@ namespace TryNextPost.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("CourierSettlementLines");
+                });
+
+            modelBuilder.Entity("TryNextPost.Domain.Entities.CreditNote", b =>
+                {
+                    b.Property<long>("CreditNoteId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("CreditNoteId"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreditNoteDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreditNoteNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("FilePath")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<long?>("InvoiceId")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool?>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Period")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("ReasonType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Remark")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<long>("SellerId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("CreditNoteId");
+
+                    b.HasIndex("CreditNoteNumber")
+                        .IsUnique();
+
+                    b.HasIndex("InvoiceId");
+
+                    b.HasIndex("SellerId");
+
+                    b.ToTable("creditNotes");
                 });
 
             modelBuilder.Entity("TryNextPost.Domain.Entities.EmployeePermission", b =>
@@ -1114,6 +1201,9 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.Property<decimal>("HeightCm")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool?>("IsActive")
                         .HasColumnType("bit");
@@ -1828,6 +1918,90 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.ToTable("ShipmentTrackings");
                 });
 
+            modelBuilder.Entity("TryNextPost.Domain.Entities.TdsCertificate", b =>
+                {
+                    b.Property<long>("TdsCertificateId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("TdsCertificateId"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("CertificateNumber")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DeductorName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("DeductorTan")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("FileUrl")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("FinancialYear")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<bool?>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("OriginalFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTime>("PeriodFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("PeriodTo")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Quarter")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<long>("SellerId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("TdsCertificateId");
+
+                    b.HasIndex("SellerId");
+
+                    b.HasIndex("SellerId", "FinancialYear", "Quarter");
+
+                    b.ToTable("TdsCertificates");
+                });
+
             modelBuilder.Entity("TryNextPost.Domain.Entities.Transaction", b =>
                 {
                     b.Property<long>("TxnId")
@@ -2495,6 +2669,24 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.Navigation("Shipment");
                 });
 
+            modelBuilder.Entity("TryNextPost.Domain.Entities.CreditNote", b =>
+                {
+                    b.HasOne("TryNextPost.Domain.Entities.Invoice", "Invoice")
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("TryNextPost.Domain.Entities.Seller", "Seller")
+                        .WithMany()
+                        .HasForeignKey("SellerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Invoice");
+
+                    b.Navigation("Seller");
+                });
+
             modelBuilder.Entity("TryNextPost.Domain.Entities.EmployeePermission", b =>
                 {
                     b.HasOne("TryNextPost.Domain.Entities.SellerEmployee", "Employee")
@@ -2721,6 +2913,17 @@ namespace TryNextPost.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Shipment");
+                });
+
+            modelBuilder.Entity("TryNextPost.Domain.Entities.TdsCertificate", b =>
+                {
+                    b.HasOne("TryNextPost.Domain.Entities.Seller", "Seller")
+                        .WithMany()
+                        .HasForeignKey("SellerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Seller");
                 });
 
             modelBuilder.Entity("TryNextPost.Domain.Entities.Transaction", b =>

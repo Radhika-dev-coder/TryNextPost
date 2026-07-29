@@ -96,6 +96,12 @@ namespace TryNextPost.Domain.Common
         public const string TrackingWebhookAccepted = "Tracking webhook processed successfully.";
         public const string TrackingWebhookInvalid = "Invalid tracking webhook payload.";
         public const string AwbRequired = "AWB number is required.";
+        public const string OrderCancelBlockedByActiveShipment = "Cannot cancel order while an active shipment exists. Cancel the shipment first.";
+        public const string OrderAlreadyCancelled = "Order is already cancelled.";
+        public const string OrderUpdateBlockedByActiveShipment =
+        "Cannot update order while an active shipment exists. Cancel the shipment first.";
+        public const string InvalidOrderTypeFilter =
+        "Invalid order type filter. Allowed values: Forward, Reverse, ReverseQC.";
 
         // ───── NDR Module ─────
         public const string NdrFetchedSuccess = "NDRs fetched successfully.";
@@ -130,10 +136,24 @@ namespace TryNextPost.Domain.Common
 
         // ───── Billing / Shipping Charges ─────
         public const string ShipmentChargesFetchedSuccess = "Shipping charges fetched successfully.";
+        public const string PriceCalculatedSuccess = "Shipping price calculated successfully.";
+        public const string PriceCalculatorPincodeRequired = "Origin and destination pincode are required.";
+        public const string PriceCalculatorWeightInvalid = "Weight must be greater than zero.";
+        public const string PriceCalculatorNoRates = "No rates found for the selected pincodes / weight.";
+        public const string RateChartSuccess = "Rate chart loaded successfully.";
+        public const string RateChartNoData = "No rate cards found for the selected filters.";
+        public const string RateChartRtoNotConfigured =
+            "RTO rate cards are not configured yet. Add CourierRateCard rows with ServiceCode RTO to enable the RTO chart.";
 
         // ───── COD Remittance Module ─────
         public const string CodRemittanceFetchedSuccess = "COD remittances fetched successfully.";
         public const string CodRemittanceSummaryFetchedSuccess = "COD remittance summary fetched successfully.";
+        public const string CodSettlementNotFound = "COD settlement record not found.";
+        public const string CodSettlementIdRequired = "COD settlement id is required.";
+        public const string CodSettlementPaymentRefRequired =
+            "Payment reference / UTR is required to mark COD remittance as settled.";
+        public const string CodSettlementAlreadySettled = "This COD remittance is already settled.";
+        public const string CodSettlementSettledSuccess = "COD remittance marked as settled successfully.";
         public const string CodBankDetailsFetchedSuccess = "Bank details fetched successfully.";
         public const string CodBankDetailsSavedSuccess = "Bank details saved successfully.";
         public const string CodBankDetailsUpdatedSuccess = "Bank details updated successfully.";
@@ -150,7 +170,27 @@ namespace TryNextPost.Domain.Common
         public const string InvoiceDownloadSuccess = "Invoice download generated successfully.";
         public const string InvoiceCreditNotesPhase2 =
             "Credit notes will be available in a later phase.";
-        public const string InvoiceTdsPhase2 = "TDS certificates will be available in a later phase.";
+
+        // ───── TDS Certificates ─────
+        public const string TdsCertificatesFetchedSuccess = "TDS certificates fetched successfully.";
+        public const string TdsCertificateNotFound = "TDS certificate not found.";
+        public const string TdsCertificateUploadSuccess = "TDS certificate uploaded successfully.";
+        public const string TdsCertificateFileRequired = "TDS certificate file is required.";
+        public const string TdsCertificateInvalidType = "Invalid file type. Only PDF files are allowed.";
+        public const string TdsCertificateTooLarge = "TDS certificate file must be 10 MB or smaller.";
+        public const string TdsCertificateSellerRequired = "Seller is required.";
+        public const string TdsCertificateSellerNotFound = "Seller not found.";
+        public const string TdsCertificateFinancialYearRequired = "Financial year is required.";
+        public const string TdsCertificateFinancialYearInvalid =
+            "Invalid financial year. Use format YYYY-YY (e.g. 2025-26).";
+        public const string TdsCertificateQuarterRequired = "Quarter is required.";
+        public const string TdsCertificateQuarterInvalid = "Invalid quarter. Use Q1, Q2, Q3, or Q4.";
+        public const string TdsCertificateNumberRequired = "Certificate number is required.";
+        public const string TdsCertificateAmountInvalid = "TDS amount must be greater than zero.";
+        public const string TdsCertificateRevokedSuccess = "TDS certificate revoked successfully.";
+        public const string TdsCertificateAlreadyRevoked = "This TDS certificate is already revoked.";
+        public const string TdsCertificateStatusInvalid = "Invalid status. Use issued, revoked, or all.";
+        public const string TdsSellersFetchedSuccess = "Sellers fetched successfully.";
 
         // ───── Rate Card / Settlement Module ─────
         public const string CourierSettlementFetchedSuccess = "Courier settlement data fetched successfully.";
@@ -161,6 +201,13 @@ namespace TryNextPost.Domain.Common
         public const string CourierSettlementInvalidPeriod = "Invalid settlement period. End date must be on or after start date.";
         public const string CourierSettlementPaymentRefRequired = "Payment reference is required to mark settlement as paid.";
         public const string CourierSettlementAlreadyPaid = "This settlement has already been marked as paid.";
+
+        // ───── Courier Master / COD Fee (SuperAdmin) ─────
+        public const string CouriersFetchedSuccess = "Couriers fetched successfully.";
+        public const string CourierNotFoundForAdmin = "Courier not found.";
+        public const string CourierCodFeeUpdatedSuccess = "Courier COD fee updated successfully.";
+        public const string CourierCodChargeTypeInvalid = "Invalid COD charge type. Use Flat (1) or Percentage (2).";
+        public const string CourierCodChargeValueInvalid = "COD charge value must be greater than or equal to zero.";
 
         // ───── Weight Management Module ─────
         public const string WeightDiscrepancyFetchedSuccess = "Weight discrepancies fetched successfully.";
@@ -196,6 +243,13 @@ namespace TryNextPost.Domain.Common
         public const string WeightFreezeWeightRequired = "Weight must be greater than zero.";
         public const string SellerNameFallback = "Seller #{0}";
         public const string WeightExportSuccess = "Export generated successfully.";
+        public const string WeightFreezeImageRequired = "Image file is required.";
+        public const string WeightFreezeImageInvalidType = "Only JPG, JPEG, PNG, WEBP images are allowed.";
+        public const string WeightFreezeImageTooLarge = "Image size must be less than 2 MB.";
+        public const string WeightFreezeImageUploadSuccess = "Image uploaded successfully.";
+
+        // ───── Dashboard Module ─────
+        public const string DashboardFetchedSuccess = "Dashboard data fetched successfully.";
 
         // ───── Common/Generic ─────
         public const string SomethingWentWrong = "Something went wrong. Please try again later.";
@@ -206,5 +260,19 @@ namespace TryNextPost.Domain.Common
         public const string InvalidToken = "Invalid or missing authentication token.";
         public const string ValidationFailed = "Validation failed. Please check your input.";
         public const string AlreadyOTPSend = "Already Otp Send for Verification.";
+
+        // ───── Credit Notes ─────
+        public const string CreditNotesFetchedSuccess = "Credit notes fetched successfully.";
+        public const string CreditNoteNotFound = "Credit note not found.";
+        public const string CreditNoteCreatedSuccess = "Credit note issued successfully.";
+        public const string CreditNoteInvoiceRequired = "Invoice is required to issue a credit note.";
+        public const string CreditNoteAmountInvalid = "Credit note amount must be greater than zero.";
+        public const string CreditNoteAmountExceedsInvoice =
+            "Credit note amount cannot exceed the linked invoice amount.";
+        public const string CreditNoteReasonInvalid =
+            "Invalid reason type. Use 1=InvoiceCorrection, 2=RemittanceAdjustment, 3=WeightDispute, 4=Other.";
+        public const string CreditNoteStatusInvalid =
+            "Invalid status. Use issued, applied, cancelled, or all.";
+        public const string CreditNoteDownloadSuccess = "Credit note download generated successfully.";
     }
 }

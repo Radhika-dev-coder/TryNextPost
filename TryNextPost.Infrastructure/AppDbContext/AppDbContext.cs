@@ -30,6 +30,7 @@ namespace TryNextPost.Infrastructure.AppDbContexts
         public DbSet<CODSettlement> CODSettlements => Set<CODSettlement>();
         public DbSet<SellerBankAccount> SellerBankAccounts => Set<SellerBankAccount>();
         public DbSet<Invoice> Invoices => Set<Invoice>();
+        public DbSet<TdsCertificate> TdsCertificates => Set<TdsCertificate>();
         public DbSet<Zone> Zones => Set<Zone>();
         public DbSet<PincodeZoneMapping> PincodeZoneMappings => Set<PincodeZoneMapping>();
         public DbSet<CourierRateCard> CourierRateCards => Set<CourierRateCard>();
@@ -47,6 +48,8 @@ namespace TryNextPost.Infrastructure.AppDbContexts
         public DbSet<SellerKYC> SellerKYC { get; set; }
         public DbSet<SellerDocument> SellerDocument { get; set; }
         public DbSet<Otp> Otps { get; set; }
+
+        public DbSet<CreditNote> creditNotes { get;set; }
 
         public DbSet<UserSession> UserSessions => Set<UserSession>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -373,6 +376,25 @@ namespace TryNextPost.Infrastructure.AppDbContexts
                 entity.Property(i => i.RechargeAmount).HasPrecision(18, 2);
             });
 
+            modelBuilder.Entity<TdsCertificate>(entity =>
+            {
+                entity.HasOne(t => t.Seller)
+                    .WithMany()
+                    .HasForeignKey(t => t.SellerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasIndex(t => t.SellerId);
+                entity.HasIndex(t => new { t.SellerId, t.FinancialYear, t.Quarter });
+                entity.Property(t => t.FinancialYear).HasMaxLength(20);
+                entity.Property(t => t.Quarter).HasMaxLength(10);
+                entity.Property(t => t.CertificateNumber).HasMaxLength(100);
+                entity.Property(t => t.DeductorName).HasMaxLength(200);
+                entity.Property(t => t.DeductorTan).HasMaxLength(20);
+                entity.Property(t => t.FileUrl).HasMaxLength(500);
+                entity.Property(t => t.OriginalFileName).HasMaxLength(255);
+                entity.Property(t => t.Remarks).HasMaxLength(500);
+                entity.Property(t => t.Amount).HasPrecision(18, 2);
+            });
+
             // --- Order ---
             modelBuilder.Entity<Order>().HasIndex(o => o.OrderRef).IsUnique();
             modelBuilder.Entity<Order>().HasIndex(o => o.ShippingPincode);
@@ -414,6 +436,7 @@ namespace TryNextPost.Infrastructure.AppDbContexts
             modelBuilder.Entity<Courier>(entity =>
             {
                 entity.Property(x => x.MaxWeightLimit).HasPrecision(18, 2);
+                entity.Property(x => x.CodChargeValue).HasPrecision(18, 2);
                 entity.Property(x => x.CourierCode).HasMaxLength(50).IsRequired();
                 entity.HasIndex(x => x.CourierCode).IsUnique();
             });
@@ -601,6 +624,29 @@ namespace TryNextPost.Infrastructure.AppDbContexts
                     .WithMany()
                     .HasForeignKey(w => w.SellerId)
                     .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<CreditNote>(entity =>
+            {
+                entity.HasOne(c => c.Seller)
+                    .WithMany()
+                    .HasForeignKey(c => c.SellerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(c => c.Invoice)
+                    .WithMany()
+                    .HasForeignKey(c => c.InvoiceId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(c => c.SellerId);
+                entity.HasIndex(c => c.CreditNoteNumber).IsUnique();
+                entity.HasIndex(c => c.InvoiceId);
+
+                entity.Property(c => c.CreditNoteNumber).HasMaxLength(50);
+                entity.Property(c => c.Period).HasMaxLength(100);
+                entity.Property(c => c.Remark).HasMaxLength(500);
+                entity.Property(c => c.FilePath).HasMaxLength(500);
+                entity.Property(c => c.Amount).HasPrecision(18, 2);
             });
         }
     }

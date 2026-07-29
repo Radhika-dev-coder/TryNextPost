@@ -121,6 +121,26 @@ namespace TryNextPost.Infrastructure.Repository
                 .ToListAsync();
         }
 
+        public async Task<List<Transaction>> GetSuccessfulTransactionsNewestFirstUntilAsync(
+            long walletId,
+            DateTime untilCreatedAt,
+            long untilTxnId)
+        {
+            return await _context.Transactions
+                .AsNoTracking()
+                .Where(t =>
+                    t.WalletId == walletId
+                    && t.IsActive == true
+                    && t.Status == TransactionStatus.Success
+                    && (
+                        t.CreatedAt > untilCreatedAt
+                        || (t.CreatedAt == untilCreatedAt && t.TxnId >= untilTxnId)
+                        || (t.CreatedAt == null && t.TxnId >= untilTxnId)))
+                .OrderByDescending(t => t.CreatedAt)
+                .ThenByDescending(t => t.TxnId)
+                .ToListAsync();
+        }
+
         public async Task SaveChangesAsync()
         {
             await _context.SaveChangesAsync();

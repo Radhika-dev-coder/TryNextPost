@@ -12,5 +12,7 @@ namespace TryNextPost.Application.IServices.Interface.IWeight
         Task<WeightFreezeImportResult> ImportCsvAsync(string userId, IFormFile file);
         (byte[] Content, string FileName) GetImportSampleCsv();
         Task<(byte[] Content, string FileName)> ExportCsvAsync(string userId, bool isSuperAdmin, WeightFreezeFilterRequest filter);
+
+        Task<WeightFreezeImageUploadResponse> UploadImageAsync(string userId, IFormFile file);
     }
 }

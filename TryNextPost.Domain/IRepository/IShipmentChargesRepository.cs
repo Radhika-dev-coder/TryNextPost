@@ -18,6 +18,9 @@ namespace TryNextPost.Domain.IRepository
 
         Task<decimal> SumSellerChargeForPeriodAsync(long sellerId, DateTime periodFrom, DateTime periodTo);
 
+        /// <summary>Seller freight charges keyed by ShipmentId.</summary>
+        Task<Dictionary<long, decimal>> GetSellerChargesByShipmentIdsAsync(IEnumerable<long> shipmentIds);
+
         Task SaveChangesAsync();
     }
 }

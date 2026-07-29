@@ -1,12 +1,13 @@
 using TryNextPost.Application.DTO.RateCard;
 using TryNextPost.Application.IServices.Interface.IRateCard;
+using TryNextPost.Domain.Entities;
+using TryNextPost.Domain.Enums;
 using TryNextPost.Domain.IRepository;
 
 namespace TryNextPost.Application.IServices.Class.RateCard
 {
     public class RateCalculationService : IRateCalculationService
     {
-        private const decimal CodChargeFlat = 30m;
         private const string SurfaceServiceCode = "SURFACE";
         private const string ExpressServiceCode = "EXPRESS";
 
@@ -29,16 +30,48 @@ namespace TryNextPost.Application.IServices.Class.RateCard
             string destinationPincode,
             decimal weightGrams,
             decimal? volumetricWeightGrams,
-            bool isCod)
+            bool isCod,
+            CodChargeType codChargeType = CodChargeType.Flat,
+            decimal codChargeValue = 0m,
+            decimal? codAmount = null,
+            bool supportsCod = true)
         {
-            var chargeableWeight = GetChargeableWeightGrams(weightGrams, volumetricWeightGrams);
             var originZone = await _zoneRepository.GetZoneByPincodeAsync(originPincode);
             var destZone = await _zoneRepository.GetZoneByPincodeAsync(destinationPincode);
+            return await GetRatesForCourierZonesAsync(
+                courierId,
+                courierCode,
+                courierName,
+                originZone,
+                destZone,
+                weightGrams,
+                volumetricWeightGrams,
+                isCod,
+                codChargeType,
+                codChargeValue,
+                codAmount,
+                supportsCod);
+        }
 
+        public async Task<List<RateQuoteDto>> GetRatesForCourierZonesAsync(
+            long courierId,
+            string courierCode,
+            string courierName,
+            Zone? originZone,
+            Zone? destZone,
+            decimal weightGrams,
+            decimal? volumetricWeightGrams,
+            bool isCod,
+            CodChargeType codChargeType = CodChargeType.Flat,
+            decimal codChargeValue = 0m,
+            decimal? codAmount = null,
+            bool supportsCod = true)
+        {
             if (originZone == null || destZone == null)
                 return [];
 
-            var codCharge = isCod ? CodChargeFlat : 0m;
+            var chargeableWeight = GetChargeableWeightGrams(weightGrams, volumetricWeightGrams);
+            var codCharge = ResolveCodCharge(isCod, supportsCod, codChargeType, codChargeValue, codAmount);
             var quotes = new List<RateQuoteDto>();
 
             var surfaceCard = await _rateCardRepository.FindRateAsync(
@@ -89,7 +122,11 @@ namespace TryNextPost.Application.IServices.Class.RateCard
             decimal weightGrams,
             decimal? volumetricWeightGrams,
             bool isCod,
-            string? serviceCode)
+            string? serviceCode,
+            CodChargeType codChargeType = CodChargeType.Flat,
+            decimal codChargeValue = 0m,
+            decimal? codAmount = null,
+            bool supportsCod = true)
         {
             var rates = await GetRatesForCourierAsync(
                 courierId,
@@ -99,7 +136,11 @@ namespace TryNextPost.Application.IServices.Class.RateCard
                 destinationPincode,
                 weightGrams,
                 volumetricWeightGrams,
-                isCod);
+                isCod,
+                codChargeType,
+                codChargeValue,
+                codAmount,
+                supportsCod);
 
             if (rates.Count == 0)
                 return null;
@@ -115,8 +156,40 @@ namespace TryNextPost.Application.IServices.Class.RateCard
                        || r.ServiceCode.Contains(normalized, StringComparison.OrdinalIgnoreCase));
         }
 
+        /// <summary>
+        /// Computes COD handling fee from courier config.
+        /// Flat → CodChargeValue; Percentage → CodAmount × value / 100 (0 if CodAmount missing).
+        /// </summary>
+        public static decimal ResolveCodCharge(
+            bool isCod,
+            bool supportsCod,
+            CodChargeType codChargeType,
+            decimal codChargeValue,
+            decimal? codAmount)
+        {
+            if (!isCod || !supportsCod)
+                return 0m;
+
+            if (codChargeValue < 0)
+                return 0m;
+
+            if (codChargeType == CodChargeType.Percentage)
+            {
+                if (!codAmount.HasValue || codAmount.Value <= 0)
+                    return 0m;
+                return Math.Round(codAmount.Value * codChargeValue / 100m, 2);
+            }
+
+            return Math.Round(codChargeValue, 2);
+        }
+
+        public static string FormatCodLabel(CodChargeType type, decimal value) =>
+            type == CodChargeType.Percentage
+                ? $"{value:0.##}%"
+                : $"\u20B9{value:0.00}";
+
         private static RateQuoteDto BuildQuote(
-            Domain.Entities.CourierRateCard card,
+            CourierRateCard card,
             string courierCode,
             decimal codCharge,
             string originZoneCode,

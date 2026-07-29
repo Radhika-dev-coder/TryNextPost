@@ -1,13 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using TryNextPost.Domain.Enums;
 
 namespace TryNextPost.Domain.Common
 {
     public class OrderFilterCriteria
     {
+        public OrderCategoryEnum? OrderCategory { get; set; }
+
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 20;
 
@@ -17,9 +15,10 @@ namespace TryNextPost.Domain.Common
         public string? SearchQuery { get; set; }
         public string? ProductName { get; set; }
         public string? Channel { get; set; }
-        public string? Type { get; set; }
         public string? IvrStatus { get; set; }
         public string? WhatsAppStatus { get; set; }
         public string? Tags { get; set; }
+        public string? PaymentType { get; set; }  // COD | Prepaid
+        public string? OrderType { get; set; }    // Forward | Reverse | ReverseQC
     }
 }
