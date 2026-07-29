@@ -207,75 +207,72 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
+    });
 
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:4200"
-            )
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
-
+        policy.WithOrigins("http://localhost:4200")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
-
 #endregion
 
 builder.Services.AddMemoryCache();
-builder.Services.AddControllers();
+    builder.Services.AddControllers();
 
-var app = builder.Build();
+    var app = builder.Build();
 
-#region Seeder
+    #region Seeder
 
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-
-    var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
-    var roleManager = services.GetRequiredService<RoleManager<ApplicationRole>>();
-
-    await IdentitySeeder.SeedAsync(userManager, roleManager);
-
-    var db = services.GetRequiredService<AppDbContext>();
-    await PermissionSeeder.SeedAsync(db);
-
-    var logger = services.GetRequiredService<ILoggerFactory>()
-                         .CreateLogger("CourierSeeder");
-
-    try
+    using (var scope = app.Services.CreateScope())
     {
-        await CourierSeeder.SeedAsync(db, logger);
+        var services = scope.ServiceProvider;
+
+        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+        var roleManager = services.GetRequiredService<RoleManager<ApplicationRole>>();
+
+        await IdentitySeeder.SeedAsync(userManager, roleManager);
+
+        var db = services.GetRequiredService<AppDbContext>();
+        await PermissionSeeder.SeedAsync(db);
+
+        var logger = services.GetRequiredService<ILoggerFactory>()
+                             .CreateLogger("CourierSeeder");
+
+        try
+        {
+            await CourierSeeder.SeedAsync(db, logger);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Courier seed skipped. Apply migration AddCourierCode if missing.");
+        }
     }
-    catch (Exception ex)
+
+    #endregion
+
+    if (app.Environment.IsDevelopment())
     {
-        logger.LogWarning(ex,
-            "Courier seed skipped. Apply migration AddCourierCode if missing.");
+        app.UseSwagger();
+        app.UseSwaggerUI(options =>
+        {
+            options.SwaggerEndpoint("/swagger/v1/swagger.json",
+                "TryNextPost API v1");
+            options.RoutePrefix = string.Empty;
+        });
     }
-}
 
-#endregion
+    app.UseCors("AllowAll");
+    app.UseHttpsRedirection();
+    app.UseCors("AllowFrontend");
+    app.UseMiddleware<ExceptionMiddleware>();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(options =>
-    {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json",
-            "TryNextPost API v1");
-        options.RoutePrefix = string.Empty;
-    });
-}
+    app.UseAuthentication();
+    app.UseAuthorization();
 
-app.UseCors("AllowAll");
-app.UseHttpsRedirection();
-app.UseCors("AllowFrontend");
-app.UseMiddleware<ExceptionMiddleware>();
-
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapControllers();
+    app.MapControllers();
 
 app.Run();
