@@ -252,18 +252,20 @@ builder.Services.AddMemoryCache();
         }
     }
 
-    #endregion
+#endregion
 
-    if (app.Environment.IsDevelopment())
-    {
-        app.UseSwagger();
-        app.UseSwaggerUI(options =>
-        {
-            options.SwaggerEndpoint("/swagger/v1/swagger.json",
-                "TryNextPost API v1");
-            options.RoutePrefix = string.Empty;
-        });
-    }
+//if (app.Environment.IsDevelopment())
+//{
+//    app.UseSwagger();
+//    app.UseSwaggerUI(options =>
+//    {
+//        options.SwaggerEndpoint("/swagger/v1/swagger.json",
+//            "TryNextPost API v1");
+//        options.RoutePrefix = string.Empty;
+//    });
+//}
+app.UseSwagger();
+app.UseSwaggerUI();
 
     app.UseCors("AllowAll");
     app.UseHttpsRedirection();
