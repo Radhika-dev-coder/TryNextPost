@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using TryNextPost.Domain.Entities;
+using TryNextPost.Domain.Entities.Report;
 using TryNextPost.Infrastructure.Identity;
 
 namespace TryNextPost.Infrastructure.AppDbContexts
@@ -52,6 +53,7 @@ namespace TryNextPost.Infrastructure.AppDbContexts
         public DbSet<CreditNote> creditNotes { get;set; }
 
         public DbSet<UserSession> UserSessions => Set<UserSession>();
+        public DbSet<ExportHistory> ExportHistories => Set<ExportHistory>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -647,6 +649,23 @@ namespace TryNextPost.Infrastructure.AppDbContexts
                 entity.Property(c => c.Remark).HasMaxLength(500);
                 entity.Property(c => c.FilePath).HasMaxLength(500);
                 entity.Property(c => c.Amount).HasPrecision(18, 2);
+            });
+            modelBuilder.Entity<ExportHistory>(entity =>
+            {
+                entity.HasOne(e => e.Seller)
+                    .WithMany()
+                    .HasForeignKey(e => e.SellerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => e.SellerId);
+                entity.HasIndex(e => e.CreatedAt);
+                entity.HasIndex(e => e.Status);
+
+                entity.Property(e => e.ReportType).HasMaxLength(100);
+                entity.Property(e => e.SelectedFields).HasMaxLength(2000);
+                entity.Property(e => e.FileName).HasMaxLength(260);
+                entity.Property(e => e.FilePath).HasMaxLength(500);
+                entity.Property(e => e.ErrorMessage).HasMaxLength(500);
             });
         }
     }

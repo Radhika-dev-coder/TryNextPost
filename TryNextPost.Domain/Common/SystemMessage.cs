@@ -102,6 +102,7 @@ namespace TryNextPost.Domain.Common
         "Cannot update order while an active shipment exists. Cancel the shipment first.";
         public const string InvalidOrderTypeFilter =
         "Invalid order type filter. Allowed values: Forward, Reverse, ReverseQC.";
+        public const string ShipmentSummaryFetchedSuccess = "Shipment summary fetched successfully.";
 
         // ───── NDR Module ─────
         public const string NdrFetchedSuccess = "NDRs fetched successfully.";
@@ -274,5 +275,17 @@ namespace TryNextPost.Domain.Common
         public const string CreditNoteStatusInvalid =
             "Invalid status. Use issued, applied, cancelled, or all.";
         public const string CreditNoteDownloadSuccess = "Credit note download generated successfully.";
+
+        // ───── Reports / Custom Report ─────
+        public const string CustomReportGeneratedSuccess = "Custom report generated successfully.";
+        public const string CustomReportFieldsRequired = "Select at least one field to generate the report.";
+        public const string CustomReportFieldsInvalid = "One or more selected fields are invalid.";
+        public const string CustomReportDateRangeInvalid = "Invalid date range. ToDate must be on or after FromDate.";
+        public const string CustomReportDateRequired = "FromDate and ToDate are required.";
+        public const string ExportHistoryFetchedSuccess = "Export history fetched successfully.";
+        public const string ExportHistoryNotFound = "Export history record not found.";
+        public const string ExportHistoryDownloadSuccess = "Export file download ready.";
+        public const string ExportHistoryNotReady = "Export file is not ready yet.";
+        public const string ExportHistoryFileMissing = "Export file is missing on server.";
     }
 }

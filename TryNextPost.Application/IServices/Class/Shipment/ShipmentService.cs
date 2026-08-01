@@ -12,6 +12,7 @@ using TryNextPost.Domain.Entities;
 using TryNextPost.Domain.Enums;
 using TryNextPost.Domain.IRepository;
 
+
 namespace TryNextPost.Application.IServices.Class.Shipment
 {
     public class ShipmentService : IShipmentService
@@ -597,32 +598,39 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             if (shipment == null)
                 throw new InvalidOperationException(SystemMessage.ShipmentNotFound);
 
-            if (shipment.Status != newStatus)
-                ShipmentStatusTransitions.EnsureCanTransition(shipment.Status, newStatus);
+            if (shipment.Status == newStatus)
+            {
+                return new ShipmentTrackingWebhookResponse
+                {
+                    ShipmentId = shipment.ShipmentId,
+                    AwbNumber = shipment.AwbNumber,
+                    Status = (int)shipment.Status,
+                    StatusName = shipment.Status.ToString(),
+                    Message = "Duplicate status ignored"
+                };
+            }
+
+            ShipmentStatusTransitions.EnsureCanTransition(shipment.Status, newStatus);
 
             shipment.Status = newStatus;
             shipment.UpdatedAt = DateTime.UtcNow;
             shipment.UpdatedBy = "webhook";
 
-            await _shipmentRepository.UpdateAsync(shipment);
             await _shipmentRepository.AddTrackingAsync(new ShipmentTracking
             {
                 ShipmentId = shipment.ShipmentId,
                 Status = newStatus,
                 StatusCode = request.CourierStatusCode
-                    ?? request.StatusCode?.ToString()
-                    ?? newStatus.ToString().ToUpperInvariant(),
+        ?? request.StatusCode?.ToString()
+        ?? newStatus.ToString().ToUpperInvariant(),
                 Location = request.Location ?? string.Empty,
                 Description = request.Description
-                    ?? $"Webhook status update: {newStatus}",
+        ?? $"Webhook status update: {newStatus}",
                 EventTime = request.EventTime ?? DateTime.UtcNow,
                 CreatedAt = DateTime.UtcNow
             });
 
-            await ApplyNdrFromTrackingAsync(
-                shipment,
-                newStatus,
-                request.Description ?? $"Webhook status update: {newStatus}");
+            await ApplyNdrFromTrackingAsync(shipment,newStatus,request.Description ?? $"Webhook status update: {newStatus}");
 
             await _shipmentRepository.SaveChangesAsync();
 
@@ -674,7 +682,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 return;
             }
 
-            if (newStatus != ShipmentStatus.Delivered && newStatus != ShipmentStatus.RTO)
+            if (newStatus != ShipmentStatus.Delivered && !ShipmentStatusTransitions.IsRtoStatus(newStatus))
                 return;
 
             var existing = await _ndrRepository.GetOpenByShipmentIdAsync(shipment.ShipmentId);
@@ -697,15 +705,31 @@ namespace TryNextPost.Application.IServices.Class.Shipment
 
             var page = request.Page < 1 ? 1 : request.Page;
             var pageSize = request.PageSize < 1 ? 20 : Math.Min(request.PageSize, 100);
-            var statusFilter = ParseStatusTab(request.StatusTab);
+
+            var isRto = request.StatusTab?.Equals("rto", StringComparison.OrdinalIgnoreCase) == true;
+            var statusFilter = isRto ? null : ParseStatusTab(request.StatusTab);
+
             var orderCategory = request.OrderCategory;
 
             var shipments = await _shipmentRepository.GetBySellerFilteredAsync(
-                seller.SellerId, statusFilter, page, pageSize, request.SearchQuery, orderCategory);
-            var totalCount = await _shipmentRepository.GetBySellerFilteredCountAsync(
-                seller.SellerId, statusFilter, request.SearchQuery, orderCategory);
-            var statusCounts = await _shipmentRepository.GetStatusCountsBySellerAsync(seller.SellerId, orderCategory);
+                seller.SellerId,
+                statusFilter,
+                isRto,
+                page,
+                pageSize,
+                request.SearchQuery,
+                orderCategory);
 
+            var totalCount = await _shipmentRepository.GetBySellerFilteredCountAsync(
+                seller.SellerId,
+                statusFilter,
+                isRto,
+                request.SearchQuery,
+                orderCategory);
+
+            var statusCounts = await _shipmentRepository.GetStatusCountsBySellerAsync(
+                seller.SellerId,
+                orderCategory);
             var tabCounts = new ShipmentTabCounts
             {
                 All = statusCounts.Values.Sum(),
@@ -715,7 +739,11 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 InTransit = statusCounts.GetValueOrDefault(ShipmentStatus.InTransit),
                 OutForDelivery = statusCounts.GetValueOrDefault(ShipmentStatus.OutForDelivery),
                 Delivered = statusCounts.GetValueOrDefault(ShipmentStatus.Delivered),
-                Rto = statusCounts.GetValueOrDefault(ShipmentStatus.RTO),
+
+                Rto = statusCounts
+                    .Where(x => ShipmentStatusTransitions.IsRtoStatus(x.Key))
+                    .Sum(x => x.Value),
+
                 Exception = statusCounts.GetValueOrDefault(ShipmentStatus.Exception),
                 Cancelled = statusCounts.GetValueOrDefault(ShipmentStatus.Cancelled)
             };
@@ -728,6 +756,19 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 PageSize = pageSize,
                 TabCounts = tabCounts
             };
+        }
+
+        private static IQueryable<TryNextPost.Domain.Entities.Shipment> ApplyStatusFilter(IQueryable<TryNextPost.Domain.Entities.Shipment> query, string? statusTab)
+        {
+            if (statusTab?.Equals("rto", StringComparison.OrdinalIgnoreCase) == true)
+                return query.Where(s => ShipmentStatusTransitions.IsRtoStatus(s.Status));
+
+            var status = ParseStatusTab(statusTab);
+
+            if (status.HasValue)
+                return query.Where(s => s.Status == status.Value);
+
+            return query;
         }
 
         public async Task<ShipmentDetailResponse> GetShipmentByOrderIdAsync(long orderId, string userId)
@@ -1191,9 +1232,9 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 "pendingpickup" => ShipmentStatus.PendingPickup,
                 "pickedup" or "picked" => ShipmentStatus.PickedUp,
                 "intransit" => ShipmentStatus.InTransit,
-                "outofordelivery" => ShipmentStatus.OutForDelivery,
+                "outfordelivery" => ShipmentStatus.OutForDelivery,
                 "delivered" => ShipmentStatus.Delivered,
-                "rto" => ShipmentStatus.RTO,
+                "rto" => null,
                 "reacheddestination" => ShipmentStatus.ReachedDestination,
                 "exception" => ShipmentStatus.Exception,
                 "cancelled" or "canceled" => ShipmentStatus.Cancelled,

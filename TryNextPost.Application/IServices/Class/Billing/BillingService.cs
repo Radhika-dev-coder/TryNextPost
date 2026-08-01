@@ -1,9 +1,10 @@
+using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
-using Microsoft.Extensions.Logging;
 using TryNextPost.Application.DTO.Billing;
+using TryNextPost.Application.Helpers;
 using TryNextPost.Application.IServices.Class.RateCard;
 using TryNextPost.Application.IServices.Interface;
 using TryNextPost.Application.IServices.Interface.IBilling;
@@ -453,7 +454,10 @@ namespace TryNextPost.Application.IServices.Class.Billing
 
             extraWeightByShipment.TryGetValue(c.ShipmentId, out var extraWeightCharges);
 
-            var isRto = shipment?.Status == ShipmentStatus.RTO;
+            var isRto = shipment?.Status == ShipmentStatus.RTOInitiated ||
+                shipment?.Status == ShipmentStatus.RTOInTransit ||
+                shipment?.Status == ShipmentStatus.RTODelivered ||
+                shipment?.Status == ShipmentStatus.RTOAcknowledged;
             var codChargeReversed = isRto ? c.CodCharge : 0m;
 
             rtoChargesByShipment.TryGetValue(c.ShipmentId, out var rtoParts);
@@ -493,7 +497,8 @@ namespace TryNextPost.Application.IServices.Class.Billing
         {
             var result = new Dictionary<long, (decimal RtoCharge, decimal RtoExtraWeight)>();
             var rtoItems = items
-                .Where(c => c.Shipment?.Status == ShipmentStatus.RTO && c.Shipment.CourierId > 0)
+                .Where(c => c.Shipment != null && ShipmentStatusTransitions.IsRtoStatus(c.Shipment?.Status)
+                 && c.Shipment.CourierId > 0)
                 .ToList();
 
             if (rtoItems.Count == 0)
@@ -506,7 +511,7 @@ namespace TryNextPost.Application.IServices.Class.Billing
 
             // One rate-card load per courier on the page — avoid N+1 FindRateAsync roundtrips.
             var cardsByCourier = new Dictionary<long, List<CourierRateCard>>();
-            foreach (var courierId in rtoItems.Select(c => c.Shipment!.CourierId).Distinct())
+            foreach (var courierId in rtoItems.Select(c => c.Shipment!.CourierId).Where(id => id > 0).Distinct())
             {
                 cardsByCourier[courierId] = await _rateCardRepository.GetByCourierAsync(courierId);
             }
@@ -539,6 +544,9 @@ namespace TryNextPost.Application.IServices.Class.Billing
 
                 if (card == null)
                     continue;
+
+                var extraWeight = Math.Max(0, c.ChargeableWeightGrams - card.WeightToGrams);
+                var extraWeightKg = extraWeight / 1000m;
 
                 result[c.ShipmentId] = (card.SellerCharge, 0m);
             }

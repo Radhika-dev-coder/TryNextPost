@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using TryNextPost.Application.Helpers;
 using TryNextPost.Domain.Common;
 using TryNextPost.Domain.Entities;
 using TryNextPost.Domain.Enums;
@@ -104,7 +105,7 @@ namespace TryNextPost.Infrastructure.Repository
         public async Task<int> CountRtoAsync(long? sellerId, DateTime? from, DateTime? to)
         {
             var shipmentRto = BaseShipmentQuery(sellerId)
-                .Where(s => s.Status == ShipmentStatus.RTO);
+                .Where(s => ShipmentStatusTransitions.IsRtoStatus(s.Status));
 
             if (from.HasValue || to.HasValue)
                 shipmentRto = ApplyDateRange(shipmentRto, from, to, s => s.UpdatedAt ?? s.CreatedAt);
@@ -332,15 +333,34 @@ namespace TryNextPost.Infrastructure.Repository
             _ => "pending"
         };
 
-        private static string MapShipmentStatusForDashboard(ShipmentStatus status) => status switch
+        private static string MapShipmentStatusForDashboard(ShipmentStatus status)
         {
-            ShipmentStatus.Delivered => "delivered",
-            ShipmentStatus.InTransit or ShipmentStatus.OutForDelivery or ShipmentStatus.PickedUp or ShipmentStatus.Picked => "in-transit",
-            ShipmentStatus.Booked or ShipmentStatus.PendingPickup or ShipmentStatus.Created => "pending",
-            ShipmentStatus.RTO or ShipmentStatus.Exception or ShipmentStatus.BookingFailed => "failed",
-            ShipmentStatus.Cancelled => "cancelled",
-            _ => "processing"
-        };
+            if (ShipmentStatusTransitions.IsRtoStatus(status))
+                return "failed";
+
+            return status switch
+            {
+                ShipmentStatus.Delivered => "delivered",
+
+                ShipmentStatus.InTransit
+                or ShipmentStatus.OutForDelivery
+                or ShipmentStatus.PickedUp
+                    => "in-transit",
+
+                ShipmentStatus.Booked
+                or ShipmentStatus.PendingPickup
+                or ShipmentStatus.Created
+                    => "pending",
+
+                ShipmentStatus.Exception
+                or ShipmentStatus.BookingFailed
+                    => "failed",
+
+                ShipmentStatus.Cancelled => "cancelled",
+
+                _ => "processing"
+            };
+        }
 
         private IQueryable<Shipment> BaseShipmentQuery(long? sellerId)
         {
@@ -385,15 +405,15 @@ namespace TryNextPost.Infrastructure.Repository
                 or ShipmentStatus.PendingPickup
                 or ShipmentStatus.Created
                 or ShipmentStatus.PickedUp
-                or ShipmentStatus.Picked
+                or ShipmentStatus.PickedUp
                 or ShipmentStatus.InTransit
                 or ShipmentStatus.OutForDelivery
                 or ShipmentStatus.ReachedDestination;
 
         private static bool IsFailedShipmentStatus(ShipmentStatus status) =>
-            status is ShipmentStatus.RTO
-                or ShipmentStatus.Exception
-                or ShipmentStatus.Cancelled
-                or ShipmentStatus.BookingFailed;
+    ShipmentStatusTransitions.IsRtoStatus(status)
+    || status is ShipmentStatus.Exception
+    || status is ShipmentStatus.Cancelled
+    || status is ShipmentStatus.BookingFailed;
     }
 }

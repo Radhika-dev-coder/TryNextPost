@@ -1,32 +1,30 @@
 ﻿namespace TryNextPost.Domain.Enums
 {
-    /// <summary>
-    /// Shipment lifecycle statuses.
-    /// Existing numeric values (1–6) are preserved for backward compatibility.
-    /// Newer UI-aligned values start at 7.
-    /// </summary>
+
     public enum ShipmentStatus
     {
-        /// <summary>Legacy initial state (pre Phase-1 booking flow).</summary>
         Created = 1,
+        Booked = 2,             
+        PendingPickup = 3,
+        PickupScheduled = 4,
+        PickedUp = 5,
+        InTransit = 6,
+        ReachedDestination = 7,
+        OutForDelivery = 8,
+        Delivered = 9,
 
-        /// <summary>Legacy pickup complete. Same value as <see cref="Picked"/>.</summary>
-        PickedUp = 2,
+        DeliveryAttemptFailed = 10,
+        NDR = 11,
 
-        /// <summary>UI alias for <see cref="PickedUp"/>.</summary>
-        Picked = 2,
+        RTOInitiated = 12,
+        RTOInTransit = 13,
+        RTODelivered = 14,
+        RTOAcknowledged = 15,    
 
-        InTransit = 3,
-        OutForDelivery = 4,
-        Delivered = 5,
-        RTO = 6,
-
-        // ───── Phase 1 UI-aligned additions ─────
-        Booked = 7,
-        PendingPickup = 8,
-        ReachedDestination = 9,
-        Exception = 10,
-        Cancelled = 11,
-        BookingFailed = 12
+        Exception = 16,
+        Lost = 17,
+        Damaged = 18,
+        Cancelled = 19,
+        BookingFailed = 20
     }
 }
