@@ -14,10 +14,12 @@ namespace TryNextPost.API.Controllers.Webhook
     public class ShipmentWebhookController : ControllerBase
     {
         private readonly IShipmentService _shipmentService;
+        private readonly ILogger<ShipmentWebhookController> _logger;
 
-        public ShipmentWebhookController(IShipmentService shipmentService)
+        public ShipmentWebhookController(IShipmentService shipmentService, ILogger<ShipmentWebhookController> logger)
         {
             _shipmentService = shipmentService;
+            _logger = logger;
         }
 
         [HttpPost("tracking")]
@@ -25,6 +27,8 @@ namespace TryNextPost.API.Controllers.Webhook
             [FromBody] ShipmentTrackingWebhookRequest request,
             CancellationToken cancellationToken)
         {
+            _logger.LogInformation("Tracking webhook received for AWB: {Awb}", request?.AwbNumber);
+
             var result = await _shipmentService.ProcessTrackingWebhookAsync(request, cancellationToken);
             return Ok(new ApiResponse<ShipmentTrackingWebhookResponse>
             {

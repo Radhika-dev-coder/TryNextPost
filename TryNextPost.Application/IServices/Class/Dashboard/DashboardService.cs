@@ -17,10 +17,13 @@ namespace TryNextPost.Application.IServices.Class.Dashboard
         private static readonly int[] DeliveredStatuses = { (int)ShipmentStatus.Delivered };
         private static readonly int[] FailedStatuses =
         {
-            (int)ShipmentStatus.RTO,
-            (int)ShipmentStatus.Exception,
-            (int)ShipmentStatus.Cancelled,
-            (int)ShipmentStatus.BookingFailed
+         (int)ShipmentStatus.RTOInitiated,
+         (int)ShipmentStatus.RTOInTransit,
+         (int)ShipmentStatus.RTODelivered,
+         (int)ShipmentStatus.RTOAcknowledged,
+         (int)ShipmentStatus.Exception,
+         (int)ShipmentStatus.Cancelled,
+         (int)ShipmentStatus.BookingFailed
         };
 
         public DashboardService(

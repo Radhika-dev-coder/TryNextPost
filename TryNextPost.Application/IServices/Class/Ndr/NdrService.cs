@@ -129,7 +129,7 @@ namespace TryNextPost.Application.IServices.Class.Ndr
             ndr.UpdatedBy = userId;
 
             // Local-only: move shipment back toward delivery attempt (no courier API).
-            if (ndr.Shipment!.Status == ShipmentStatus.Exception
+            if (!ShipmentStatusTransitions.IsRtoStatus(ndr.Shipment.Status)
                 && ShipmentStatusTransitions.CanTransition(ndr.Shipment.Status, ShipmentStatus.OutForDelivery))
             {
                 ndr.Shipment.Status = ShipmentStatus.OutForDelivery;
@@ -172,15 +172,15 @@ namespace TryNextPost.Application.IServices.Class.Ndr
             }
 
             // Local-only: update shipment to RTO when status machine allows (no courier API).
-            if (ndr.Shipment!.Status != ShipmentStatus.RTO
-                && ShipmentStatusTransitions.CanTransition(ndr.Shipment.Status, ShipmentStatus.RTO))
+            if (ndr.Shipment!.Status != ShipmentStatus.RTOInitiated
+                && ShipmentStatusTransitions.CanTransition(ndr.Shipment.Status, ShipmentStatus.RTOInitiated))
             {
-                ndr.Shipment.Status = ShipmentStatus.RTO;
+                ndr.Shipment.Status = ShipmentStatus.RTOInitiated;
                 ndr.Shipment.UpdatedAt = DateTime.UtcNow;
                 ndr.Shipment.UpdatedBy = userId;
                 await _shipmentRepository.UpdateAsync(ndr.Shipment);
             }
-            else if (ndr.Shipment.Status != ShipmentStatus.RTO)
+            else if (ndr.Shipment.Status != ShipmentStatus.RTOInitiated)
             {
                 _logger.LogWarning(
                     "NDR {NdrId} marked RTO but shipment {ShipmentId} status {Status} cannot transition to RTO locally.",
