@@ -103,6 +103,7 @@ namespace TryNextPost.Domain.Common
         public const string InvalidOrderTypeFilter =
         "Invalid order type filter. Allowed values: Forward, Reverse, ReverseQC.";
         public const string ShipmentSummaryFetchedSuccess = "Shipment summary fetched successfully.";
+        public const string DailySummaryFetchedSuccess = "Daily summary fetched successfully.";
 
         // ───── NDR Module ─────
         public const string NdrFetchedSuccess = "NDRs fetched successfully.";

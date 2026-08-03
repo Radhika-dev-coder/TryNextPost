@@ -102,5 +102,23 @@ namespace TryNextPost.API.Controllers.Report
             });
         }
 
+        [HttpGet("daily-summary")]
+        public async Task<IActionResult> GetDailySummary([FromQuery] DailySummaryRequest request)
+        {
+            var userId = RequireUserId();
+            if (userId == null)
+                return Unauthorized(new { message = SystemMessage.InvalidToken });
+
+            var result = await _customReportService.GetDailySummaryDataAsync(userId, request);
+
+            return Ok(new ApiResponse<List<DailySummaryResponse>>
+            {
+                Success = true,
+                Message = SystemMessage.DailySummaryFetchedSuccess,
+                Data = result,
+                StatusCode = ApiStatusCode.Success
+            });
+        }
+
     }
 }

@@ -10,6 +10,7 @@ using TryNextPost.Application.DTO.Report;
 using TryNextPost.Application.IServices.Interface;
 using TryNextPost.Application.IServices.Interface.IReport;
 using TryNextPost.Domain.Common;
+using TryNextPost.Domain.Common.Report;
 using TryNextPost.Domain.Constants;
 using TryNextPost.Domain.Entities;
 using TryNextPost.Domain.Entities.Report;
@@ -306,6 +307,34 @@ namespace TryNextPost.Application.IServices.Class.Report
             }
 
             return Encoding.UTF8.GetBytes(sb.ToString());
+        }
+
+        public async Task<List<DailySummaryResponse>> GetDailySummaryDataAsync(string userId, DailySummaryRequest request)
+        {
+            await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.OrdersView);
+            var seller = await _sellerContextService.ResolveSellerAsync(userId);
+
+            if (request.FromDate == default || request.ToDate == default)
+                throw new InvalidOperationException(SystemMessage.CustomReportDateRequired);
+
+            if (request.ToDate.Date < request.FromDate.Date)
+                throw new InvalidOperationException(SystemMessage.CustomReportDateRangeInvalid);
+
+            var data = await _exportHistoryRepository.GetDailySummaryDataAsync(
+                seller.SellerId,request.FromDate,request.ToDate);
+
+            return data.Select(x => new DailySummaryResponse
+            {
+                Date = x.Date,
+
+                ShipmentPicked = x.ShipmentPicked,
+                InTransit = x.InTransit,
+                Exception = x.Exception,
+                Delivered = x.Delivered,
+
+                RTOInTransit = x.RTOInTransit,
+                RTODelivered = x.RTODelivered
+            }).ToList();
         }
     }
 }

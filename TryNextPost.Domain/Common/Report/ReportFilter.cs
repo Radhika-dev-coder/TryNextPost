@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using TryNextPost.Domain.Enums;
 
-namespace TryNextPost.Domain.Common
+namespace TryNextPost.Domain.Common.Report
 {
     public class ReportFilter
     {
