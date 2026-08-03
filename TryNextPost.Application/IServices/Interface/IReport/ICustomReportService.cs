@@ -17,5 +17,7 @@ namespace TryNextPost.Application.IServices.Interface.IReport
         Task<ShipmentSummaryResponse> GetShipmentSummaryAsync(string userId, ShipmentSummaryRequest request);
 
         Task<object> ExportReportAsync(string userId, ReportRequest request);
+
+        Task<List<DailySummaryResponse>> GetDailySummaryDataAsync(string userId, DailySummaryRequest request);
     }
 }

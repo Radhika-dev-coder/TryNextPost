@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using TryNextPost.Domain.Common;
 using TryNextPost.Domain.Entities;
 using TryNextPost.Domain.Entities.Report;
+using TryNextPost.Domain.Common.Report;
 using TryNextPost.Domain.Enums;
 
 namespace TryNextPost.Domain.IRepository.Report
@@ -27,5 +28,6 @@ namespace TryNextPost.Domain.IRepository.Report
         Task<Dictionary<ShipmentStatus, int>> GetShipmentStatusCountsAsync(long sellerId, DateTime fromDate, DateTime toDate);
 
         Task<List<object>> GetReportDataAsync(long sellerId, ReportFilter filter);
+        Task<List<DailySummaryData>> GetDailySummaryDataAsync(long sellerId, DateTime fromDate, DateTime toDate);
     }
 }
