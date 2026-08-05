@@ -186,12 +186,18 @@ namespace TryNextPost.Infrastructure.AppDbContexts
             modelBuilder.Entity<CourierServiceability>(entity =>
             {
                 entity.HasIndex(cs => cs.Pincode);
+                entity.HasIndex(cs => new { cs.CourierId, cs.ZoneId });
                 entity.HasIndex(cs => cs.CourierId);
                 entity.HasIndex(cs => new { cs.CourierId, cs.Pincode }).IsUnique();
 
                 entity.HasOne(cs => cs.Courier)
                       .WithMany(c => c.Serviceabilities)
                       .HasForeignKey(cs => cs.CourierId);
+
+                entity.HasOne(cs => cs.Zone)
+                      .WithMany()
+                      .HasForeignKey(cs => cs.ZoneId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
 
             // =========================
@@ -487,8 +493,17 @@ namespace TryNextPost.Infrastructure.AppDbContexts
 
             modelBuilder.Entity<PincodeZoneMapping>(entity =>
             {
-                entity.Property(x => x.PincodePrefix).HasMaxLength(2).IsRequired();
                 entity.HasIndex(x => x.PincodePrefix).IsUnique();
+
+                entity.Property(x => x.PincodePrefix)
+                    .HasMaxLength(2)
+                    .IsRequired();
+
+                entity.HasOne(m => m.Courier)
+                    .WithMany(c => c.PincodeZoneMappings) 
+                    .HasForeignKey(m => m.CourierId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
                 entity.HasOne(m => m.Zone)
                     .WithMany(z => z.PincodeMappings)
                     .HasForeignKey(m => m.ZoneId)
@@ -504,16 +519,25 @@ namespace TryNextPost.Infrastructure.AppDbContexts
                 entity.Property(x => x.WeightToGrams).HasPrecision(18, 2);
                 entity.Property(x => x.CourierCost).HasPrecision(18, 2);
                 entity.Property(x => x.SellerCharge).HasPrecision(18, 2);
+
+                entity.Property(x => x.CodCharge).HasPrecision(18, 2);
+                entity.Property(x => x.CodPercentage).HasPrecision(18, 2);
+                entity.Property(x => x.FuelSurchargePercent).HasPrecision(18, 2);
+                entity.Property(x => x.HandlingCharge).HasPrecision(18, 2);
+                entity.Property(x => x.MinimumCharge).HasPrecision(18, 2);
+                entity.Property(x => x.RtoCharge).HasPrecision(18, 2);
                 entity.Property(x => x.ServiceCode).HasMaxLength(50).IsRequired();
-                entity.HasIndex(x => new { x.CourierId, x.FromZoneId, x.ToZoneId, x.WeightFromGrams, x.WeightToGrams, x.ServiceCode });
+                entity.HasIndex(x => new { x.CourierId, x.ServiceType, x.FromZoneId, x.ToZoneId, x.WeightFromGrams, x.WeightToGrams, x.ServiceCode });
                 entity.HasOne(r => r.Courier)
                     .WithMany()
                     .HasForeignKey(r => r.CourierId)
                     .OnDelete(DeleteBehavior.Restrict);
+
                 entity.HasOne(r => r.FromZone)
                     .WithMany()
                     .HasForeignKey(r => r.FromZoneId)
                     .OnDelete(DeleteBehavior.Restrict);
+
                 entity.HasOne(r => r.ToZone)
                     .WithMany()
                     .HasForeignKey(r => r.ToZoneId)

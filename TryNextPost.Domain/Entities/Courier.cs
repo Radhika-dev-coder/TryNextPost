@@ -14,10 +14,6 @@ namespace TryNextPost.Domain.Entities
         [Key]
         public long CourierId { get; set; } 
         public string CourierName { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Stable adapter lookup key (e.g. DELHIVERY). Matches Domain.Common.CourierCodes.
-        /// </summary>
         [MaxLength(50)]
         public string CourierCode { get; set; } = string.Empty;
 
@@ -27,29 +23,21 @@ namespace TryNextPost.Domain.Entities
         public string? ApiSecret { get; set; }    //  encrypt before storing
         public string? AccountCode { get; set; }
 
-        // Contact details
+
         public string? ContactEmail { get; set; }
         public string? ContactPhone { get; set; }
 
-        // Business rules
         public bool SupportsCOD { get; set; }
         public bool SupportsPrepaid { get; set; }
         public decimal? MaxWeightLimit { get; set; }
 
-        /// <summary>
-        /// COD handling fee type set by SuperAdmin (Flat ₹ or % of collectable amount).
-        /// Default Flat preserves legacy ₹30 behaviour.
-        /// </summary>
         public CodChargeType CodChargeType { get; set; } = CodChargeType.Flat;
 
-        /// <summary>
-        /// Flat amount (₹) when CodChargeType=Flat, or percentage when CodChargeType=Percentage.
-        /// Default 30 = legacy flat COD fee.
-        /// </summary>
         public decimal CodChargeValue { get; set; } = 30m;
 
         // Navigation
         public ICollection<Shipment>? Shipments { get; set; }
         public ICollection<CourierServiceability>? Serviceabilities { get; set; }
+        public ICollection<PincodeZoneMapping> PincodeZoneMappings { get; set; }
     }
 }

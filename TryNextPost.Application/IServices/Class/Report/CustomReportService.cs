@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TryNextPost.Application.DTO.Common;
 using TryNextPost.Application.DTO.Report;
 using TryNextPost.Application.IServices.Interface;
 using TryNextPost.Application.IServices.Interface.IReport;
@@ -334,6 +335,126 @@ namespace TryNextPost.Application.IServices.Class.Report
 
                 RTOInTransit = x.RTOInTransit,
                 RTODelivered = x.RTODelivered
+            }).ToList();
+        }
+
+        public async Task<List<StateWiseSummaryResponse>> GetStateWiseSummaryAsync(string userId, StateWiseSummaryRequest request)
+        {
+            await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.OrdersView);
+            var seller = await _sellerContextService.ResolveSellerAsync(userId);
+
+            if (request.FromDate == default || request.ToDate == default)
+                throw new InvalidOperationException(SystemMessage.CustomReportDateRequired);
+
+            if (request.ToDate.Date < request.FromDate.Date)
+                throw new InvalidOperationException(SystemMessage.CustomReportDateRangeInvalid);
+
+            var data = await _exportHistoryRepository.GetStateWiseSummaryDataAsync(
+                seller.SellerId, request.FromDate, request.ToDate, request.Courier,request.PaymentMethod);
+
+            return data.Select(x => new StateWiseSummaryResponse
+            {
+                State = x.State,
+                ShipmentPicked = x.ShipmentPicked,
+                InTransit = x.InTransit,
+                Exception = x.Exception,
+                Delivered = x.Delivered,
+                RTO = x.RTO
+            }).ToList();
+        }
+
+        public async Task<List<TopNdrReasonsResponse>> GetTopNdrReasonsAsync(string userId, TopNdrReasonsRequest request)
+        {
+            await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.OrdersView);
+            var seller = await _sellerContextService.ResolveSellerAsync(userId);
+            if (request.FromDate == default || request.ToDate == default)
+                throw new InvalidOperationException(SystemMessage.CustomReportDateRequired);
+            if (request.ToDate.Date < request.FromDate.Date)
+                throw new InvalidOperationException(SystemMessage.CustomReportDateRangeInvalid);
+            var data = await _exportHistoryRepository.GetTopNdrReasonsDataAsync(
+                seller.SellerId, request.FromDate, request.ToDate);
+            return data.Select(x => new TopNdrReasonsResponse
+            {
+                Reason = x.Reason,
+                TotalCount = x.TotalCount
+            }).ToList();
+        }
+
+        public async Task<List<ProductWiseSummaryResponse>> GetProductWiseSummaryAsync(string userId, ProductWiseSummaryRequest request)
+        {
+            await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.OrdersView);
+            var seller = await _sellerContextService.ResolveSellerAsync(userId);
+            if (request.FromDate == default || request.ToDate == default)
+                throw new InvalidOperationException(SystemMessage.CustomReportDateRequired);
+            if (request.ToDate.Date < request.FromDate.Date)
+                throw new InvalidOperationException(SystemMessage.CustomReportDateRangeInvalid);
+            var data = await _exportHistoryRepository.GetProductWiseSummaryDataAsync(
+                seller.SellerId, request.FromDate, request.ToDate, request.ProductName);
+            return data.Select(x => new ProductWiseSummaryResponse
+            {
+                ProductName = x.ProductName,
+                Sku = x.Sku,
+                TotalOrderQuantity = x.TotalOrderQuantity,
+                Booked = x.Booked,
+                PendingPickup = x.PendingPickup,
+                InTransit = x.InTransit,
+                Delivered = x.Delivered,
+                RTO = x.RTO
+            }).ToList();
+        }
+
+        public async Task<List<CourierWiseSummaryResponse>> GetCourierWiseSummaryAsync(string userId, CourierWiseSummaryRequest request)
+        {
+            await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.OrdersView);
+
+            var seller = await _sellerContextService.ResolveSellerAsync(userId);
+
+            if (request.FromDate == default || request.ToDate == default)
+                throw new InvalidOperationException(SystemMessage.CustomReportDateRequired);
+
+            if (request.ToDate.Date < request.FromDate.Date)
+                throw new InvalidOperationException(SystemMessage.CustomReportDateRangeInvalid);
+
+            var data = await _exportHistoryRepository.GetCourierWiseSummaryDataAsync(
+                seller.SellerId,
+                request.FromDate,
+                request.ToDate,
+                request.Courier);
+
+            return data.Select(x => new CourierWiseSummaryResponse
+            {
+                CourierName = x.CourierName,
+                TotalShipped = x.TotalShipped,
+                Booked = x.Booked,
+                PendingPickup = x.PendingPickup,
+                InTransit = x.InTransit,
+                Delivered = x.Delivered,
+                RTO = x.RTO
+            }).ToList();
+        }
+
+        public async Task<List<ChannelSummaryResponse>> GetChannelWiseSummaryAsync(string userId, ChannelSummaryRequest request)
+        {
+            await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.OrdersView);
+
+            var seller = await _sellerContextService.ResolveSellerAsync(userId);
+
+            if (request.FromDate == default || request.ToDate == default)
+                throw new InvalidOperationException(SystemMessage.CustomReportDateRequired);
+
+            if (request.ToDate.Value.Date < request.FromDate.Value.Date)
+                throw new InvalidOperationException(SystemMessage.CustomReportDateRangeInvalid);
+
+            var data = await _exportHistoryRepository.GetChannelWiseSummary(seller.SellerId, request.FromDate.Value, request.ToDate.Value,request.Channel);
+
+            return data.Select(x => new ChannelSummaryResponse
+            {
+                ChannelName = x.ChannelName,
+                TotalOrders = x.TotalOrders,
+                PendingPickup = x.PendingPickup,
+                InTransit = x.InTransit,
+                Delivered = x.Delivered,
+                RTO = x.RTO
             }).ToList();
         }
     }

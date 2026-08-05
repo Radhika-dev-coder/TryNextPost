@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using TryNextPost.Application.DTO.Common;
@@ -119,6 +120,94 @@ namespace TryNextPost.API.Controllers.Report
                 StatusCode = ApiStatusCode.Success
             });
         }
+        [HttpGet("state-wise-summary")]
+        public async Task<IActionResult> GetStateWiseSummary([FromQuery] StateWiseSummaryRequest request)
+        {
+            var userId = RequireUserId();
+            if (userId == null)
+                return Unauthorized(new { message = SystemMessage.InvalidToken });
 
+            var result = await _customReportService.GetStateWiseSummaryAsync(userId, request);
+
+            return Ok(new ApiResponse<List<StateWiseSummaryResponse>>
+            {
+                Success = true,
+                Message = "State wise summary fetched successfully",
+                Data = result,
+                StatusCode = ApiStatusCode.Success
+            });
+        }
+
+        [HttpGet("top-ndr-reasons")]
+        public async Task<IActionResult> GetTopNdrReasons([FromQuery] TopNdrReasonsRequest request)
+        {
+            var userId = RequireUserId();
+            if (userId == null)
+                return Unauthorized(new { message = SystemMessage.InvalidToken });
+
+            var result = await _customReportService.GetTopNdrReasonsAsync(userId, request);
+
+            return Ok(new ApiResponse<List<TopNdrReasonsResponse>>
+            {
+                Success = true,
+                Message = SystemMessage.TopNdrReasonsFetchedSuccess,
+                Data = result,
+                StatusCode = ApiStatusCode.Success
+            });
+        }
+
+        [HttpGet("product-wise-summary")]
+        public async Task<IActionResult> GetProductWiseSummary([FromQuery] ProductWiseSummaryRequest request)
+        {
+            var userId = RequireUserId();
+            if (userId == null)
+                return Unauthorized(new { message = SystemMessage.InvalidToken });
+
+            var result = await _customReportService.GetProductWiseSummaryAsync(userId, request);
+
+            return Ok(new ApiResponse<List<ProductWiseSummaryResponse>>
+            {
+                Success = true,
+                Message = SystemMessage.ProductWiseSummaryFetchedSuccess,
+                Data = result,
+                StatusCode = ApiStatusCode.Success
+            });
+        }
+
+        [HttpGet("courier-wise-summary")]
+        public async Task<IActionResult> GetCourierWiseSummary([FromQuery] CourierWiseSummaryRequest request)
+        {
+            var userId = RequireUserId();
+            if (userId == null)
+                return Unauthorized(new { message = SystemMessage.InvalidToken });
+
+            var result = await _customReportService.GetCourierWiseSummaryAsync(userId, request);
+
+            return Ok(new ApiResponse<List<CourierWiseSummaryResponse>>
+            {
+                Success = true,
+                Message = SystemMessage.CourierWiseSummaryFetchedSuccess,
+                Data = result,
+                StatusCode = ApiStatusCode.Success
+            });
+        }
+
+        [HttpGet("channel-summary")]
+        public async Task<IActionResult> GetChannelSummary([FromQuery] ChannelSummaryRequest request)
+        {
+            var userId = RequireUserId();
+            if (userId == null)
+                return Unauthorized(new { message = SystemMessage.InvalidToken });
+
+            var data = await _customReportService.GetChannelWiseSummaryAsync(userId, request);
+
+            return Ok(new ApiResponse<List<ChannelSummaryResponse>>
+            {
+                Success = true,
+                Message = SystemMessage.ChannelWiseSummaryFetchedSuccess,
+                Data = data,
+                StatusCode = ApiStatusCode.Success
+            });
+        }
     }
 }

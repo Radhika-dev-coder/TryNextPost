@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TryNextPost.Application.DTO.Common;
 using TryNextPost.Application.DTO.Report;
 
 namespace TryNextPost.Application.IServices.Interface.IReport
@@ -19,5 +20,15 @@ namespace TryNextPost.Application.IServices.Interface.IReport
         Task<object> ExportReportAsync(string userId, ReportRequest request);
 
         Task<List<DailySummaryResponse>> GetDailySummaryDataAsync(string userId, DailySummaryRequest request);
+
+        Task<List<StateWiseSummaryResponse>> GetStateWiseSummaryAsync(string userId, StateWiseSummaryRequest request);
+
+        Task<List<TopNdrReasonsResponse>> GetTopNdrReasonsAsync(string userId, TopNdrReasonsRequest request);
+
+        Task<List<ProductWiseSummaryResponse>> GetProductWiseSummaryAsync(string userId, ProductWiseSummaryRequest request);
+
+        Task<List<CourierWiseSummaryResponse>> GetCourierWiseSummaryAsync(string userId, CourierWiseSummaryRequest request);
+
+        Task<List<ChannelSummaryResponse>> GetChannelWiseSummaryAsync(string userId, ChannelSummaryRequest request);
     }
 }

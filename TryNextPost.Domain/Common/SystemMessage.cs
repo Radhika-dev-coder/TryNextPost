@@ -104,7 +104,10 @@ namespace TryNextPost.Domain.Common
         "Invalid order type filter. Allowed values: Forward, Reverse, ReverseQC.";
         public const string ShipmentSummaryFetchedSuccess = "Shipment summary fetched successfully.";
         public const string DailySummaryFetchedSuccess = "Daily summary fetched successfully.";
-
+        public const string TopNdrReasonsFetchedSuccess = "Top NDR reasons fetched successfully.";
+        public const string ProductWiseSummaryFetchedSuccess = "Product wise summary fetched successfully.";
+        public const string CourierWiseSummaryFetchedSuccess = "Courier wise summary fetched successfully.";
+        public const string ChannelWiseSummaryFetchedSuccess = "Channel wise summary fetched successfully.";
         // ───── NDR Module ─────
         public const string NdrFetchedSuccess = "NDRs fetched successfully.";
         public const string NdrNotFound = "NDR not found.";

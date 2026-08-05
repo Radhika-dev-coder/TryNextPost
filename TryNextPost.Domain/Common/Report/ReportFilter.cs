@@ -19,5 +19,7 @@ namespace TryNextPost.Domain.Common.Report
         public string? ProductName { get; set; }
         public string? Channel { get; set; }
         public string? Zone { get; set; }
+
+        public PaymentMode? PaymentMethod { get; set; }
     }
 }

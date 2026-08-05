@@ -10,9 +10,12 @@ namespace TryNextPost.Domain.Entities
 
         /// <summary>First 2 digits of Indian pincode (00–99).</summary>
         [MaxLength(2)]
-        public string PincodePrefix { get; set; } = string.Empty;
+        public string PincodePrefix { get; set; } = string.Empty;  // "11", "40"
 
         public int ZoneId { get; set; }
         public Zone? Zone { get; set; }
+
+        public long CourierId { get; set; }
+        public Courier Courier { get; set; }
     }
 }

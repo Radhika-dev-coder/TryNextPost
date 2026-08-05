@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using TryNextPost.Domain.Common;
+using TryNextPost.Domain.Enums;
 
 namespace TryNextPost.Domain.Entities
 {
@@ -34,5 +35,29 @@ namespace TryNextPost.Domain.Entities
         public string ServiceCode { get; set; } = "SURFACE";
 
         public int EstimatedDays { get; set; } = 4;
+        public ServiceType ServiceType { get; set; }
+        public bool IsCodAvailable { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal CodCharge { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal CodPercentage { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal MinimumCharge { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal FuelSurchargePercent { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal HandlingCharge { get; set; }
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal RtoCharge { get; set; }
+
+        public string PaymentType { get; set; } = "Both";
+        public int Priority { get; set; }
+        public int MinDays { get; set; }
+        public int MaxDays { get; set; }
     }
 }
