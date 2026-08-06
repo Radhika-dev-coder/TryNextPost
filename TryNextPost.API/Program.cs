@@ -272,7 +272,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
                 "http://147.93.31.120:8081",
-                "http://147.93.31.120"
+                "http://147.93.31.120",
+             "http://147.93.31.120:8082"
             )
             .AllowAnyHeader()
             .AllowAnyMethod()
