@@ -54,6 +54,8 @@ namespace TryNextPost.Infrastructure.AppDbContexts
 
         public DbSet<UserSession> UserSessions => Set<UserSession>();
         public DbSet<ExportHistory> ExportHistories => Set<ExportHistory>();
+
+        public DbSet<Region> Regions { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -417,6 +419,25 @@ namespace TryNextPost.Infrastructure.AppDbContexts
                 entity.HasIndex(s => s.AwbNumber).IsUnique().HasFilter("[AwbNumber] IS NOT NULL");
                 entity.HasIndex(s => s.DeliveryPincode);
             });
+
+            //------Regions-------
+            modelBuilder.Entity<Region>(entity =>
+            {
+                entity.HasKey(x => x.Id);
+
+                entity.Property(x => x.Name)
+                      .HasMaxLength(100)
+                      .IsRequired();
+
+                entity.Property(x => x.PincodePrefix)
+                      .HasMaxLength(10);
+
+                entity.HasOne(x => x.Zone)
+                      .WithMany()
+                      .HasForeignKey(x => x.ZoneId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
 
             // --- ShipmentTracking ---
             modelBuilder.Entity<ShipmentTracking>().HasIndex(st => st.ShipmentId);

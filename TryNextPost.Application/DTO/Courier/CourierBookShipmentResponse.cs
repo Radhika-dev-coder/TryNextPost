@@ -9,5 +9,7 @@ namespace TryNextPost.Application.DTO.Courier
         public string? CourierReference { get; set; }
         public string? LabelUrl { get; set; }
         public string? Message { get; set; }
+        public string? RawResponse { get; set; }
+
     }
 }

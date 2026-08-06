@@ -6,11 +6,7 @@ using TryNextPost.Application.IServices.Interface.Courier;
 
 namespace TryNextPost.Infrastructure.CourierAdapters
 {
-    /// <summary>
-    /// Shared stub behavior until real courier HTTP APIs are wired.
-    /// When credentials (BaseUrl + ApiKey) are present, <see cref="EnsureApiReady"/> throws NotImplementedException
-    /// so callers know config is ready but integration code is still pending.
-    /// </summary>
+
     public abstract class CourierAdapterBase : ICourierAdapter
     {
         private readonly ILogger _logger;
@@ -24,9 +20,6 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 
         protected abstract CourierProviderSettings Settings { get; }
 
-        /// <summary>
-        /// True when appsettings has BaseUrl and ApiKey for this courier.
-        /// </summary>
         protected bool IsConfigured =>
             !string.IsNullOrWhiteSpace(Settings.BaseUrl)
             && !string.IsNullOrWhiteSpace(Settings.ApiKey);
