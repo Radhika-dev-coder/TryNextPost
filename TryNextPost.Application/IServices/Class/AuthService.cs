@@ -216,22 +216,26 @@ namespace TryNextPost.Application.IServices.Class
 
         public async Task<LoginSuccessResponse> RegisterAsync(RegisterRequest request, string ipAddress)
         {
+            var fullName = $"{request.FirstName} {request.LastName}".Trim();
+
             await _unitOfWork.BeginTransactionAsync();
 
             try
             {
-                var fullName = $"{request.FirstName} {request.LastName}".Trim();
-
                 var result = await _identityService.CreateUserAsync(
-                    request.Email, request.Password, fullName, request.Mobile);
+                    request.Email,
+                    request.Password,
+                    fullName,
+                    request.Mobile);
 
                 if (!result.Succeeded)
-                    throw new InvalidOperationException(string.Join(", ", result.Errors));
+                    throw new Exception(string.Join(", ", result.Errors));
 
                 var roles = await _identityService.GetUserRolesAsync(result.UserId);
+
                 await _sellerRepository.CreateSellerAsync(result.UserId);
 
-                var loginResponse = await BuildLoginResponseAsync(
+                var response = await BuildLoginResponseAsync(
                     result.UserId,
                     request.Email,
                     roles,
@@ -239,26 +243,13 @@ namespace TryNextPost.Application.IServices.Class
                     ipAddress,
                     SystemMessage.RegisterSuccess);
 
-                await _unitOfWork.SaveChangesAsync();
                 await _unitOfWork.CommitAsync();
 
-                await _emailService.SendWelcomeEmail(request.Email, fullName);
-
-                var sellerContext = new SellerContextDto
-                {
-                    SellerId = (await _sellerRepository.GetByUserIdAsync(result.UserId)).SellerId,
-                    IsOwner = true,
-                    Permissions = EmployeePermissionCode.All.ToList()
-                };
-
-                loginResponse.SellerContext = sellerContext;
-                loginResponse.RequiresKyc = false;
-                loginResponse.IsProfileComplete = true;
-                return loginResponse;
+                return response;
             }
             catch
             {
-                await _unitOfWork.RollbackAsync();
+                await _unitOfWork.RollbackAsync(); 
                 throw;
             }
         }

@@ -156,6 +156,7 @@ builder.Services.AddScoped<ICourierAdapterFactory, CourierAdapterFactory>();
 builder.Services.AddScoped<ICreditNoteRepository, CreditNoteRepository>();
 builder.Services.AddScoped<ICreditNoteService, CreditNoteService>();
 builder.Services.AddScoped<ICodSettlementService, CodSettlementService>();
+builder.Services.AddHttpClient<IPincodeService, PincodeService>();
 
 #endregion
 

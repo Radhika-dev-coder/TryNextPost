@@ -21,5 +21,8 @@ namespace TryNextPost.Application.Common.Settings
         public string? ApiSecret { get; set; }
         public string? AccountCode { get; set; }
         public bool Enabled { get; set; } = true;
+
+        public string? TokenUrl { get; set; }
+        public string? ForwardUrl { get; set; }
     }
 }

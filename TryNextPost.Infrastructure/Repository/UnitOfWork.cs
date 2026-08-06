@@ -27,14 +27,23 @@ namespace TryNextPost.Infrastructure.Repository
         public async Task CommitAsync()
         {
             await _context.SaveChangesAsync();
-            if(_transaction != null)
+
+            if (_transaction != null)
+            {
                 await _transaction.CommitAsync();
+                await _transaction.DisposeAsync(); 
+                _transaction = null;                
+            }
         }
 
         public async Task RollbackAsync()
         {
-            if( _transaction != null)
+            if (_transaction != null)
+            {
                 await _transaction.RollbackAsync();
+                await _transaction.DisposeAsync(); 
+                _transaction = null;               
+            }
         }
 
         public async Task SaveChangesAsync()
