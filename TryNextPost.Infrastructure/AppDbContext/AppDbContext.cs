@@ -34,8 +34,11 @@ namespace TryNextPost.Infrastructure.AppDbContexts
         public DbSet<SellerEmployee> SellerEmployees => Set<SellerEmployee>();
         public DbSet<EmployeePermission> EmployeePermissions => Set<EmployeePermission>();
         public DbSet<CompanyInfo> Companies => Set<CompanyInfo>();
-        public DbSet<SellerKYC> SellerKYC { get; set; }
+        public DbSet<SellerKYCDetails> SellerKYC { get; set; }
         public DbSet<SellerDocument> SellerDocument { get; set; }
+        public DbSet<AadhaarKYC> AadhaarKYCs { get; set; }
+        public DbSet<PANKYC> PANKYCs { get; set; }
+        public DbSet<BankKYC> BankKYCs { get; set; }
         public DbSet<Otp> Otps { get; set; }
 
         public DbSet<UserSession> UserSessions => Set<UserSession>();

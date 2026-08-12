@@ -11,6 +11,10 @@ using TryNextPost.Application.IServices;
 using TryNextPost.Application.IServices.Class;
 using TryNextPost.Application.IServices.Class.Default;
 using TryNextPost.Application.IServices.Class.Order;
+using TryNextPost.Application.IServices.Class.RateCard;
+using TryNextPost.Application.IServices.Class.Report;
+using TryNextPost.Application.IServices.Class.SellerKYC;
+using TryNextPost.Application.IServices.Class.Settlement;
 using TryNextPost.Application.IServices.Class.Shipment;
 using TryNextPost.Application.IServices.Class.Wallet;
 using TryNextPost.Application.IServices.Interface;
@@ -19,7 +23,8 @@ using TryNextPost.Application.IServices.Interface.IOrder;
 using TryNextPost.Application.IServices.Interface.IShipment;
 using TryNextPost.Application.IServices.Interface.IEmployee;
 using TryNextPost.Application.IServices.Interface.IWallet;
-using TryNextPost.Application.IServices.Interface.IPayment;
+using TryNextPost.Application.IServices.Interface.IWeight;
+using TryNextPost.Application.IServices.Interface.SellerKYC;
 using TryNextPost.Application.Services.Interface;
 using TryNextPost.Application.Validators.Order;
 using TryNextPost.Domain.IRepository;
@@ -219,6 +224,11 @@ builder.Services.AddCors(options =>
 });
 #endregion
 
+builder.Services.AddHttpClient<ISurepassService, SurepassService>(client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["Surepass:BaseUrl"]!);
+});
 builder.Services.AddMemoryCache();
     builder.Services.AddControllers();
 

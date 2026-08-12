@@ -10,12 +10,19 @@ namespace TryNextPost.Domain.IRepository
 {
     public interface ISellerKycRepository
     {
-        Task<SellerKYC?> GetBySellerIdAsync(string sellerId);
+        Task<SellerKYCDetails?> GetBySellerIdAsync(string sellerId);
+        Task<PANKYC?> GetByPanSellerKYCAsync(string sellerId);
+        Task<BankKYC?> GetByBankSellerKYCAsync(string sellerId);
 
-        Task AddAsync(SellerKYC sellerKyc);
+        Task AddAsync(SellerKYCDetails sellerKyc);
 
-        Task UpdateAsync(SellerKYC sellerKyc);
+        Task UpdateAsync(SellerKYCDetails sellerKyc);
+        Task UpdateBankKycAsync(BankKYC kyc);
 
         Task<bool> SaveChangesAsync();
+        Task AddPanKycAsync(PANKYC pan);
+        Task AddBankKycAsync(BankKYC kyc);
+        Task UpdatePanKycAsync(PANKYC pan);
+
     }
 }

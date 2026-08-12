@@ -46,12 +46,39 @@ namespace TryNextPost.Infrastructure.Service
                     response.Message = SystemMessage.InvalidOtp;
                     return response;
                 }
-                var data = new SellerKYC
+                var data = await _userManager.FindByIdAsync(sellerId);
+
+                var otpEntity = await _otpRepository.GetLatestActiveByMobileAsync(data.PhoneNumber);
+
+                if (otpEntity == null || otpEntity.ExpiryTime < DateTime.UtcNow)
+                    throw new UnauthorizedAccessException(SystemMessage.InvalidOtp);
+
+                if (otpEntity.ExpiryTime < DateTime.UtcNow)
+                    throw new UnauthorizedAccessException(SystemMessage.OtpExpired);
+
+                if (otpEntity.FailedAttempts >= 5)
+                    throw new InvalidOperationException(SystemMessage.RequestNewOtp);
+                var incomingHash = HashOtp(dto.Otp, data.PhoneNumber);
+
+                if (!CryptographicOperations.FixedTimeEquals(
+                        Convert.FromHexString(otpEntity.CodeHash),
+                        Convert.FromHexString(incomingHash)))
+                {
+                    otpEntity.FailedAttempts++;
+                    await _otpRepository.SaveChangesAsync();
+                    throw new InvalidOperationException(SystemMessage.InvalidOtp);
+                }
+
+                otpEntity.IsUsed = true;
+                await _otpRepository.SaveChangesAsync();
+
+                
+                var data1 = new SellerKYCDetails
                 {
                     SellerId = sellerId,
-                    AadharLast4Digit = dto.AadhaarNumber.Substring(dto.AadhaarNumber.Length - 4),
-                    AadharVerified = KycStatus.Pending.ToString(),
-                    KYCStatus = KycStatus.Pending.ToString(),
+                    //AadharLast4Digit = dto.AadhaarNumber.Substring(dto.AadhaarNumber.Length - 4),
+                    //AadharVerified = KycStatus.Pending.ToString(),
+                    //KYCStatus = KycStatus.Pending.ToString(),
                     IsActive = true,
                     CreatedAt = DateTime.Now,
                     CreatedBy = sellerId
@@ -105,32 +132,60 @@ namespace TryNextPost.Infrastructure.Service
                     return response;
                 }
                 var existing = await _sellerKycRep.GetBySellerIdAsync(sellerId);
-                if (existing != null)
+                //if (existing != null)
+                //{
+                //  /  switch (existing.KYCStatus)
+                //    {
+                //        case nameof(KycStatus.Verified):
+                //            response.StatusCode = (int)ApiStatusCode.Conflict;
+                //            response.Success = false;
+                //            response.Data = null;
+                //            response.Message = SystemMessage.AlreadyKycUpdated;
+                //            return response;
+
+                //        case nameof(KycStatus.Pending):
+                //            response.StatusCode = (int)ApiStatusCode.Conflict;
+                //            response.Success = false;
+                //            response.Data = null;
+                //            response.Message = SystemMessage.KycPending;
+                //            return response;
+
+                //        case nameof(KycStatus.Reject):
+                //            response.StatusCode = (int)ApiStatusCode.Conflict;
+                //            response.Success = false;
+                //            response.Data = null;
+                //            response.Message = SystemMessage.RejectKyc;
+                //            return response;
+                //    }
+                //}
+                var mobileNo = data.PhoneNumber;
+                var cacheKey = $"phone_otp_{mobileNo}";
+                if (_cache.TryGetValue(cacheKey, out _))
                 {
-                    switch (existing.KYCStatus)
-                    {
-                        case nameof(KycStatus.Verified):
-                            response.StatusCode = (int)ApiStatusCode.Conflict;
-                            response.Success = false;
-                            response.Data = null;
-                            response.Message = SystemMessage.AlreadyKycUpdated;
-                            return response;
-
-                        case nameof(KycStatus.Pending):
-                            response.StatusCode = (int)ApiStatusCode.Conflict;
-                            response.Success = false;
-                            response.Data = null;
-                            response.Message = SystemMessage.KycPending;
-                            return response;
-
-                        case nameof(KycStatus.Reject):
-                            response.StatusCode = (int)ApiStatusCode.Conflict;
-                            response.Success = false;
-                            response.Data = null;
-                            response.Message = SystemMessage.RejectKyc;
-                            return response;
-                    }
+                    response.StatusCode = (int)ApiStatusCode.BadRequest;
+                    response.Success = false;
+                    response.Data = null;
+                    response.Message = SystemMessage.AlreadyOTPSend;
+                    return response;
                 }
+
+
+                await _otpRepository.InvalidateActiveOtpsAsync(mobileNo);
+
+                var otp = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+                var entity = new Otp
+                {
+                    MobileNumber = mobileNo,
+                    CodeHash = HashOtp(otp, mobileNo),
+                    ExpiryTime = DateTime.UtcNow.AddMinutes(5),
+                    IsUsed = false,
+                    FailedAttempts = 0
+                };
+
+                await _msService.SendOtpSms(mobileNo, otp);
+                await _otpRepository.AddAsync(entity);
+                await _otpRepository.SaveChangesAsync();
+                _cache.Set(cacheKey, true, TimeSpan.FromSeconds(60));
                 response.StatusCode = (int)ApiStatusCode.Success;
                 response.Success = true;
                 response.Data = null;

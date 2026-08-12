@@ -31,6 +31,12 @@ namespace TryNextPost.Domain.Common
         public const string VerifiedOtp = "OTP verified successfully. You can now reset your password.";
         public static string InvalidMobile = "Invalid mobile number";
         public static string RequestNewOtp = "Too many invalid attempts. Request a new OTP.";
+        public const string LogoutSuccess = "Logged out successfully.";
+        public const string InvalidRefreshToken = "Invalid or expired refresh token.";
+        public const string SessionRevoked = "Session has been revoked. Please login again.";
+        public const string RecordSave = "Record Save Succesfull.";
+        public const string RecordFetch =  " Record Fetch Succesfull.";
+        public const string RecordUpdate = " Record update  Succesfull. ";
 
         // ───── Seller Module ─────
         public const string SellerNotFound = "Seller profile not found. Please complete KYC first.";
