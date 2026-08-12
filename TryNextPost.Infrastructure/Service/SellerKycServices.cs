@@ -91,12 +91,13 @@ namespace TryNextPost.Infrastructure.Service
                 await _otpRepository.SaveChangesAsync();
 
                 
+                var data1 = new SellerKYCDetails
                 var data1 = new SellerKYC
                 {
                     SellerId = sellerId,
-                    AadharLast4Digit = dto.AadhaarNumber.Substring(dto.AadhaarNumber.Length - 4),
-                    AadharVerified = KycStatus.Pending.ToString(),
-                    KYCStatus = KycStatus.Pending.ToString(),
+                    //AadharLast4Digit = dto.AadhaarNumber.Substring(dto.AadhaarNumber.Length - 4),
+                    //AadharVerified = KycStatus.Pending.ToString(),
+                    //KYCStatus = KycStatus.Pending.ToString(),
                     IsActive = true,
                     CreatedAt = DateTime.Now,
                     CreatedBy = sellerId
@@ -150,31 +151,41 @@ namespace TryNextPost.Infrastructure.Service
                     return response;
                 }
                 var existing = await _sellerKycRep.GetBySellerIdAsync(sellerId);
-                if (existing != null)
+                //if (existing != null)
+                //{
+                //  /  switch (existing.KYCStatus)
+                //    {
+                //        case nameof(KycStatus.Verified):
+                //            response.StatusCode = (int)ApiStatusCode.Conflict;
+                //            response.Success = false;
+                //            response.Data = null;
+                //            response.Message = SystemMessage.AlreadyKycUpdated;
+                //            return response;
+
+                //        case nameof(KycStatus.Pending):
+                //            response.StatusCode = (int)ApiStatusCode.Conflict;
+                //            response.Success = false;
+                //            response.Data = null;
+                //            response.Message = SystemMessage.KycPending;
+                //            return response;
+
+                //        case nameof(KycStatus.Reject):
+                //            response.StatusCode = (int)ApiStatusCode.Conflict;
+                //            response.Success = false;
+                //            response.Data = null;
+                //            response.Message = SystemMessage.RejectKyc;
+                //            return response;
+                //    }
+                //}
+                var mobileNo = data.PhoneNumber;
+                var cacheKey = $"phone_otp_{mobileNo}";
+                if (_cache.TryGetValue(cacheKey, out _))
                 {
-                    switch (existing.KYCStatus)
-                    {
-                        case nameof(KycStatus.Verified):
-                            response.StatusCode = (int)ApiStatusCode.Conflict;
-                            response.Success = false;
-                            response.Data = null;
-                            response.Message = SystemMessage.AlreadyKycUpdated;
-                            return response;
-
-                        case nameof(KycStatus.Pending):
-                            response.StatusCode = (int)ApiStatusCode.Conflict;
-                            response.Success = false;
-                            response.Data = null;
-                            response.Message = SystemMessage.KycPending;
-                            return response;
-
-                        case nameof(KycStatus.Reject):
-                            response.StatusCode = (int)ApiStatusCode.Conflict;
-                            response.Success = false;
-                            response.Data = null;
-                            response.Message = SystemMessage.RejectKyc;
-                            return response;
-                    }
+                    response.StatusCode = (int)ApiStatusCode.BadRequest;
+                    response.Success = false;
+                    response.Data = null;
+                    response.Message = SystemMessage.AlreadyOTPSend;
+                    return response;
                 }
                 var mobileNo = data.PhoneNumber;
                 var cacheKey = $"phone_otp_{mobileNo}";

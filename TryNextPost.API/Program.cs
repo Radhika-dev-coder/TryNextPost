@@ -17,6 +17,7 @@ using TryNextPost.Application.IServices.Class.Ndr;
 using TryNextPost.Application.IServices.Class.Order;
 using TryNextPost.Application.IServices.Class.RateCard;
 using TryNextPost.Application.IServices.Class.Report;
+using TryNextPost.Application.IServices.Class.SellerKYC;
 using TryNextPost.Application.IServices.Class.Settlement;
 using TryNextPost.Application.IServices.Class.Shipment;
 using TryNextPost.Application.IServices.Class.Wallet;
@@ -37,6 +38,7 @@ using TryNextPost.Application.IServices.Interface.ISettlement;
 using TryNextPost.Application.IServices.Interface.IShipment;
 using TryNextPost.Application.IServices.Interface.IWallet;
 using TryNextPost.Application.IServices.Interface.IWeight;
+using TryNextPost.Application.IServices.Interface.SellerKYC;
 using TryNextPost.Application.Services.Interface;
 using TryNextPost.Application.Validators.Order;
 using TryNextPost.Domain.Common;
@@ -280,15 +282,54 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod()
             .AllowCredentials();
     });
-});
 
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.WithOrigins("http://localhost:4200")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 #endregion
 
+builder.Services.AddHttpClient<ISurepassService, SurepassService>(client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["Surepass:BaseUrl"]!);
+});
 builder.Services.AddMemoryCache();
-builder.Services.AddControllers();
+    builder.Services.AddControllers();
 
-var app = builder.Build();
+    var app = builder.Build();
 
+    #region Seeder
+
+    using (var scope = app.Services.CreateScope())
+    {
+        var services = scope.ServiceProvider;
+
+        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+        var roleManager = services.GetRequiredService<RoleManager<ApplicationRole>>();
+
+        await IdentitySeeder.SeedAsync(userManager, roleManager);
+
+        var db = services.GetRequiredService<AppDbContext>();
+        await PermissionSeeder.SeedAsync(db);
+
+        var logger = services.GetRequiredService<ILoggerFactory>()
+                             .CreateLogger("CourierSeeder");
+
+        try
+        {
+            await CourierSeeder.SeedAsync(db, logger);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Courier seed skipped. Apply migration AddCourierCode if missing.");
+        }
+    }
 #region Seeder (background — do not block Swagger / Kestrel startup)
 
 app.Lifetime.ApplicationStarted.Register(() =>
