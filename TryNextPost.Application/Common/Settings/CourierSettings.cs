@@ -1,8 +1,6 @@
 namespace TryNextPost.Application.Common.Settings
 {
-    /// <summary>
-    /// Per-courier API placeholders. Fill BaseUrl / ApiKey when credentials arrive; adapters stay stub until wired.
-    /// </summary>
+
     public class CourierSettings
     {
         public const string SectionName = "CourierSettings";
@@ -23,5 +21,8 @@ namespace TryNextPost.Application.Common.Settings
         public string? ApiSecret { get; set; }
         public string? AccountCode { get; set; }
         public bool Enabled { get; set; } = true;
+
+        public string? TokenUrl { get; set; }
+        public string? ForwardUrl { get; set; }
     }
 }

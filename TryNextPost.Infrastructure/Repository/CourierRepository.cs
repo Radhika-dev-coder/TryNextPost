@@ -22,10 +22,24 @@ namespace TryNextPost.Infrastructure.Repository
                 .ToListAsync();
         }
 
+        public async Task<List<Courier>> GetAllCouriersAsync()
+        {
+            return await _context.Couriers
+                .Where(c => !string.IsNullOrWhiteSpace(c.CourierCode))
+                .OrderBy(c => c.CourierName)
+                .ToListAsync();
+        }
+
         public async Task<Courier?> GetByIdAsync(long courierId)
         {
             return await _context.Couriers
                 .FirstOrDefaultAsync(c => c.CourierId == courierId && c.IsActive == true);
+        }
+
+        public async Task<Courier?> GetByIdIncludingInactiveAsync(long courierId)
+        {
+            return await _context.Couriers
+                .FirstOrDefaultAsync(c => c.CourierId == courierId);
         }
 
         public async Task<Courier?> GetByCodeAsync(string courierCode)
@@ -38,6 +52,12 @@ namespace TryNextPost.Infrastructure.Repository
                 .FirstOrDefaultAsync(c =>
                     c.CourierCode == code
                     && c.IsActive == true);
+        }
+
+        public async Task UpdateAsync(Courier courier)
+        {
+            _context.Couriers.Update(courier);
+            await _context.SaveChangesAsync();
         }
     }
 }

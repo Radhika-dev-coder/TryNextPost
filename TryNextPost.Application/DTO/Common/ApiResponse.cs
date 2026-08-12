@@ -16,5 +16,17 @@ namespace TryNextPost.Application.DTO.Common
         public T Data { get; set; }
 
         public ApiStatusCode StatusCode { get; set; }
+
+        public static ApiResponse<T> SuccessResponse(T data, string message = "Success")
+        {
+            return new ApiResponse<T>
+            {
+                Success = true,
+                Message = message,
+                Data = data,
+                Errors = null,
+                StatusCode = ApiStatusCode.Success
+            };
+        }
     }
 }

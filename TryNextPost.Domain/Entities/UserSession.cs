@@ -18,8 +18,11 @@ namespace TryNextPost.Domain.Entities
 
         public string JwtToken { get; set; }
 
-        public DateTime CreatedAt { get; set; }
+        public string? RefreshTokenHash { get; set; }
 
+        public DateTime? RefreshTokenExpiryAt { get; set; }
+
+        public DateTime CreatedAt { get; set; }
         public DateTime ExpiryAt { get; set; }
 
         public bool IsActive { get; set; }

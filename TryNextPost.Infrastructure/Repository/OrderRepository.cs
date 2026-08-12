@@ -46,7 +46,7 @@ namespace TryNextPost.Infrastructure.Repository
                 Where(o => o.SellerId == sellerId && o.IsActive == true).ToListAsync();
         }
 
-        public async Task<int> GetOrdersCountAsync(long sellerId, OrderStatus? statusFilter)
+        public async Task<int> GetOrdersCountAsync(long sellerId, OrderStatus? statusFilter, OrderCategoryEnum? orderCategory = null)
         {
             var query = _context.Orders
            .Where(o => o.SellerId == sellerId && o.IsActive == true);
@@ -54,12 +54,30 @@ namespace TryNextPost.Infrastructure.Repository
             if (statusFilter.HasValue)
                 query = query.Where(o => o.Status == statusFilter.Value);
 
+            if (orderCategory.HasValue)
+                query = query.Where(o => o.OrderCategory == orderCategory.Value);
+
             return await query.CountAsync();
+        }
+
+        public async Task<Dictionary<OrderStatus, int>> GetStatusCountsBySellerAsync(long sellerId, OrderCategoryEnum? orderCategory = null)
+        {
+            var query = _context.Orders
+                .AsNoTracking()
+                .Where(o => o.SellerId == sellerId && o.IsActive == true);
+
+            if (orderCategory.HasValue)
+                query = query.Where(o => o.OrderCategory == orderCategory.Value);
+
+            return await query
+                .GroupBy(o => o.Status)
+                .Select(g => new { g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.Key, x => x.Count);
         }
 
         public async Task<List<Order>> GetOrdersFilteredAsync(long sellerId, OrderFilterCriteria filter, OrderStatus? statusFilter)
         {
-            var query = BuildFilterQuery(sellerId, filter, statusFilter);
+            var query = BuildFilterQuery(sellerId, filter, statusFilter, includeItems: true);
 
             return await query
                 .OrderByDescending(o => o.OrderDate)
@@ -70,18 +88,23 @@ namespace TryNextPost.Infrastructure.Repository
 
         public async Task<int> GetOrdersFilteredCountAsync(long sellerId, OrderFilterCriteria filter, OrderStatus? statusFilter)
         {
-            var query = BuildFilterQuery(sellerId, filter, statusFilter);
+            var query = BuildFilterQuery(sellerId, filter, statusFilter, includeItems: false);
             return await query.CountAsync();
         }
 
-        private IQueryable<Order> BuildFilterQuery(long sellerId, OrderFilterCriteria filter, OrderStatus? statusFilter)
+        private IQueryable<Order> BuildFilterQuery(long sellerId, OrderFilterCriteria filter, OrderStatus? statusFilter, bool includeItems)
         {
-            var query = _context.Orders
-                .Include(o => o.OrderItems)
+            IQueryable<Order> query = _context.Orders.AsNoTracking()
                 .Where(o => o.SellerId == sellerId && o.IsActive == true);
+
+            if (includeItems)
+                query = query.Include(o => o.OrderItems);
 
             if (statusFilter.HasValue)
                 query = query.Where(o => o.Status == statusFilter.Value);
+
+            if (filter.OrderCategory.HasValue)
+                query = query.Where(o => o.OrderCategory == filter.OrderCategory.Value);
 
             if (filter.FromDate.HasValue)
                 query = query.Where(o => o.OrderDate >= filter.FromDate.Value);
@@ -109,16 +132,6 @@ namespace TryNextPost.Infrastructure.Repository
             if (!string.IsNullOrEmpty(filter.Channel))
                 query = query.Where(o => o.Channel == filter.Channel);
 
-            if (!string.IsNullOrEmpty(filter.Type))
-            {
-                if (filter.Type.Equals("COD", StringComparison.OrdinalIgnoreCase))
-                    query = query.Where(o => o.PaymentMode == PaymentMode.COD);
-                else if (filter.Type.Equals("Prepaid", StringComparison.OrdinalIgnoreCase))
-                    query = query.Where(o => o.PaymentMode == PaymentMode.Prepaid);
-                else if (filter.Type.Equals("Reverse", StringComparison.OrdinalIgnoreCase))
-                    query = query.Where(o => o.OrderType == OrderTypeEnum.Reverse || o.OrderType == OrderTypeEnum.ReverseQC);
-            }
-
             if (!string.IsNullOrEmpty(filter.IvrStatus))
                 query = query.Where(o => o.IvrStatus == filter.IvrStatus);
 
@@ -127,6 +140,24 @@ namespace TryNextPost.Infrastructure.Repository
 
             if (!string.IsNullOrEmpty(filter.Tags))
                 query = query.Where(o => o.Tags != null && o.Tags.Contains(filter.Tags));
+
+            if (!string.IsNullOrEmpty(filter.PaymentType))
+            {
+                if (filter.PaymentType.Equals("COD", StringComparison.OrdinalIgnoreCase))
+                    query = query.Where(o => o.PaymentMode == PaymentMode.COD);
+                else if (filter.PaymentType.Equals("Prepaid", StringComparison.OrdinalIgnoreCase))
+                    query = query.Where(o => o.PaymentMode == PaymentMode.Prepaid);
+            }
+
+            if (!string.IsNullOrEmpty(filter.OrderType))
+            {
+                if (filter.OrderType.Equals("Forward", StringComparison.OrdinalIgnoreCase))
+                    query = query.Where(o => o.OrderType == OrderTypeEnum.Forward);
+                else if (filter.OrderType.Equals("Reverse", StringComparison.OrdinalIgnoreCase))
+                    query = query.Where(o => o.OrderType == OrderTypeEnum.Reverse);
+                else if (filter.OrderType.Equals("ReverseQC", StringComparison.OrdinalIgnoreCase))
+                    query = query.Where(o => o.OrderType == OrderTypeEnum.ReverseQC);
+            }
 
             return query;
         }

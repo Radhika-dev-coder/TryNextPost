@@ -41,37 +41,32 @@ namespace TryNextPost.Application.IServices.Class.Order
             var order = await _orderRepository.GetByIdAsync(orderId);
             if (order == null || order.IsActive == false)
                 throw new InvalidOperationException(SystemMessage.OrderNotFound);
-
             await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.OrdersView);
             var seller = await _sellerContextService.ResolveSellerAsync(userId);
             if (order.SellerId != seller.SellerId)
                 throw new UnauthorizedAccessException(SystemMessage.Unauthorized);
-
+            if (order.Status == OrderStatus.Cancelled)
+                throw new InvalidOperationException(SystemMessage.OrderAlreadyCancelled);
             if (order.Status != OrderStatus.Pending)
                 throw new InvalidOperationException(SystemMessage.OrderCannotBeCancelled);
+            if (await _shipmentRepository.HasActiveShipmentAsync(order.OrderId))
+                throw new InvalidOperationException(SystemMessage.OrderCancelBlockedByActiveShipment);
 
-            
-
-
-            order.IsActive = false;
             order.Status = OrderStatus.Cancelled;
             order.UpdatedAt = DateTime.UtcNow;
             order.UpdatedBy = userId;
-
             await _orderRepository.UpdateAsync(order);
-            if (order.OrderItems != null)
-            {
-                foreach (var item in order.OrderItems)
-                {
-                    item.IsActive = false;
-                }
-            }
             await _orderRepository.SaveChangesAsync();
         }
 
         public async Task<long> CreateForwardOrderAsync(CreateForwardOrderRequest request, string userId)
         {
-            return await CreateOrderInternalAsync(request, userId, OrderTypeEnum.Forward, "");
+            return await CreateOrderInternalAsync(request, userId, OrderTypeEnum.Forward, "", OrderCategoryEnum.B2C);
+        }
+
+        public async Task<long> CreateB2BOrderAsync(CreateB2BOrderRequest request, string userId)
+        {
+            return await CreateOrderInternalAsync(request, userId, OrderTypeEnum.Forward, "B2B-", OrderCategoryEnum.B2B);
         }
 
         //public async Task<long> CreateReverseOrderAsync(CreateForwardOrderRequest request, string userId)
@@ -86,7 +81,8 @@ namespace TryNextPost.Application.IServices.Class.Order
 
         private async Task<long> CreateOrderInternalAsync(CreateOrderRequestBase request, string userId,
         OrderTypeEnum orderType,
-        string orderRefPrefix)
+        string orderRefPrefix,
+        OrderCategoryEnum orderCategory)
         {
             await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.OrdersCreate);
             var seller = await _sellerContextService.ResolveSellerAsync(userId);
@@ -126,9 +122,9 @@ namespace TryNextPost.Application.IServices.Class.Order
                 TotalAmount = totalAmount,
                 FinalPayableAmount = finalPayableAmount,
 
-                OrderCategory = OrderCategoryEnum.B2C,
+                OrderCategory = orderCategory,
                 PaymentMode = (PaymentMode)request.PaymentMode,
-                OrderType = orderType,                         
+                OrderType = orderType,
                 Status = OrderStatus.Pending,
 
                 GstNumber = request.GstNumber,
@@ -144,7 +140,7 @@ namespace TryNextPost.Application.IServices.Class.Order
                 ShippingCountry = request.ShippingCountry,
                 PickupAddressId = pickupAddressId,
 
-                // Billing — agar "Same as Shipping" hai to Shipping se copy karo
+
                 IsBillingSameAsShipping = request.IsBillingSameAsShipping,
                 BillingFirstName = request.IsBillingSameAsShipping ? request.CustomerName : request.BillingFirstName,
                 BillingLastName = request.IsBillingSameAsShipping ? null : request.BillingLastName,
@@ -254,7 +250,7 @@ namespace TryNextPost.Application.IServices.Class.Order
                 AwbNumber = activeShipment?.AwbNumber,
                 ShipmentStatus = activeShipment?.Status.ToString(),
                 CourierName = activeShipment?.Courier?.CourierName,
-           
+
                 GstNumber = order.GstNumber,
                 CustomerName = order.CustomerName,
                 CustomerCompanyName = order.CustomerCompanyName,
@@ -291,7 +287,7 @@ namespace TryNextPost.Application.IServices.Class.Order
                 IsCollectableAmountDifferent = order.IsCollectableAmountDifferent,
                 CollectableAmount = order.CollectableAmount,
 
-                Items = order.OrderItems?.Select(i => new OrderItemDto
+                Items = order.OrderItems.Select(i => new OrderItemDto
                 {
                     ProductName = i.ProductName,
                     Qty = i.Qty,
@@ -301,18 +297,18 @@ namespace TryNextPost.Application.IServices.Class.Order
                 ReverseQcDetail = order.ReverseQcDetail == null
                 ? null
                  : new ReverseQcDetailResponse
-        {
-        ProductCategory = order.ReverseQcDetail.ProductCategory,
-        IsUsedProduct = order.ReverseQcDetail.IsUsedProduct,
-        IsDamagedProduct = order.ReverseQcDetail.IsDamagedProduct,
-        IsBrandMatched = order.ReverseQcDetail.IsBrandMatched,
-        IsSizeMatched = order.ReverseQcDetail.IsSizeMatched,
-        IsColorMatched = order.ReverseQcDetail.IsColorMatched,
-        ReferenceImageUrls = order.ReverseQcDetail.Images
+                 {
+                     ProductCategory = order.ReverseQcDetail.ProductCategory,
+                     IsUsedProduct = order.ReverseQcDetail.IsUsedProduct,
+                     IsDamagedProduct = order.ReverseQcDetail.IsDamagedProduct,
+                     IsBrandMatched = order.ReverseQcDetail.IsBrandMatched,
+                     IsSizeMatched = order.ReverseQcDetail.IsSizeMatched,
+                     IsColorMatched = order.ReverseQcDetail.IsColorMatched,
+                     ReferenceImageUrls = order.ReverseQcDetail.Images
             .OrderBy(image => image.DisplayOrder)
             .Select(image => image.ImageUrl)
             .ToList()
-    }
+                 }
             };
         }
 
@@ -329,6 +325,19 @@ namespace TryNextPost.Application.IServices.Class.Order
 
             if (order.Status != OrderStatus.Pending)
                 throw new InvalidOperationException(string.Format(SystemMessage.OrderCannotBeEdited));
+
+            if (await _shipmentRepository.HasActiveShipmentAsync(order.OrderId))
+                throw new InvalidOperationException(SystemMessage.OrderUpdateBlockedByActiveShipment);
+            var pickupAddressId = request.PickupAddressId ?? seller.DefaultPickupAddressId;
+
+
+            if (order.OrderType == OrderTypeEnum.Forward)
+            {
+                var isValidPickup = await _addressRepository.IsPickupAddressValidAsync(
+                    pickupAddressId.Value, seller.UserId);
+                if (!isValidPickup)
+                    throw new InvalidOperationException(SystemMessage.IsValidAddress);
+            }
 
             var volumetricWeight = (request.LengthCm * request.BreadthCm * request.HeightCm) / 5000 * 1000;
             var totalAmount = request.Items.Sum(i => i.Qty * i.Price);
@@ -348,17 +357,17 @@ namespace TryNextPost.Application.IServices.Class.Order
             order.ShippingState = request.ShippingState;
             order.ShippingPincode = request.ShippingPincode;
             order.ShippingCountry = request.ShippingCountry;
-            order.PickupAddressId = request.PickupAddressId;
+            order.PickupAddressId = pickupAddressId;
             order.IsBillingSameAsShipping = request.IsBillingSameAsShipping;
-            order.BillingFirstName = request.BillingFirstName;
-            order.BillingLastName = request.BillingLastName;
-            order.BillingCompanyName = request.BillingCompanyName;
-            order.BillingAddressLine1 = request.BillingAddressLine1;
-            order.BillingAddressLine2 = request.BillingAddressLine2;
-            order.BillingCity = request.BillingCity;
-            order.BillingState = request.BillingState;
-            order.BillingPincode = request.BillingPincode;
-            order.BillingCountry = request.BillingCountry;
+            order.BillingFirstName = request.IsBillingSameAsShipping ? request.CustomerName : request.BillingFirstName;
+            order.BillingLastName = request.IsBillingSameAsShipping ? null : request.BillingLastName;
+            order.BillingCompanyName = request.IsBillingSameAsShipping ? request.CustomerCompanyName : request.BillingCompanyName;
+            order.BillingAddressLine1 = request.IsBillingSameAsShipping ? request.ShippingAddressLine1 : request.BillingAddressLine1;
+            order.BillingAddressLine2 = request.IsBillingSameAsShipping ? request.ShippingAddressLine2 : request.BillingAddressLine2;
+            order.BillingCity = request.IsBillingSameAsShipping ? request.ShippingCity : request.BillingCity;
+            order.BillingState = request.IsBillingSameAsShipping ? request.ShippingState : request.BillingState;
+            order.BillingPincode = request.IsBillingSameAsShipping ? request.ShippingPincode : request.BillingPincode;
+            order.BillingCountry = request.IsBillingSameAsShipping ? request.ShippingCountry : request.BillingCountry;
             order.WeightGrams = request.WeightGrams;
             order.LengthCm = request.LengthCm;
             order.BreadthCm = request.BreadthCm;
@@ -402,8 +411,11 @@ namespace TryNextPost.Application.IServices.Class.Order
                 _ => null
             };
 
+            var orderCategory = request.OrderCategory ?? OrderCategoryEnum.B2C;
+
             var criteria = new OrderFilterCriteria
             {
+                OrderCategory = orderCategory,
                 Page = request.Page,
                 PageSize = request.PageSize,
                 FromDate = request.FromDate,
@@ -412,25 +424,32 @@ namespace TryNextPost.Application.IServices.Class.Order
                 SearchQuery = request.SearchQuery,
                 ProductName = request.ProductName,
                 Channel = request.Channel,
-                Type = request.Type,
                 IvrStatus = request.IvrStatus,
                 WhatsAppStatus = request.WhatsAppStatus,
                 Tags = request.Tags
             };
+            ApplyOrderFilterMapping(request, criteria);
+            if (orderCategory == OrderCategoryEnum.B2C
+            && string.IsNullOrEmpty(criteria.OrderType)
+            && string.IsNullOrEmpty(criteria.PaymentType))
+            {
+                criteria.OrderType = "Forward";
+            }
 
             var orders = await _orderRepository.GetOrdersFilteredAsync(seller.SellerId, criteria, statusFilter);
             var totalCount = await _orderRepository.GetOrdersFilteredCountAsync(seller.SellerId, criteria, statusFilter);
 
             var activeShipments = await _shipmentRepository.GetActiveShipmentsByOrderIdsAsync(
                 orders.Select(o => o.OrderId));
+            var statusCounts = await _orderRepository.GetStatusCountsBySellerAsync(seller.SellerId, orderCategory);
 
             var tabCounts = new OrderTabCounts
             {
-                AllOrders = await _orderRepository.GetOrdersCountAsync(seller.SellerId, null),
-                NotShipped = await _orderRepository.GetOrdersCountAsync(seller.SellerId, OrderStatus.Pending),
-                Booked = await _orderRepository.GetOrdersCountAsync(seller.SellerId, OrderStatus.Confirmed),
-                Cancelled = await _orderRepository.GetOrdersCountAsync(seller.SellerId, OrderStatus.Cancelled),
-                FulfilledOrders = await _orderRepository.GetOrdersCountAsync(seller.SellerId, OrderStatus.Delivered)
+                AllOrders = statusCounts.Values.Sum(),
+                NotShipped = statusCounts.GetValueOrDefault(OrderStatus.Pending),
+                Booked = statusCounts.GetValueOrDefault(OrderStatus.Confirmed),
+                Cancelled = statusCounts.GetValueOrDefault(OrderStatus.Cancelled),
+                FulfilledOrders = statusCounts.GetValueOrDefault(OrderStatus.Delivered)
             };
 
             return new OrderListResponse
@@ -449,6 +468,40 @@ namespace TryNextPost.Application.IServices.Class.Order
             };
         }
 
+        private static void ApplyOrderFilterMapping(OrderFilterRequest request, OrderFilterCriteria criteria)
+        {
+            var type = request.Type?.Trim();
+            var orderType = request.OrderType?.Trim();
+
+            if (!string.IsNullOrEmpty(orderType))
+                criteria.OrderType = orderType;
+
+            if (string.IsNullOrEmpty(type))
+                return;
+
+            if (type.Equals("COD", StringComparison.OrdinalIgnoreCase)
+                || type.Equals("Prepaid", StringComparison.OrdinalIgnoreCase))
+            {
+                criteria.PaymentType = type;
+                return;
+            }
+
+            if (type.Equals("Forward", StringComparison.OrdinalIgnoreCase)
+                || type.Equals("Reverse", StringComparison.OrdinalIgnoreCase)
+                || type.Equals("ReverseQC", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.IsNullOrEmpty(criteria.OrderType)
+                    && !criteria.OrderType.Equals(type, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(SystemMessage.InvalidOrderTypeFilter);
+                }
+
+                criteria.OrderType = type;
+                return;
+            }
+
+            throw new InvalidOperationException(SystemMessage.InvalidOrderTypeFilter);
+        }
         private static OrderListItemResponse MapToListItem(
             TryNextPost.Domain.Entities.Order order,
             Domain.Entities.Shipment? activeShipment)
@@ -471,7 +524,9 @@ namespace TryNextPost.Application.IServices.Class.Order
                 ProductSummary = productSummary,
                 PaymentMode = order.PaymentMode.ToString(),
                 CustomerName = order.CustomerName,
+                CustomerCompanyName = order.CustomerCompanyName,
                 CustomerMobile = order.CustomerMobile,
+                OrderCategory = (int)order.OrderCategory,
                 WeightGrams = order.WeightGrams,
                 IvrStatus = order.IvrStatus,
                 WhatsAppStatus = order.WhatsAppStatus,
@@ -490,13 +545,13 @@ namespace TryNextPost.Application.IServices.Class.Order
 
         public Task<long> CreateReverseOrderAsync(CreateReverseOrderRequest request, string userId)
         {
-            return CreateOrderInternalAsync(request, userId, OrderTypeEnum.Reverse, "R-");
+            return CreateOrderInternalAsync(request, userId, OrderTypeEnum.Reverse, "R-", OrderCategoryEnum.B2C);
 
         }
 
         public Task<long> CreateReverseQCOrderAsync(CreateReverseQcOrderRequest request, string userId)
         {
-            return CreateOrderInternalAsync(request, userId, OrderTypeEnum.ReverseQC, "QC-");
+            return CreateOrderInternalAsync(request, userId, OrderTypeEnum.ReverseQC, "QC-", OrderCategoryEnum.B2C);
         }
     }
 }

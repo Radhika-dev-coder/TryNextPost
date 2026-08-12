@@ -14,6 +14,9 @@ namespace TryNextPost.Domain.IRepository
 
         Task<Seller?> GetByIdAsync(long sellerId);
 
+        /// <summary>Active sellers with company name for SuperAdmin pickers.</summary>
+        Task<List<Seller>> GetActiveLookupAsync();
+
         Task CreateSellerAsync(string UserId);
 
         Task UpdateAsync(Seller seller);

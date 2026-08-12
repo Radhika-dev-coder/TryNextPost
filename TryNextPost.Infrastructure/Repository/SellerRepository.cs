@@ -49,6 +49,16 @@ namespace TryNextPost.Infrastructure.Repository
             return await _appDbContexts.Sellers.FirstOrDefaultAsync(s => s.SellerId == sellerId);
         }
 
+        public async Task<List<Seller>> GetActiveLookupAsync()
+        {
+            return await _appDbContexts.Sellers
+                .AsNoTracking()
+                .Include(s => s.Company)
+                .Where(s => s.IsActive == true && s.Status == Domain.Enums.SellerStatus.Active)
+                .OrderBy(s => s.SellerId)
+                .ToListAsync();
+        }
+
         public Task UpdateAsync(Seller seller)
         {
             _appDbContexts.Sellers.Update(seller);

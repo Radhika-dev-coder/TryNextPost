@@ -6,15 +6,11 @@ namespace TryNextPost.Application.IServices.Interface.IWallet
     {
         Task<WalletBalanceResponse> GetOrCreateBalanceAsync(string userId);
 
-        /// <summary>
-        /// Credits <paramref name="userId"/> wallet. <paramref name="performedBy"/> is usually SuperAdmin id.
-        /// </summary>
+        Task<WalletBalanceResponse> GetSellerWalletBalanceAsync(string userId);
+
         Task<WalletBalanceResponse> CreditAsync(string userId, WalletCreditRequest request, string? performedBy = null);
 
-        /// <summary>
-        /// Debits wallet after a successful balance check. Creates wallet (0 balance) if missing.
-        /// </summary>
-        Task DebitForShipmentAsync(
+        Task<WalletBalanceResponse> DebitForShipmentAsync(
             string userId,
             decimal amount,
             long shipmentId,
@@ -22,18 +18,37 @@ namespace TryNextPost.Application.IServices.Interface.IWallet
             string? performedBy);
 
         /// <summary>
-        /// Creates a Razorpay order and a Pending WalletRecharge row.
+        /// Credits ChargedAmount back to the seller wallet after cancel.
+        /// Idempotent via TxnReference SHIP-REFUND-{shipmentId}.
         /// </summary>
+        Task<WalletBalanceResponse> CreditForShipmentRefundAsync(
+            string userId,
+            decimal amount,
+            long shipmentId,
+            string? awbNumber,
+            string? performedBy);
+
+        /// <summary>
+        /// Debits WeightCharges for accepted discrepancy.
+        /// Idempotent via TxnReference WD-ACCEPT-{weightDiscrepancyId}.
+        /// No-op when amount is 0.
+        /// </summary>
+        Task<WalletBalanceResponse> DebitForWeightDiscrepancyAsync(
+            long sellerId,
+            decimal amount,
+            long weightDiscrepancyId,
+            string? awbNumber,
+            string performedBy);
+
+        Task<WalletTransactionListResponse> GetTransactionsAsync(
+            string userId,
+            bool isSuperAdmin,
+            WalletTransactionFilterRequest filter);
+
         Task<WalletRechargeResponse> CreateRechargeAsync(string userId, WalletRechargeRequest request);
 
-        /// <summary>
-        /// Verifies Razorpay webhook signature and credits wallet once on payment.captured.
-        /// </summary>
         Task<PaymentWebhookResponse> HandleWebhookAsync(string rawBody, string? signature);
 
-        /// <summary>
-        /// Optional frontend return path: verify Checkout signature and credit if not already Paid.
-        /// </summary>
         Task<VerifyPaymentResponse> VerifyPaymentAsync(string userId, VerifyPaymentRequest request);
     }
 }

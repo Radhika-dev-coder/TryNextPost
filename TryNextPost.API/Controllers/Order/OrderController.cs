@@ -26,6 +26,23 @@ namespace TryNextPost.API.Controllers.Order
             return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         }
 
+        [HttpPost("create-b2b")]
+        public async Task<IActionResult> CreateB2BOrder([FromBody] CreateB2BOrderRequest request)
+        {
+            var userId = GetUserId();
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(SystemMessage.InvalidToken);
+
+            var orderId = await _orderService.CreateB2BOrderAsync(request, userId);
+
+            return Ok(new ApiResponse<long>
+            {
+                Success = true,
+                Message = SystemMessage.OrderCreatedSuccess,
+                Data = orderId
+            });
+        }
+
         [HttpPost("create-forward")]
         public async Task<IActionResult> CreateForwardOrder([FromBody] CreateForwardOrderRequest request)
         {
@@ -49,7 +66,6 @@ namespace TryNextPost.API.Controllers.Order
             var userId = GetUserId();
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized(SystemMessage.InvalidToken);
-
             var orderId = await _orderService.CreateReverseOrderAsync(request, userId);
 
             return Ok(new ApiResponse<long>

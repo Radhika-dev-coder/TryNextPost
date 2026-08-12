@@ -1,15 +1,12 @@
 using Microsoft.Extensions.Logging;
 using TryNextPost.Application.Common.Settings;
 using TryNextPost.Application.DTO.Courier;
+using TryNextPost.Application.IServices.Class.RateCard;
 using TryNextPost.Application.IServices.Interface.Courier;
 
 namespace TryNextPost.Infrastructure.CourierAdapters
 {
-    /// <summary>
-    /// Shared stub behavior until real courier HTTP APIs are wired.
-    /// When credentials (BaseUrl + ApiKey) are present, <see cref="EnsureApiReady"/> throws NotImplementedException
-    /// so callers know config is ready but integration code is still pending.
-    /// </summary>
+
     public abstract class CourierAdapterBase : ICourierAdapter
     {
         private readonly ILogger _logger;
@@ -23,9 +20,6 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 
         protected abstract CourierProviderSettings Settings { get; }
 
-        /// <summary>
-        /// True when appsettings has BaseUrl and ApiKey for this courier.
-        /// </summary>
         protected bool IsConfigured =>
             !string.IsNullOrWhiteSpace(Settings.BaseUrl)
             && !string.IsNullOrWhiteSpace(Settings.ApiKey);
@@ -142,7 +136,12 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 
             var weightFactor = Math.Max(request.WeightKg, 0.5m);
             var baseCharge = 40m + (weightFactor * 25m);
-            var codCharge = request.IsCod ? 30m : 0m;
+            var codCharge = RateCalculationService.ResolveCodCharge(
+                request.IsCod,
+                request.SupportsCod,
+                request.CodChargeType,
+                request.CodChargeValue,
+                request.CodAmount);
 
             return new CourierRateResponse
             {

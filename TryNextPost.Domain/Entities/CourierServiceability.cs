@@ -20,6 +20,7 @@ namespace TryNextPost.Domain.Entities
         public bool IsServiceable { get; set; }
         public int EstimatedDays { get; set; }
 
-        
+        public int ZoneId { get; set; }
+        public Zone Zone { get; set; }
     }
 }

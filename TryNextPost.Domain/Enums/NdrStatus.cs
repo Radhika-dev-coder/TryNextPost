@@ -1,16 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace TryNextPost.Domain.Enums
+﻿namespace TryNextPost.Domain.Enums
 {
+
     public enum NdrStatus
     {
-        Pending = 1,
-        ReattemptScheduled = 2,
+        ActionRequired = 1,
+        ActionRequested = 2,
         Delivered = 3,
-        Cancelled = 4
+        Rto = 4
     }
 }

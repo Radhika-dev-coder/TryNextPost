@@ -14,15 +14,18 @@ namespace TryNextPost.Application.IServices.Class.Employee
         private readonly ISellerContextService _sellerContextService;
         private readonly ISellerEmployeeRepository _employeeRepository;
         private readonly IIdentityService _identityService;
+        private readonly IEmailService _emailService;
 
         public EmployeeService(
             ISellerContextService sellerContextService,
             ISellerEmployeeRepository employeeRepository,
-            IIdentityService identityService)
+            IIdentityService identityService,
+            IEmailService emailService)
         {
             _sellerContextService = sellerContextService;
             _employeeRepository = employeeRepository;
             _identityService = identityService;
+            _emailService = emailService;
         }
 
         public async Task<EmployeeResponse> CreateAsync(string ownerUserId, CreateEmployeeRequest request)
@@ -65,6 +68,11 @@ namespace TryNextPost.Application.IServices.Class.Employee
 
             await _employeeRepository.AddAsync(employee);
             await _employeeRepository.SaveChangesAsync();
+
+            await _emailService.SendEmployeeInviteEmail(
+                request.Email.Trim(),
+                request.FullName.Trim(),
+                request.Password);
 
             return Map(employee);
         }

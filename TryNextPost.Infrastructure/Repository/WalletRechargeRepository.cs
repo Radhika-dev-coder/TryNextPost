@@ -37,6 +37,24 @@ namespace TryNextPost.Infrastructure.Repository
             return Task.CompletedTask;
         }
 
+        public async Task<decimal> SumPaidForSellerPeriodAsync(
+            long sellerId,
+            DateTime periodFrom,
+            DateTime periodTo)
+        {
+            var end = periodTo.Date.AddDays(1);
+            return await (
+                from r in _context.WalletRecharges.AsNoTracking()
+                join w in _context.Wallets.AsNoTracking() on r.WalletId equals w.WalletId
+                where w.SellerId == sellerId
+                      && r.IsActive == true
+                      && r.Status == Domain.Enums.WalletRechargeStatus.Paid
+                      && r.CreatedAt >= periodFrom
+                      && r.CreatedAt < end
+                select (decimal?)r.Amount
+            ).SumAsync() ?? 0m;
+        }
+
         public async Task SaveChangesAsync()
         {
             await _context.SaveChangesAsync();

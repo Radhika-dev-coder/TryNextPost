@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TryNextPost.Application.Common.Settings;
 using TryNextPost.Application.DTO.Wallet;
@@ -20,6 +22,7 @@ namespace TryNextPost.Application.IServices.Class.Wallet
         private readonly RazorpaySettings _razorpaySettings;
         private readonly ISellerContextService _sellerContextService;
         private readonly ISellerRepository _sellerRepository;
+        private readonly ILogger<WalletService> _logger;
 
         public WalletService(
             IWalletRepository walletRepository,
@@ -27,7 +30,8 @@ namespace TryNextPost.Application.IServices.Class.Wallet
             IRazorpayPaymentGateway razorpay,
             IOptions<RazorpaySettings> razorpaySettings,
             ISellerContextService sellerContextService,
-            ISellerRepository sellerRepository)
+            ISellerRepository sellerRepository,
+            ILogger<WalletService> logger)
         {
             _walletRepository = walletRepository;
             _rechargeRepository = rechargeRepository;
@@ -35,11 +39,17 @@ namespace TryNextPost.Application.IServices.Class.Wallet
             _razorpaySettings = razorpaySettings.Value;
             _sellerContextService = sellerContextService;
             _sellerRepository = sellerRepository;
+            _logger = logger;
         }
 
         public async Task<WalletBalanceResponse> GetOrCreateBalanceAsync(string userId)
         {
             await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.WalletViewBalance);
+            return await GetSellerWalletBalanceAsync(userId);
+        }
+
+        public async Task<WalletBalanceResponse> GetSellerWalletBalanceAsync(string userId)
+        {
             var context = await _sellerContextService.ResolveAsync(userId);
             var wallet = await EnsureWalletAsync(context.SellerId, context.UserId);
             if (wallet.WalletId == 0)
@@ -90,7 +100,7 @@ namespace TryNextPost.Application.IServices.Class.Wallet
             return Map(wallet);
         }
 
-        public async Task DebitForShipmentAsync(
+        public async Task<WalletBalanceResponse> DebitForShipmentAsync(
             string userId,
             decimal amount,
             long shipmentId,
@@ -131,6 +141,243 @@ namespace TryNextPost.Application.IServices.Class.Wallet
 
             await _walletRepository.AddTransactionAsync(txn);
             await _walletRepository.SaveChangesAsync();
+            return Map(wallet);
+        }
+
+        public async Task<WalletBalanceResponse> CreditForShipmentRefundAsync(
+            string userId,
+            decimal amount,
+            long shipmentId,
+            string? awbNumber,
+            string? performedBy)
+        {
+            if (amount < 0)
+                throw new InvalidOperationException(SystemMessage.WalletAmountInvalid);
+
+            var context = await _sellerContextService.ResolveAsync(userId);
+            var wallet = await EnsureWalletAsync(context.SellerId, context.UserId);
+
+            if (wallet.WalletId == 0)
+                await _walletRepository.SaveChangesAsync();
+
+            var txnReference = $"SHIP-REFUND-{shipmentId}";
+            var existing = await _walletRepository.GetSuccessfulByTxnReferenceAsync(txnReference);
+            if (existing != null)
+                return Map(wallet);
+
+            if (amount == 0)
+                return Map(wallet);
+
+            wallet.Balance += amount;
+            wallet.UpdatedAt = DateTime.UtcNow;
+            wallet.UpdatedBy = performedBy ?? userId;
+
+            var txn = new Transaction
+            {
+                WalletId = wallet.WalletId,
+                TxnType = TransactionType.Credit,
+                Amount = amount,
+                TxnReference = txnReference,
+                ReferenceId = shipmentId.ToString(),
+                Description = string.IsNullOrWhiteSpace(awbNumber)
+                    ? $"Shipment cancel refund (ShipmentId={shipmentId})"
+                    : $"Shipment cancel refund AWB {awbNumber}",
+                Status = TransactionStatus.Success,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = performedBy ?? userId
+            };
+
+            await _walletRepository.AddTransactionAsync(txn);
+            await _walletRepository.SaveChangesAsync();
+            return Map(wallet);
+        }
+
+        public async Task<WalletBalanceResponse> DebitForWeightDiscrepancyAsync(
+            long sellerId,
+            decimal amount,
+            long weightDiscrepancyId,
+            string? awbNumber,
+            string performedBy)
+        {
+            if (amount < 0)
+                throw new InvalidOperationException(SystemMessage.WalletAmountInvalid);
+
+            var seller = await _sellerRepository.GetByIdAsync(sellerId)
+                ?? throw new KeyNotFoundException(SystemMessage.SellerNotFound);
+
+            var wallet = await EnsureWalletAsync(seller.SellerId, seller.UserId);
+            if (wallet.WalletId == 0)
+                await _walletRepository.SaveChangesAsync();
+
+            var txnReference = $"WD-ACCEPT-{weightDiscrepancyId}";
+            var existing = await _walletRepository.GetSuccessfulByTxnReferenceAsync(txnReference);
+            if (existing != null)
+                return Map(wallet);
+
+            if (amount == 0)
+                return Map(wallet);
+
+            if (wallet.Balance < amount)
+                throw new InvalidOperationException(SystemMessage.WalletInsufficientBalanceForWeight);
+
+            wallet.Balance -= amount;
+            wallet.UpdatedAt = DateTime.UtcNow;
+            wallet.UpdatedBy = performedBy;
+
+            var txn = new Transaction
+            {
+                WalletId = wallet.WalletId,
+                TxnType = TransactionType.Debit,
+                Amount = amount,
+                TxnReference = txnReference,
+                ReferenceId = weightDiscrepancyId.ToString(),
+                Description = string.IsNullOrWhiteSpace(awbNumber)
+                    ? $"Weight discrepancy charge (Id={weightDiscrepancyId})"
+                    : $"Weight discrepancy charge AWB {awbNumber}",
+                Status = TransactionStatus.Success,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = performedBy
+            };
+
+            await _walletRepository.AddTransactionAsync(txn);
+            await _walletRepository.SaveChangesAsync();
+            return Map(wallet);
+        }
+
+        public async Task<WalletTransactionListResponse> GetTransactionsAsync(
+            string userId,
+            bool isSuperAdmin,
+            WalletTransactionFilterRequest filter)
+        {
+            long sellerId;
+            if (isSuperAdmin && filter.SellerId.HasValue && filter.SellerId.Value > 0)
+            {
+                sellerId = filter.SellerId.Value;
+            }
+            else
+            {
+                await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.WalletViewBalance);
+                var context = await _sellerContextService.ResolveAsync(userId);
+                sellerId = context.SellerId;
+            }
+
+            var wallet = await EnsureWalletAsync(sellerId, userId);
+            if (wallet.WalletId == 0)
+                await _walletRepository.SaveChangesAsync();
+
+            var page = filter.Page < 1 ? 1 : filter.Page;
+            var pageSize = filter.PageSize < 1 ? 50 : Math.Min(filter.PageSize, 200);
+            var txnType = ParseTxnType(filter.TxnType);
+
+            var sw = Stopwatch.StartNew();
+            var (items, totalCount) = await _walletRepository.GetTransactionsFilteredAsync(
+                wallet.WalletId,
+                txnType,
+                filter.FromDate,
+                filter.ToDate,
+                filter.Search,
+                page,
+                pageSize);
+            var filterMs = sw.ElapsedMilliseconds;
+
+            sw.Restart();
+            var closingBalances = await BuildClosingBalanceMapForPageAsync(wallet, items);
+            var balanceMs = sw.ElapsedMilliseconds;
+            _logger.LogInformation(
+                "Wallet GetTransactionsAsync seller={SellerId} page={Page}/{PageSize} rows={Rows} filterMs={FilterMs} closingBalanceMs={BalanceMs}",
+                sellerId, page, pageSize, items.Count, filterMs, balanceMs);
+
+            var mapped = items.Select(t =>
+            {
+                closingBalances.TryGetValue(t.TxnId, out var closing);
+                var isCredit = t.TxnType == TransactionType.Credit;
+                return new WalletTransactionListItemResponse
+                {
+                    TxnId = t.TxnId,
+                    Date = t.CreatedAt ?? DateTime.UtcNow,
+                    TxnType = isCredit ? "Credit" : "Debit",
+                    TxnTypeCode = (int)t.TxnType,
+                    RefNo = t.ReferenceId,
+                    TransactionId = t.TxnReference,
+                    Credit = isCredit ? t.Amount : 0,
+                    Debit = isCredit ? 0 : t.Amount,
+                    ClosingBalance = closing,
+                    Description = t.Description,
+                    Status = t.Status.ToString()
+                };
+            }).ToList();
+
+            return new WalletTransactionListResponse
+            {
+                WalletBalance = wallet.Balance,
+                Items = mapped,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
+
+        /// <summary>
+        /// Closing balance = wallet balance after each successful txn.
+        /// Only walks successful txns from newest down through the oldest row on this page
+        /// (not a fixed 10k history load).
+        /// </summary>
+        private async Task<Dictionary<long, decimal>> BuildClosingBalanceMapForPageAsync(
+            Domain.Entities.Wallet wallet,
+            List<Transaction> pageItems)
+        {
+            var map = new Dictionary<long, decimal>();
+            if (pageItems.Count == 0)
+                return map;
+
+            var pageIds = pageItems.Select(t => t.TxnId).ToHashSet();
+            var oldest = pageItems
+                .OrderBy(t => t.CreatedAt ?? DateTime.MinValue)
+                .ThenBy(t => t.TxnId)
+                .First();
+
+            var untilAt = oldest.CreatedAt ?? DateTime.MinValue;
+            var recent = await _walletRepository.GetSuccessfulTransactionsNewestFirstUntilAsync(
+                wallet.WalletId,
+                untilAt,
+                oldest.TxnId);
+
+            var running = wallet.Balance;
+            var remaining = pageIds.Count;
+            foreach (var t in recent)
+            {
+                if (pageIds.Contains(t.TxnId))
+                {
+                    map[t.TxnId] = running;
+                    remaining--;
+                }
+
+                if (t.TxnType == TransactionType.Debit)
+                    running += t.Amount;
+                else
+                    running -= t.Amount;
+
+                if (remaining == 0)
+                    break;
+            }
+
+            return map;
+        }
+
+        private static TransactionType? ParseTxnType(string? txnType)
+        {
+            if (string.IsNullOrWhiteSpace(txnType) || txnType.Equals("all", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            var key = txnType.Trim().ToLowerInvariant();
+            return key switch
+            {
+                "credit" => TransactionType.Credit,
+                "debit" => TransactionType.Debit,
+                _ => null
+            };
         }
 
         public async Task<WalletRechargeResponse> CreateRechargeAsync(string userId, WalletRechargeRequest request)

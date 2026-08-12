@@ -1,5 +1,6 @@
 using TryNextPost.Application.Common;
 using TryNextPost.Application.IServices.Interface;
+using TryNextPost.Application.Services.Interface;
 using TryNextPost.Domain.Common;
 using TryNextPost.Domain.Entities;
 using TryNextPost.Domain.Enums;
@@ -11,13 +12,16 @@ namespace TryNextPost.Application.IServices.Class
     {
         private readonly ISellerRepository _sellerRepository;
         private readonly ISellerEmployeeRepository _employeeRepository;
+        private readonly IIdentityService _identityService;
 
         public SellerContextService(
             ISellerRepository sellerRepository,
-            ISellerEmployeeRepository employeeRepository)
+            ISellerEmployeeRepository employeeRepository,
+            IIdentityService identityService)
         {
             _sellerRepository = sellerRepository;
             _employeeRepository = employeeRepository;
+            _identityService = identityService;
         }
 
         public async Task<SellerContext> ResolveAsync(string userId)
@@ -35,21 +39,38 @@ namespace TryNextPost.Application.IServices.Class
             }
 
             var employee = await _employeeRepository.GetByUserIdAsync(userId);
-            if (employee == null)
-                throw new UnauthorizedAccessException(SystemMessage.SellerNotFound);
-
-            var permissions = employee.Permissions?
-                .Select(p => p.PermissionCode)
-                .ToList() ?? new List<string>();
-
-            return new SellerContext
+            if (employee != null)
             {
-                SellerId = employee.SellerId,
-                UserId = userId,
-                IsOwner = false,
-                EmployeeId = employee.EmployeeId,
-                Permissions = permissions
-            };
+                var permissions = employee.Permissions?
+                    .Select(p => p.PermissionCode)
+                    .ToList() ?? new List<string>();
+
+                return new SellerContext
+                {
+                    SellerId = employee.SellerId,
+                    UserId = userId,
+                    IsOwner = false,
+                    EmployeeId = employee.EmployeeId,
+                    Permissions = permissions
+                };
+            }
+
+            var roles = await _identityService.GetUserRolesAsync(userId);
+            if (IsSuperAdmin(roles))
+            {
+                throw new InvalidOperationException(
+                    "SuperAdmin has no seller context. Use platform admin paths instead of seller ResolveAsync.");
+            }            
+            throw new UnauthorizedAccessException(SystemMessage.SellerNotFound);
+        }
+
+        private static bool IsSuperAdmin(IEnumerable<string>? roles)
+        {
+            if (roles == null)
+                return false;
+  
+            var expected = RoleEnum.SuperAdmin.ToString();
+            return roles.Any(r => string.Equals(r, expected, StringComparison.OrdinalIgnoreCase));
         }
 
         public async Task EnsureOwnerAsync(string userId)

@@ -147,7 +147,6 @@ namespace TryNextPost.Infrastructure.Service
         {
             PropertyNameCaseInsensitive = true
         };
-
         private sealed class RazorpayOrderApiResponse
         {
             [JsonPropertyName("id")]

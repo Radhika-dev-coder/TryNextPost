@@ -9,7 +9,11 @@ using TryNextPost.API.Middlewares;
 using TryNextPost.Application.Common.Settings;
 using TryNextPost.Application.IServices;
 using TryNextPost.Application.IServices.Class;
+using TryNextPost.Application.IServices.Class.Admin;
+using TryNextPost.Application.IServices.Class.Billing;
+using TryNextPost.Application.IServices.Class.Dashboard;
 using TryNextPost.Application.IServices.Class.Default;
+using TryNextPost.Application.IServices.Class.Ndr;
 using TryNextPost.Application.IServices.Class.Order;
 using TryNextPost.Application.IServices.Class.RateCard;
 using TryNextPost.Application.IServices.Class.Report;
@@ -17,22 +21,34 @@ using TryNextPost.Application.IServices.Class.SellerKYC;
 using TryNextPost.Application.IServices.Class.Settlement;
 using TryNextPost.Application.IServices.Class.Shipment;
 using TryNextPost.Application.IServices.Class.Wallet;
+using TryNextPost.Application.IServices.Class.Weight;
 using TryNextPost.Application.IServices.Interface;
+using TryNextPost.Application.IServices.Interface.Courier;
 using TryNextPost.Application.IServices.Interface.Default;
-using TryNextPost.Application.IServices.Interface.IOrder;
-using TryNextPost.Application.IServices.Interface.IShipment;
+using TryNextPost.Application.IServices.Interface.IAdmin;
+using TryNextPost.Application.IServices.Interface.IBilling;
+using TryNextPost.Application.IServices.Interface.IDashboard;
 using TryNextPost.Application.IServices.Interface.IEmployee;
+using TryNextPost.Application.IServices.Interface.INdr;
+using TryNextPost.Application.IServices.Interface.IOrder;
+using TryNextPost.Application.IServices.Interface.IPayment;
+using TryNextPost.Application.IServices.Interface.IRateCard;
+using TryNextPost.Application.IServices.Interface.IReport;
+using TryNextPost.Application.IServices.Interface.ISettlement;
+using TryNextPost.Application.IServices.Interface.IShipment;
 using TryNextPost.Application.IServices.Interface.IWallet;
 using TryNextPost.Application.IServices.Interface.IWeight;
 using TryNextPost.Application.IServices.Interface.SellerKYC;
 using TryNextPost.Application.Services.Interface;
 using TryNextPost.Application.Validators.Order;
+using TryNextPost.Domain.Common;
 using TryNextPost.Domain.IRepository;
+using TryNextPost.Domain.IRepository.Report;
 using TryNextPost.Infrastructure.AppDbContexts;
+using TryNextPost.Infrastructure.CourierAdapters;
 using TryNextPost.Infrastructure.Identity;
 using TryNextPost.Infrastructure.Repository;
-using TryNextPost.Application.IServices.Interface.Courier;
-using TryNextPost.Infrastructure.CourierAdapters;
+using TryNextPost.Infrastructure.Repository.Report;
 using TryNextPost.Infrastructure.Seeder;
 using TryNextPost.Infrastructure.Service;
 
@@ -68,9 +84,9 @@ builder.Services.AddScoped<ISellerEmployeeRepository, SellerEmployeeRepository>(
 builder.Services.AddScoped<ISellerContextService, SellerContextService>();
 builder.Services.AddScoped<IEmployeeService, TryNextPost.Application.IServices.Class.Employee.EmployeeService>();
 
-// ✅ FINAL SMS CONFIG (BEST VERSION)
+
 builder.Services.Configure<SmsSettings>(
-    builder.Configuration.GetSection("SmsSettings"));
+builder.Configuration.GetSection("SmsSettings"));
 builder.Services.AddHttpClient<ISmsService, SmsService>();
 
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
@@ -78,20 +94,44 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IAddressRepository, AddressRepository>();
 builder.Services.AddScoped<IAddressService, AddressService>();
 builder.Services.AddScoped<IShipmentRepository, ShipmentRepository>();
+builder.Services.AddScoped<INdrRepository, NdrRepository>();
+builder.Services.AddScoped<IRtoRepository, RtoRepository>();
 builder.Services.AddScoped<ICourierRepository, CourierRepository>();
+builder.Services.AddScoped<IZoneRepository, ZoneRepository>();
+builder.Services.AddScoped<ICourierRateCardRepository, CourierRateCardRepository>();
+builder.Services.AddScoped<IShipmentChargesRepository, ShipmentChargesRepository>();
+builder.Services.AddScoped<ICourierSettlementRepository, CourierSettlementRepository>();
+builder.Services.AddScoped<IRateCalculationService, RateCalculationService>();
+builder.Services.AddScoped<ICourierSettlementService, CourierSettlementService>();
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IWalletRechargeRepository, WalletRechargeRepository>();
 builder.Services.AddScoped<IWalletService, WalletService>();
+builder.Services.AddScoped<ICODSettlementRepository, CODSettlementRepository>();
+builder.Services.AddScoped<ISellerBankAccountRepository, SellerBankAccountRepository>();
+builder.Services.AddScoped<IInvoiceRepository, InvoiceRepository>();
+builder.Services.AddScoped<ITdsCertificateRepository, TdsCertificateRepository>();
+builder.Services.AddScoped<IBillingService, BillingService>();
+builder.Services.AddScoped<ITdsCertificateService, TdsCertificateService>();
+builder.Services.AddScoped<ICourierAdminService, CourierAdminService>();
+builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 builder.Services.Configure<RazorpaySettings>(
-    builder.Configuration.GetSection(RazorpaySettings.SectionName));
+builder.Configuration.GetSection(RazorpaySettings.SectionName));
 builder.Services.AddHttpClient<IRazorpayPaymentGateway, RazorpayPaymentGateway>();
 
 builder.Services.AddScoped<IShipmentService, ShipmentService>();
+builder.Services.AddScoped<INdrService, NdrService>();
+builder.Services.AddScoped<IWeightDiscrepancyRepository, WeightDiscrepancyRepository>();
+builder.Services.AddScoped<IProductWeightFreezeRepository, ProductWeightFreezeRepository>();
+builder.Services.AddScoped<IWeightDiscrepancyService, WeightDiscrepancyService>();
+builder.Services.AddScoped<IWeightFreezeService, WeightFreezeService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 builder.Services.AddScoped<ISellerKycRepository, SellerKycRepostiory>();
 builder.Services.AddScoped<ISellerKycServices, SellerKycServices>();
+builder.Services.AddScoped<IExportHistoryRepository, ExportHistoryRepository>();
+builder.Services.AddScoped<ICustomReportService, CustomReportService>();
 
 // ✅ FluentValidation
 builder.Services.AddFluentValidationAutoValidation();
@@ -114,6 +154,11 @@ builder.Services.AddScoped<ICourierAdapter, EkartAdapter>();
 builder.Services.AddScoped<ICourierAdapter, IndiaPostAdapter>();
 builder.Services.AddScoped<ICourierAdapter, ShadowfaxAdapter>();
 builder.Services.AddScoped<ICourierAdapterFactory, CourierAdapterFactory>();
+
+builder.Services.AddScoped<ICreditNoteRepository, CreditNoteRepository>();
+builder.Services.AddScoped<ICreditNoteService, CreditNoteService>();
+builder.Services.AddScoped<ICodSettlementService, CodSettlementService>();
+builder.Services.AddHttpClient<IPincodeService, PincodeService>();
 
 #endregion
 
@@ -146,6 +191,25 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = builder.Configuration["Jwt:Audience"],
 
         IssuerSigningKey = new SymmetricSecurityKey(keyBytes)
+    };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = async context =>
+        {
+            var sid = context.Principal?.FindFirst("sid")?.Value;
+            if (string.IsNullOrEmpty(sid) || !int.TryParse(sid, out var sessionId))
+                return;
+
+            var sessionRepository = context.HttpContext.RequestServices
+                .GetRequiredService<IUserSessionRepository>();
+
+            var session = await sessionRepository.GetByIdAsync(sessionId);
+            if (session == null || !session.IsActive || session.ExpiryAt < DateTime.UtcNow)
+            {
+                context.Fail(SystemMessage.SessionRevoked);
+            }
+        }
     };
 });
 
@@ -202,16 +266,21 @@ builder.Services.AddSwaggerGen(options =>
 #region CORS
 
 var allowedOrigins = builder.Configuration
-    .GetSection("Cors:AllowedOrigins").Get<string[]>();
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>();
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(allowedOrigins)
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+        policy.WithOrigins(
+                "http://147.93.31.120:8081",
+                "http://147.93.31.120",
+             "http://147.93.31.120:8082"
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 
     options.AddPolicy("AllowAll", policy =>
@@ -261,30 +330,83 @@ builder.Services.AddMemoryCache();
                 "Courier seed skipped. Apply migration AddCourierCode if missing.");
         }
     }
+#region Seeder (background — do not block Swagger / Kestrel startup)
+
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    _ = Task.Run(async () =>
+    {
+        try
+        {
+            using var scope = app.Services.CreateScope();
+            var services = scope.ServiceProvider;
+
+            var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+            var roleManager = services.GetRequiredService<RoleManager<ApplicationRole>>();
+
+            await IdentitySeeder.SeedAsync(userManager, roleManager);
+
+            var db = services.GetRequiredService<AppDbContext>();
+            await PermissionSeeder.SeedAsync(db);
+
+            var logger = services.GetRequiredService<ILoggerFactory>()
+                .CreateLogger("CourierSeeder");
+
+            try
+            {
+                await CourierSeeder.SeedAsync(db, logger);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex,
+                    "Courier seed skipped. Apply migration AddCourierCode if missing.");
+            }
+
+            var rateCardLogger = services.GetRequiredService<ILoggerFactory>()
+                .CreateLogger("RateCardSeeder");
+            try
+            {
+                await RateCardSeeder.SeedAsync(db, rateCardLogger);
+            }
+            catch (Exception ex)
+            {
+                rateCardLogger.LogWarning(ex,
+                    "Rate card seed skipped. Apply migration AddRateCardAndSettlement if missing.");
+            }
+
+            var weightLogger = services.GetRequiredService<ILoggerFactory>()
+                .CreateLogger("WeightSeeder");
+            try
+            {
+                await WeightSeeder.SeedAsync(db, weightLogger);
+            }
+            catch (Exception ex)
+            {
+                weightLogger.LogWarning(ex,
+                    "Weight seed skipped. Apply migration AddWeightManagement if missing.");
+            }
+        }
+        catch (Exception ex)
+        {
+            var startupLogger = app.Services.GetRequiredService<ILoggerFactory>()
+                .CreateLogger("StartupSeeder");
+            startupLogger.LogError(ex, "Background startup seeding failed.");
+        }
+    });
+});
 
 #endregion
 
-//if (app.Environment.IsDevelopment())
-//{
-//    app.UseSwagger();
-//    app.UseSwaggerUI(options =>
-//    {
-//        options.SwaggerEndpoint("/swagger/v1/swagger.json",
-//            "TryNextPost API v1");
-//        options.RoutePrefix = string.Empty;
-//    });
-//}
 app.UseSwagger();
 app.UseSwaggerUI();
 
-    app.UseCors("AllowAll");
-    app.UseHttpsRedirection();
-    app.UseCors("AllowFrontend");
-    app.UseMiddleware<ExceptionMiddleware>();
+app.UseHttpsRedirection();
+app.UseCors("AllowFrontend");
+app.UseMiddleware<ExceptionMiddleware>();
+app.UseStaticFiles();
+app.UseAuthentication();
+app.UseAuthorization();
 
-    app.UseAuthentication();
-    app.UseAuthorization();
-
-    app.MapControllers();
+app.MapControllers();
 
 app.Run();

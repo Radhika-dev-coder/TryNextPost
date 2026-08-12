@@ -35,7 +35,7 @@ namespace TryNextPost.Application.Helpers
                     ShipmentStatus.InTransit,
                     ShipmentStatus.OutForDelivery,
                     ShipmentStatus.Exception,
-                    ShipmentStatus.RTO
+                    ShipmentStatus.RTOInitiated
                 ],
                 [ShipmentStatus.InTransit] =
                 [
@@ -43,20 +43,20 @@ namespace TryNextPost.Application.Helpers
                     ShipmentStatus.OutForDelivery,
                     ShipmentStatus.Delivered,
                     ShipmentStatus.Exception,
-                    ShipmentStatus.RTO
+                     ShipmentStatus.RTOInitiated
                 ],
                 [ShipmentStatus.ReachedDestination] =
                 [
                     ShipmentStatus.OutForDelivery,
                     ShipmentStatus.Delivered,
                     ShipmentStatus.Exception,
-                    ShipmentStatus.RTO
+                    ShipmentStatus.RTOInitiated
                 ],
                 [ShipmentStatus.OutForDelivery] =
                 [
                     ShipmentStatus.Delivered,
                     ShipmentStatus.Exception,
-                    ShipmentStatus.RTO,
+                    ShipmentStatus.RTOInitiated,
                     ShipmentStatus.InTransit
                 ],
                 [ShipmentStatus.Exception] =
@@ -64,11 +64,26 @@ namespace TryNextPost.Application.Helpers
                     ShipmentStatus.InTransit,
                     ShipmentStatus.OutForDelivery,
                     ShipmentStatus.Delivered,
-                    ShipmentStatus.RTO,
+                    ShipmentStatus.RTOInitiated,
                     ShipmentStatus.Cancelled
                 ],
                 [ShipmentStatus.Delivered] = [],
-                [ShipmentStatus.RTO] = [],
+                [ShipmentStatus.RTOInitiated] =
+                [
+                    ShipmentStatus.RTOInTransit
+                ],
+                
+                [ShipmentStatus.RTOInTransit] =
+                [
+                    ShipmentStatus.RTODelivered
+                ],
+                
+                [ShipmentStatus.RTODelivered] =
+                [
+                    ShipmentStatus.RTOAcknowledged
+                ],
+                
+                [ShipmentStatus.RTOAcknowledged] = [],
                 [ShipmentStatus.Cancelled] = [],
                 [ShipmentStatus.BookingFailed] =
                 [
@@ -132,14 +147,52 @@ namespace TryNextPost.Application.Helpers
                 "reacheddestination" or "reachedhub" or "atdestination" => ShipmentStatus.ReachedDestination,
                 "outofordelivery" or "ofd" => ShipmentStatus.OutForDelivery,
                 "delivered" or "delivery" => ShipmentStatus.Delivered,
-                "rto" or "returntoorigin" or "returned" => ShipmentStatus.RTO,
-                "exception" or "undelivered" or "failed" or "ndr" => ShipmentStatus.Exception,
+                "rtoinitiated" or "rtoinit" or "returninitiated" => ShipmentStatus.RTOInitiated,
+                "rtodelivered" or "returndelivered" => ShipmentStatus.RTODelivered,
+                "rtoacknowledged" or "returnacknowledged" => ShipmentStatus.RTOAcknowledged,
+                "rto" or "returntoorigin" or "returned" => ShipmentStatus.RTOInitiated,
+                "exception" or "undelivered" or "failed" or "ndr" or "deliveryattemptfailed" => ShipmentStatus.Exception,
                 "cancelled" or "canceled" => ShipmentStatus.Cancelled,
                 "bookingfailed" => ShipmentStatus.BookingFailed,
                 _ => (ShipmentStatus)(-1)
             };
 
+            if ((int)status < 0)
+            {
+                if (raw.Contains("RTO", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (raw.Contains("DELIVERED", StringComparison.OrdinalIgnoreCase))
+                    {
+                        status = ShipmentStatus.RTODelivered;
+                        return true;
+                    }
+
+                    if (raw.Contains("ACK", StringComparison.OrdinalIgnoreCase))
+                    {
+                        status = ShipmentStatus.RTOAcknowledged;
+                        return true;
+                    }
+
+                    if (raw.Contains("TRANSIT", StringComparison.OrdinalIgnoreCase))
+                    {
+                        status = ShipmentStatus.RTOInTransit;
+                        return true;
+                    }
+
+                    status = ShipmentStatus.RTOInitiated;
+                    return true;
+                }
+            }
+
             return (int)status >= 0;
+
+        }
+        public static bool IsRtoStatus(ShipmentStatus? status)
+        {
+            return status == ShipmentStatus.RTOInitiated
+                || status == ShipmentStatus.RTOInTransit
+                || status == ShipmentStatus.RTODelivered
+                || status == ShipmentStatus.RTOAcknowledged;
         }
     }
 }

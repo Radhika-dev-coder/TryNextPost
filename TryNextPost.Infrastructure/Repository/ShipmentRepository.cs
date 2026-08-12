@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using TryNextPost.Application.Helpers;
 using TryNextPost.Domain.Entities;
 using TryNextPost.Domain.Enums;
 using TryNextPost.Domain.IRepository;
@@ -97,11 +98,13 @@ namespace TryNextPost.Infrastructure.Repository
         public async Task<List<Shipment>> GetBySellerFilteredAsync(
             long sellerId,
             ShipmentStatus? statusFilter,
+            bool isRto,
             int page,
             int pageSize,
-            string? searchQuery)
+            string? searchQuery,
+            OrderCategoryEnum? orderCategory = null)
         {
-            var query = BuildSellerQuery(sellerId, statusFilter, searchQuery);
+            var query = BuildSellerQuery(sellerId, statusFilter,isRto, searchQuery, orderCategory);
 
             return await query
                 .OrderByDescending(s => s.CreatedAt)
@@ -113,14 +116,29 @@ namespace TryNextPost.Infrastructure.Repository
         public async Task<int> GetBySellerFilteredCountAsync(
             long sellerId,
             ShipmentStatus? statusFilter,
-            string? searchQuery)
+            bool isRto,
+            string? searchQuery,
+            OrderCategoryEnum? orderCategory = null)
         {
-            return await BuildSellerQuery(sellerId, statusFilter, searchQuery).CountAsync();
+            return await BuildSellerQuery(sellerId, statusFilter,isRto, searchQuery, orderCategory).CountAsync();
         }
 
-        public async Task<int> GetCountBySellerAndStatusAsync(long sellerId, ShipmentStatus? statusFilter)
+        public async Task<int> GetCountBySellerAndStatusAsync(
+            long sellerId,
+            ShipmentStatus? statusFilter,
+            OrderCategoryEnum? orderCategory = null)
         {
-            return await BuildSellerQuery(sellerId, statusFilter, null).CountAsync();
+            return await BuildSellerQuery(sellerId, statusFilter,false, null, orderCategory).CountAsync();
+        }
+
+        public async Task<Dictionary<ShipmentStatus, int>> GetStatusCountsBySellerAsync(
+            long sellerId,
+            OrderCategoryEnum? orderCategory = null)
+        {
+            return await BuildSellerQuery(sellerId, null, false, null, orderCategory)
+                .GroupBy(s => s.Status)
+                .Select(g => new { g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.Key, x => x.Count);
         }
 
         public async Task SaveChangesAsync()
@@ -135,9 +153,11 @@ namespace TryNextPost.Infrastructure.Repository
         }
 
         private IQueryable<Shipment> BuildSellerQuery(
-            long sellerId,
-            ShipmentStatus? statusFilter,
-            string? searchQuery)
+           long sellerId,
+           ShipmentStatus? statusFilter,
+           bool isRto,
+           string? searchQuery,
+           OrderCategoryEnum? orderCategory = null)
         {
             var query = _context.Shipments
                 .AsNoTracking()
@@ -145,8 +165,17 @@ namespace TryNextPost.Infrastructure.Repository
                 .Include(s => s.Order)
                 .Where(s => s.IsActive == true && s.Order != null && s.Order.SellerId == sellerId);
 
-            if (statusFilter.HasValue)
+            if (orderCategory.HasValue)
+                query = query.Where(s => s.Order!.OrderCategory == orderCategory.Value);
+
+            if (isRto)
+            {
+                query = query.Where(s => ShipmentStatusTransitions.IsRtoStatus(s.Status));
+            }
+            else if (statusFilter.HasValue)
+            {
                 query = query.Where(s => s.Status == statusFilter.Value);
+            }
 
             if (!string.IsNullOrWhiteSpace(searchQuery))
             {
@@ -160,5 +189,7 @@ namespace TryNextPost.Infrastructure.Repository
 
             return query;
         }
+
+
     }
 }

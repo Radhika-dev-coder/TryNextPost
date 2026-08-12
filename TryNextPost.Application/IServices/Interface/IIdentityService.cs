@@ -20,6 +20,7 @@ namespace TryNextPost.Application.Services.Interface
         Task<bool> CheckEmailExistsAsync(string email);
         Task<IdentityResultModel> ValidateCredentialsAsync(string email, string password);
         Task<ResponseSellerDto> GetUserByEmailAsync(string email);
+        Task<ResponseSellerDto?> GetUserByIdAsync(string userId);
 
         Task<IdentityResultModel> ResetPasswordAsync(string email, string newPassword);
 

@@ -10,5 +10,6 @@ namespace TryNextPost.Application.IServices.Interface
     {
         Task SendOtpEmail(string email, string otp);
         Task SendWelcomeEmail(string email, string fullName);
+        Task SendEmployeeInviteEmail(string email, string fullName, string temporaryPassword);
     }
 }

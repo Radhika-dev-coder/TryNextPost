@@ -12,6 +12,7 @@ namespace TryNextPost.Application.DTO.Shipment
         public int Status { get; set; }
         public string StatusName { get; set; } = string.Empty;
         public decimal ChargedAmount { get; set; }
+        public decimal WalletBalanceAfterDebit { get; set; }
         public bool IsStub { get; set; }
         public string? LabelUrl { get; set; }
         public string? CourierReference { get; set; }

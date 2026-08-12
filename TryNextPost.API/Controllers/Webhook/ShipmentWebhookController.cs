@@ -8,29 +8,27 @@ using TryNextPost.Domain.Enums;
 
 namespace TryNextPost.API.Controllers.Webhook
 {
-    /// <summary>
-    /// Courier tracking webhook skeleton. Secure with IP allowlist / shared secret later.
-    /// </summary>
     [Route("api/webhook/shipment")]
     [ApiController]
     [AllowAnonymous]
     public class ShipmentWebhookController : ControllerBase
     {
         private readonly IShipmentService _shipmentService;
+        private readonly ILogger<ShipmentWebhookController> _logger;
 
-        public ShipmentWebhookController(IShipmentService shipmentService)
+        public ShipmentWebhookController(IShipmentService shipmentService, ILogger<ShipmentWebhookController> logger)
         {
             _shipmentService = shipmentService;
+            _logger = logger;
         }
 
-        /// <summary>
-        /// Ingest a tracking status update (updates Shipment.Status + ShipmentTracking row).
-        /// </summary>
         [HttpPost("tracking")]
         public async Task<IActionResult> Tracking(
             [FromBody] ShipmentTrackingWebhookRequest request,
             CancellationToken cancellationToken)
         {
+            _logger.LogInformation("Tracking webhook received for AWB: {Awb}", request?.AwbNumber);
+
             var result = await _shipmentService.ProcessTrackingWebhookAsync(request, cancellationToken);
             return Ok(new ApiResponse<ShipmentTrackingWebhookResponse>
             {

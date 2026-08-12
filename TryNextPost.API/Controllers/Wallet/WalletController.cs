@@ -38,9 +38,27 @@ namespace TryNextPost.API.Controllers.Wallet
             });
         }
 
-        /// <summary>
-        /// Creates a Razorpay order for wallet recharge (Seller). Returns keyId + gatewayOrderId for Checkout.
-        /// </summary>
+        [HttpGet("transactions")]
+        public async Task<IActionResult> GetTransactions([FromQuery] WalletTransactionFilterRequest filter)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = SystemMessage.InvalidToken });
+
+            var result = await _walletService.GetTransactionsAsync(
+                userId,
+                User.IsInRole("SuperAdmin"),
+                filter ?? new WalletTransactionFilterRequest());
+
+            return Ok(new ApiResponse<WalletTransactionListResponse>
+            {
+                Success = true,
+                Message = SystemMessage.WalletTransactionsFetchedSuccess,
+                Data = result,
+                StatusCode = ApiStatusCode.Success
+            });
+        }
+
         [HttpPost("recharge")]
         public async Task<IActionResult> Recharge([FromBody] WalletRechargeRequest request)
         {
@@ -58,10 +76,6 @@ namespace TryNextPost.API.Controllers.Wallet
             });
         }
 
-        /// <summary>
-        /// Optional frontend return path after Razorpay Checkout success (verify signature + credit).
-        /// Prefer webhook for production; this covers immediate UX after payment.
-        /// </summary>
         [HttpPost("verify-payment")]
         public async Task<IActionResult> VerifyPayment([FromBody] VerifyPaymentRequest request)
         {
@@ -81,11 +95,6 @@ namespace TryNextPost.API.Controllers.Wallet
             });
         }
 
-        /// <summary>
-        /// Razorpay payment webhook. Configure URL in Razorpay Dashboard → Webhooks.
-        /// Local tip: expose with ngrok and set endpoint to https://&lt;ngrok&gt;/api/Wallet/payment-webhook
-        /// Header: X-Razorpay-Signature
-        /// </summary>
         [AllowAnonymous]
         [HttpPost("payment-webhook")]
         public async Task<IActionResult> PaymentWebhook()
@@ -104,10 +113,6 @@ namespace TryNextPost.API.Controllers.Wallet
             });
         }
 
-        /// <summary>
-        /// Manual credit for admin/test only. Prefer POST /api/Wallet/recharge + Razorpay in production.
-        /// Restricted to SuperAdmin. Body.userId = seller/owner whose wallet to credit (e.g. TNP-000002).
-        /// </summary>
         [Authorize(Roles = "SuperAdmin")]
         [HttpPost("credit")]
         public async Task<IActionResult> Credit([FromBody] WalletCreditRequest request)

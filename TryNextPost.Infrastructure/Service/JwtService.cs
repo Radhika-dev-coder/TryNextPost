@@ -1,12 +1,9 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using System;
-using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 using TryNextPost.Application.IServices.Interface;
 
 namespace TryNextPost.Infrastructure.Service
@@ -17,13 +14,14 @@ namespace TryNextPost.Infrastructure.Service
 
         static JwtService()
         {
-            
             JwtSecurityTokenHandler.DefaultMapInboundClaims = false;
         }
+
         public JwtService(IConfiguration config)
         {
             _config = config;
         }
+
         public string GenerateOtpToken(string email, string otp, DateTime expiry)
         {
             var claims = new[]
@@ -32,17 +30,15 @@ namespace TryNextPost.Infrastructure.Service
                 new Claim("otp", otp)
             };
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:key"]));
-
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var token = new JwtSecurityToken(
                 issuer: _config["Jwt:Issuer"],
                 audience: _config["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.Now.AddMinutes(Convert.ToDouble(_config["Jwt:CongigureMinutes"])),
-                signingCredentials: creds
-                );
+                expires: expiry,
+                signingCredentials: creds);
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
@@ -50,12 +46,11 @@ namespace TryNextPost.Infrastructure.Service
         public string GeneratePhoneVerifiedToken(string mobile)
         {
             var claims = new[]
-{
-             new Claim("phone_verified", "true"),
-             new Claim("mobile", mobile)
-              };
-            var key = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
+            {
+                new Claim("phone_verified", "true"),
+                new Claim("mobile", mobile)
+            };
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
             var token = new JwtSecurityToken(
                 issuer: _config["Jwt:Issuer"],
@@ -66,22 +61,21 @@ namespace TryNextPost.Infrastructure.Service
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        public string GenerateToken(string userId, string email , List<string> roles)
+        public string GenerateToken(string userId, string email, List<string> roles, int? sessionId = null)
         {
-            var jwtKey = _config["Jwt:Key"];
-            Console.WriteLine("JWT KEY: " + (jwtKey ?? "NULL"));
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, userId),
-                new Claim(ClaimTypes.Email, email)
+                new(ClaimTypes.NameIdentifier, userId),
+                new(ClaimTypes.Email, email)
             };
 
-            foreach(var role in roles)
-            {
-                claims.Add(new Claim(ClaimTypes.Role, role));
-            }
+            if (sessionId.HasValue)
+                claims.Add(new Claim("sid", sessionId.Value.ToString()));
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
+            foreach (var role in roles)
+                claims.Add(new Claim(ClaimTypes.Role, role));
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var token = new JwtSecurityToken(
@@ -89,17 +83,26 @@ namespace TryNextPost.Infrastructure.Service
                 audience: _config["Jwt:Audience"],
                 claims: claims,
                 expires: DateTime.UtcNow.AddDays(7),
-                signingCredentials: creds
-            );
+                signingCredentials: creds);
 
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        public string GenerateRefreshToken()
+        {
+            return Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        }
+
+        public string HashRefreshToken(string refreshToken)
+        {
+            return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken)));
         }
 
         public (bool isValid, string email) ValidateOtpToken(string token, string enteredOtp)
         {
             try
             {
-                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
+                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
                 var tokenHandler = new JwtSecurityTokenHandler();
 
                 var principal = tokenHandler.ValidateToken(token, new TokenValidationParameters
@@ -114,13 +117,13 @@ namespace TryNextPost.Infrastructure.Service
                 var otpClaim = principal.FindFirst("otp")?.Value;
 
                 if (otpClaim == enteredOtp)
-                    return (true, emailClaim);
+                    return (true, emailClaim!);
 
-                return (false, null);
+                return (false, null!);
             }
             catch
             {
-                return (false, null);
+                return (false, null!);
             }
         }
     }
