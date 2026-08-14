@@ -24,9 +24,9 @@ namespace TryNextPost.Infrastructure.Repository
             await _context.Addresses.AddAsync(address);
         }
 
-        public async Task<Address> GetByIdAsync(long addressId)
+        public async Task<Address?> GetByIdAsync(long addressId, CancellationToken cancellationToken = default)
         {
-            return await _context.Addresses.FirstOrDefaultAsync(a => a.AddressId == addressId && a.IsActive == true);
+            return await _context.Addresses.FirstOrDefaultAsync(a => a.AddressId == addressId && a.IsActive == true, cancellationToken);
         }
 
         public async Task<List<Address>> GetByUserIdAsync(string userId, AddressType type)

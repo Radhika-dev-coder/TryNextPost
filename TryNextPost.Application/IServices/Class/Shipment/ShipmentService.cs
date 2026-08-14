@@ -1,11 +1,13 @@
+using Microsoft.Extensions.Logging;
 using TryNextPost.Application.DTO.Courier;
+using TryNextPost.Application.DTO.Courier.XpressBees;
 using TryNextPost.Application.DTO.Shipment;
 using TryNextPost.Application.Helpers;
 using TryNextPost.Application.IServices.Class.RateCard;
 using TryNextPost.Application.IServices.Interface;
 using TryNextPost.Application.IServices.Interface.Courier;
-using TryNextPost.Application.IServices.Interface.IShipment;
 using TryNextPost.Application.IServices.Interface.IRateCard;
+using TryNextPost.Application.IServices.Interface.IShipment;
 using TryNextPost.Application.IServices.Interface.IWallet;
 using TryNextPost.Domain.Common;
 using TryNextPost.Domain.Entities;
@@ -29,6 +31,8 @@ namespace TryNextPost.Application.IServices.Class.Shipment
         private readonly IRateCalculationService _rateCalculationService;
         private readonly IShipmentChargesRepository _shipmentChargesRepository;
         private readonly IProductWeightFreezeRepository _productWeightFreezeRepository;
+        private readonly ILogger<ShipmentService> _logger;
+
 
         public ShipmentService(
             ISellerRepository sellerRepository,
@@ -42,7 +46,8 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             IWalletService walletService,
             IRateCalculationService rateCalculationService,
             IShipmentChargesRepository shipmentChargesRepository,
-            IProductWeightFreezeRepository productWeightFreezeRepository)
+            IProductWeightFreezeRepository productWeightFreezeRepository,
+            ILogger<ShipmentService> logger)
         {
             _sellerRepository = sellerRepository;
             _sellerContextService = sellerContextService;
@@ -56,27 +61,186 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             _rateCalculationService = rateCalculationService;
             _shipmentChargesRepository = shipmentChargesRepository;
             _productWeightFreezeRepository = productWeightFreezeRepository;
+            _logger = logger;
         }
 
-        public async Task<GetShipmentRatesResponse> GetRatesAsync(
-            long orderId,
-            string userId,
-            CancellationToken cancellationToken = default)
+        //public async Task<GetShipmentRatesResponse> GetRatesAsync(
+        //    long orderId,
+        //    string userId,
+        //    CancellationToken cancellationToken = default)
+        //{
+        //    await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.ShipmentsCreate);
+        //    var (order, seller) = await LoadOwnedOrderAsync(orderId, userId);
+        //    EnsureOrderShippable(order);
+        //    await ApplyWeightFreezeIfApplicableAsync(order);
+
+        //    var warehouse = await ResolveWarehouseAddressAsync(order, seller);
+        //    var rateRequest = BuildRateRequest(order, warehouse);
+        //    var couriers = await _courierRepository.GetActiveCouriersAsync();
+        //    var isCod = rateRequest.IsCod;
+
+        //    var rates = new List<ShipmentRateOptionDto>();
+
+        //    foreach (var courier in couriers)
+        //    {
+        //        var rateCardQuotes = await _rateCalculationService.GetRatesForCourierAsync(
+        //            courier.CourierId,
+        //            courier.CourierCode,
+        //            courier.CourierName,
+        //            rateRequest.OriginPincode,
+        //            rateRequest.DestinationPincode,
+        //            order.WeightGrams,
+        //            order.VolumetricWeightGrams,
+        //            isCod,
+        //            courier.CodChargeType,
+        //            courier.CodChargeValue,
+        //            rateRequest.CodAmount,
+        //            courier.SupportsCOD);
+
+        //        if (rateCardQuotes.Count > 0)
+        //        {
+        //            foreach (var quote in rateCardQuotes)
+        //            {
+        //                rates.Add(new ShipmentRateOptionDto
+        //                {
+        //                    CourierId = courier.CourierId,
+        //                    CourierCode = courier.CourierCode,
+        //                    CourierName = courier.CourierName,
+        //                    ServiceName = quote.ServiceName,
+        //                    ServiceCode = quote.ServiceCode,
+        //                    TotalCharge = quote.TotalCharge,
+        //                    CodCharge = quote.CodCharge,
+        //                    EstimatedDays = quote.EstimatedDays,
+        //                    IsStub = false,
+        //                    Message = $"Rate card ({quote.OriginZoneCode} → {quote.DestinationZoneCode})"
+        //                });
+        //            }
+
+        //            continue;
+        //        }
+
+        //        if (!_courierAdapterFactory.TryResolve(courier.CourierCode, out var adapter) || adapter is null)
+        //            continue;
+
+        //        try
+        //        {
+        //            var adapterRequest = BuildRateRequest(order, warehouse, courier);
+        //            var response = await adapter.GetRatesAsync(adapterRequest, cancellationToken);
+        //            if (response?.Rates == null || response.Rates.Count == 0)
+        //                continue;
+
+        //            foreach (var option in response.Rates)
+        //            {
+        //                rates.Add(new ShipmentRateOptionDto
+        //                {
+        //                    CourierId = courier.CourierId,
+        //                    CourierCode = courier.CourierCode,
+        //                    CourierName = courier.CourierName,
+        //                    ServiceName = option.ServiceName,
+        //                    ServiceCode = option.ServiceCode,
+        //                    TotalCharge = option.TotalCharge,
+        //                    CodCharge = option.CodCharge,
+        //                    EstimatedDays = option.EstimatedDays,
+        //                    IsStub = response.IsStub || option.IsStub,
+        //                    Message = response.Message
+        //                });
+        //            }
+        //        }
+        //        catch (NotImplementedException)
+        //        {
+        //            // Credentials configured but HTTP not wired yet — skip for rates list.
+        //        }
+        //    }
+
+        //    return new GetShipmentRatesResponse
+        //    {
+        //        OrderId = order.OrderId,
+        //        OrderRef = order.OrderRef,
+        //        OriginPincode = rateRequest.OriginPincode,
+        //        DestinationPincode = rateRequest.DestinationPincode,
+        //        Rates = rates.OrderBy(r => r.TotalCharge).ToList()
+        //    };
+        //}
+
+        public async Task<GetShipmentRatesResponse> GetRatesAsync(long orderId,  string userId, CancellationToken cancellationToken = default)
         {
-            await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.ShipmentsCreate);
+            await _sellerContextService.EnsurePermissionAsync(
+                userId,
+                EmployeePermissionCode.ShipmentsCreate);
+
             var (order, seller) = await LoadOwnedOrderAsync(orderId, userId);
+
             EnsureOrderShippable(order);
+
             await ApplyWeightFreezeIfApplicableAsync(order);
 
             var warehouse = await ResolveWarehouseAddressAsync(order, seller);
+
             var rateRequest = BuildRateRequest(order, warehouse);
+
             var couriers = await _courierRepository.GetActiveCouriersAsync();
-            var isCod = rateRequest.IsCod;
 
             var rates = new List<ShipmentRateOptionDto>();
 
             foreach (var courier in couriers)
             {
+                bool rateFetched = false;
+
+                // =========================================================
+                // LIVE API
+                // =========================================================
+                if (courier.SupportsRateApi)
+                {
+                    if (_courierAdapterFactory.TryResolve(courier.CourierCode, out var adapter)
+                        && adapter != null)
+                    {
+                        try
+                        {
+                            var adapterRequest = BuildRateRequest(order, warehouse, courier);
+
+                            var response = await adapter.GetRatesAsync(
+                                adapterRequest,
+                                cancellationToken);
+
+                            if (response.Success &&
+                                response.Rates != null &&
+                                response.Rates.Any())
+                            {
+                                foreach (var option in response.Rates)
+                                {
+                                    rates.Add(CreateShipmentRateOption(
+                                        courier,
+                                        option.ServiceName,
+                                        option.ServiceCode,
+                                        option.TotalCharge,
+                                        option.CodCharge,
+                                        option.EstimatedDays,
+                                        response.IsStub || option.IsStub,
+                                        response.Message));
+                                }
+
+                                rateFetched = true;
+                            }
+                        }
+                        catch (NotImplementedException ex)
+                        {
+                            _logger.LogWarning( ex, "Rate API is not implemented for courier {CourierCode}", courier.CourierCode);
+                        }
+                        catch (Exception ex)
+                        {
+                           
+                            _logger.LogError(ex, "Live rate fetch failed");
+                        }
+                    }
+                }
+
+                // Live API se rate mil gaya
+
+                if (rateFetched)
+                    continue;
+
+                // RATE CARD
+
                 var rateCardQuotes = await _rateCalculationService.GetRatesForCourierAsync(
                     courier.CourierId,
                     courier.CourierCode,
@@ -85,64 +249,23 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                     rateRequest.DestinationPincode,
                     order.WeightGrams,
                     order.VolumetricWeightGrams,
-                    isCod,
+                    rateRequest.IsCod,
                     courier.CodChargeType,
                     courier.CodChargeValue,
                     rateRequest.CodAmount,
                     courier.SupportsCOD);
 
-                if (rateCardQuotes.Count > 0)
+                foreach (var quote in rateCardQuotes)
                 {
-                    foreach (var quote in rateCardQuotes)
-                    {
-                        rates.Add(new ShipmentRateOptionDto
-                        {
-                            CourierId = courier.CourierId,
-                            CourierCode = courier.CourierCode,
-                            CourierName = courier.CourierName,
-                            ServiceName = quote.ServiceName,
-                            ServiceCode = quote.ServiceCode,
-                            TotalCharge = quote.TotalCharge,
-                            CodCharge = quote.CodCharge,
-                            EstimatedDays = quote.EstimatedDays,
-                            IsStub = false,
-                            Message = $"Rate card ({quote.OriginZoneCode} → {quote.DestinationZoneCode})"
-                        });
-                    }
-
-                    continue;
-                }
-
-                if (!_courierAdapterFactory.TryResolve(courier.CourierCode, out var adapter) || adapter is null)
-                    continue;
-
-                try
-                {
-                    var adapterRequest = BuildRateRequest(order, warehouse, courier);
-                    var response = await adapter.GetRatesAsync(adapterRequest, cancellationToken);
-                    if (response?.Rates == null || response.Rates.Count == 0)
-                        continue;
-
-                    foreach (var option in response.Rates)
-                    {
-                        rates.Add(new ShipmentRateOptionDto
-                        {
-                            CourierId = courier.CourierId,
-                            CourierCode = courier.CourierCode,
-                            CourierName = courier.CourierName,
-                            ServiceName = option.ServiceName,
-                            ServiceCode = option.ServiceCode,
-                            TotalCharge = option.TotalCharge,
-                            CodCharge = option.CodCharge,
-                            EstimatedDays = option.EstimatedDays,
-                            IsStub = response.IsStub || option.IsStub,
-                            Message = response.Message
-                        });
-                    }
-                }
-                catch (NotImplementedException)
-                {
-                    // Credentials configured but HTTP not wired yet — skip for rates list.
+                    rates.Add(CreateShipmentRateOption(
+                        courier,
+                        quote.ServiceName,
+                        quote.ServiceCode,
+                        quote.TotalCharge,
+                        quote.CodCharge,
+                        quote.EstimatedDays,
+                        false,
+                        $"Rate Card ({quote.OriginZoneCode} → {quote.DestinationZoneCode})"));
                 }
             }
 
@@ -152,10 +275,32 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 OrderRef = order.OrderRef,
                 OriginPincode = rateRequest.OriginPincode,
                 DestinationPincode = rateRequest.DestinationPincode,
-                Rates = rates.OrderBy(r => r.TotalCharge).ToList()
+                Rates = rates.OrderBy(x => x.TotalCharge).ToList()
             };
         }
 
+        private static ShipmentRateOptionDto CreateShipmentRateOption(Courier courier, string serviceName, string? serviceCode,
+            decimal totalCharge, decimal? codCharge, int estimatedDays, bool isStub, string? message)
+        {
+            return new ShipmentRateOptionDto
+            {
+                CourierId = courier.CourierId,
+                CourierCode = courier.CourierCode,
+                CourierName = courier.CourierName,
+
+                ServiceName = serviceName,
+                ServiceCode = serviceCode,
+
+                TotalCharge = totalCharge,
+                CodCharge = codCharge ?? 0,
+
+                EstimatedDays = estimatedDays,
+
+                IsStub = isStub,
+
+                Message = message
+            };
+        }
         public async Task<ConfirmShipmentResponse> ConfirmShipmentAsync(
             ConfirmShipmentRequest request,
             string userId,
@@ -204,7 +349,15 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             if (wallet.Balance < request.ChargeAmount)
                 throw new InvalidOperationException(SystemMessage.WalletInsufficientBalance);
 
-            var bookRequest = BuildBookRequest(order, warehouse, request.ServiceCode);
+            //var bookRequest = BuildBookRequest(order, warehouse, request.ServiceCode);
+            var bookRequest = new CourierShipmentRequest
+            {
+                OrderId = order.OrderId,
+                AddressId = warehouse.AddressId,
+                CourierId = courier.CourierId,
+                ServiceCode = request.ServiceCode,
+                ServiceType = request.ServiceCode
+            };
 
             CourierBookShipmentResponse bookResponse;
             try
@@ -1043,7 +1196,8 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                     IsCod = false,
                     CodAmount = null,
                     InvoiceValue = order.FinalPayableAmount,
-                    ProductDescription = productDescription
+                    ProductDescription = productDescription,
+                    OrderType = order.OrderType,
                 };
             }
 

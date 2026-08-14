@@ -10,7 +10,6 @@ using TryNextPost.Infrastructure.AppDbContexts;
 using TryNextPost.Domain.Enums;
 using TryNextPost.Domain.Common;
 
-
 namespace TryNextPost.Infrastructure.Repository
 {
 
@@ -178,6 +177,12 @@ namespace TryNextPost.Infrastructure.Repository
         {
             _context.OrderItems.Update(orderitem);
             await Task.CompletedTask;
+        }
+
+        public async Task<Order?> GetForShipmentAsync(long orderId, CancellationToken cancellationToken = default)
+        {
+            return await _context.Orders
+               .AsNoTracking().FirstOrDefaultAsync( o => o.OrderId == orderId && o.IsActive == true, cancellationToken);
         }
     }
 }

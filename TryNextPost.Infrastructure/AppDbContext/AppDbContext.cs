@@ -56,6 +56,8 @@ namespace TryNextPost.Infrastructure.AppDbContexts
         public DbSet<ExportHistory> ExportHistories => Set<ExportHistory>();
 
         public DbSet<Region> Regions { get; set; }
+
+        public DbSet<CourierPickupLocation> CourierPickupLocations { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -68,6 +70,8 @@ namespace TryNextPost.Infrastructure.AppDbContexts
                 .WithOne()
                 .HasForeignKey(a => a.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+
 
             // =========================
             // 🔥 ORDER → ORDER ITEMS
@@ -438,6 +442,45 @@ namespace TryNextPost.Infrastructure.AppDbContexts
                       .OnDelete(DeleteBehavior.Restrict);
             });
 
+            modelBuilder.Entity<CourierPickupLocation>(entity =>
+            {
+                entity.HasKey(x => x.CourierPickupLocationId);
+
+                entity.Property(x => x.LocationCode)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(x => x.IsActive)
+                    .IsRequired();
+
+                // Address -> CourierPickupLocation
+                entity.HasOne(x => x.Address)
+                    .WithMany(x => x.CourierPickupLocations)
+                    .HasForeignKey(x => x.AddressId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Courier -> CourierPickupLocation
+                entity.HasOne(x => x.Courier)
+                    .WithMany(x => x.CourierPickupLocations)
+                    .HasForeignKey(x => x.CourierId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Same Address + Courier combination cannot exist twice
+                entity.HasIndex(x => new
+                {
+                    x.AddressId,
+                    x.CourierId
+                })
+                .IsUnique();
+
+                // Same LocationCode cannot be repeated for the same courier
+                entity.HasIndex(x => new
+                {
+                    x.CourierId,
+                    x.LocationCode
+                })
+                .IsUnique();
+            });
 
             // --- ShipmentTracking ---
             modelBuilder.Entity<ShipmentTracking>().HasIndex(st => st.ShipmentId);
