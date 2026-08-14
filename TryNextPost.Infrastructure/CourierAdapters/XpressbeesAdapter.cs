@@ -20,7 +20,7 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 {
     public sealed class XpressbeesAdapter : CourierAdapterBase
     {
-        private readonly CourierProviderSettings _settings;
+        private readonly XpressbeesSettings _settings;
         private readonly HttpClient _httpClient;
         private readonly ICourierPickupLocationService _pickupLocationService;
         private readonly IAddressRepository _addressRepository;
@@ -44,15 +44,16 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 
         public override string CourierCode => CourierCodes.Xpressbees;
 
-        protected override CourierProviderSettings Settings => _settings;
+        //protected override XpressbeesSettings Settings => _settings;
 
         protected override bool IsConfigured =>
-                       !string.IsNullOrWhiteSpace(_settings.TokenUrl)
-                       && !string.IsNullOrWhiteSpace(_settings.ForwardUrl)
-                       && !string.IsNullOrWhiteSpace(_settings.ApiKey)
-                       && !string.IsNullOrWhiteSpace(_settings.ApiSecret)
-                       && !string.IsNullOrWhiteSpace(_settings.SecretKey);
-
+            _settings.Enabled
+            && !string.IsNullOrWhiteSpace(_settings.TokenUrl)
+            && !string.IsNullOrWhiteSpace(_settings.ForwardUrl)
+            && !string.IsNullOrWhiteSpace(_settings.ApiKey)
+            && !string.IsNullOrWhiteSpace(_settings.ApiSecret)
+            && !string.IsNullOrWhiteSpace(_settings.SecretKey)
+            && !string.IsNullOrWhiteSpace(_settings.XBKey);
 
         protected override async Task<CourierBookShipmentResponse> BookShipmentInternalAsync(
             CourierShipmentRequest request,

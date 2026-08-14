@@ -21,11 +21,14 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 
         public abstract string CourierCode { get; }
 
-        protected abstract CourierProviderSettings Settings { get; }
+        //  protected abstract CourierProviderSettings Settings { get; }
 
-        protected virtual bool IsConfigured =>
-            !string.IsNullOrWhiteSpace(Settings.BaseUrl)
-            && !string.IsNullOrWhiteSpace(Settings.ApiKey);
+
+        //protected virtual bool IsConfigured =>
+        //    !string.IsNullOrWhiteSpace(Settings.BaseUrl)
+        //    && !string.IsNullOrWhiteSpace(Settings.ApiKey);
+
+        protected abstract bool IsConfigured { get; }
 
         public virtual Task<CourierRateResponse> GetRatesAsync(
             CourierRateRequest request,

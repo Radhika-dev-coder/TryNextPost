@@ -9,7 +9,7 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 {
     public sealed class ShadowfaxAdapter : CourierAdapterBase
     {
-        private readonly CourierProviderSettings _settings;
+        private readonly ShadowfaxSettings _settings;
 
         public ShadowfaxAdapter(
             IOptions<CourierSettings> options,
@@ -20,8 +20,12 @@ namespace TryNextPost.Infrastructure.CourierAdapters
             _settings = options.Value.Shadowfax;
         }
 
-        public override string CourierCode => CourierCodes.Shadowfax;
+        public override string CourierCode =>CourierCodes.Shadowfax;
 
-        protected override CourierProviderSettings Settings => _settings;
+        protected override bool IsConfigured =>
+    _settings.Enabled &&
+    !string.IsNullOrWhiteSpace(_settings.BaseUrl) &&
+    !string.IsNullOrWhiteSpace(_settings.ApiKey) &&
+    !string.IsNullOrWhiteSpace(_settings.ApiSecret);
     }
 }

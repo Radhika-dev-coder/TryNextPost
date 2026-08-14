@@ -8,16 +8,24 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 {
     public sealed class BlueDartAdapter : CourierAdapterBase
     {
-        private readonly CourierProviderSettings _settings;
+        private readonly BlueDartSettings _settings;
 
-        public BlueDartAdapter(IOptions<CourierSettings> options, ILogger<BlueDartAdapter> logger, IOrderRepository orderRepository)
+        public BlueDartAdapter(
+            IOptions<CourierSettings> options,
+            ILogger<BlueDartAdapter> logger,
+            IOrderRepository orderRepository)
             : base(logger, orderRepository)
         {
             _settings = options.Value.BlueDart;
         }
 
-        public override string CourierCode => CourierCodes.BlueDart;
+        public override string CourierCode =>
+            CourierCodes.BlueDart;
 
-        protected override CourierProviderSettings Settings => _settings;
+        protected override bool IsConfigured =>
+            _settings.Enabled &&
+            !string.IsNullOrWhiteSpace(_settings.BaseUrl) &&
+            !string.IsNullOrWhiteSpace(_settings.ApiKey) &&
+            !string.IsNullOrWhiteSpace(_settings.ApiSecret);
     }
 }
