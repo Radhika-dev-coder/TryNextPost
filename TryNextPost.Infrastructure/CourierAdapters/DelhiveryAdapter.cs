@@ -12,7 +12,7 @@ namespace TryNextPost.Infrastructure.CourierAdapters
     public sealed class DelhiveryAdapter : CourierAdapterBase
     {
         private readonly IHttpClientFactory _httpClientFactory;
-        private readonly CourierProviderSettings _settings;
+        private readonly DelhiverySettings _settings;
        // private readonly IOrderRepository _orderRepository;
         public DelhiveryAdapter(
             IHttpClientFactory httpClientFactory,
@@ -25,9 +25,13 @@ namespace TryNextPost.Infrastructure.CourierAdapters
             _settings = options.Value.Delhivery;
         }
 
-        public override string CourierCode => CourierCodes.Delhivery;
+        public override string CourierCode =>CourierCodes.BlueDart;
+        protected override bool IsConfigured =>
+    _settings.Enabled &&
+    !string.IsNullOrWhiteSpace(_settings.BaseUrl) &&
+    !string.IsNullOrWhiteSpace(_settings.ApiKey) &&
+    !string.IsNullOrWhiteSpace(_settings.ApiSecret);
 
-        protected override CourierProviderSettings Settings => _settings;
 
         protected override async Task<CourierRateResponse> GetRatesInternalAsync(
             CourierRateRequest request,
@@ -101,16 +105,16 @@ namespace TryNextPost.Infrastructure.CourierAdapters
         {
             var client = _httpClientFactory.CreateClient(nameof(DelhiveryAdapter));
 
-            if (!string.IsNullOrWhiteSpace(Settings.BaseUrl))
-                client.BaseAddress = new Uri(Settings.BaseUrl.TrimEnd('/') + "/");
+            if (!string.IsNullOrWhiteSpace(_settings.BaseUrl))
+                client.BaseAddress = new Uri(_settings.BaseUrl.TrimEnd('/') + "/");
 
             client.DefaultRequestHeaders.Accept.Clear();
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-            if (!string.IsNullOrWhiteSpace(Settings.ApiKey))
+            if (!string.IsNullOrWhiteSpace(_settings.ApiKey))
             {            
                 client.DefaultRequestHeaders.Remove("Authorization");
-                client.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", $"Token {Settings.ApiKey}");
+                client.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", $"Token {_settings.ApiKey}");
             }
             return client;
         }

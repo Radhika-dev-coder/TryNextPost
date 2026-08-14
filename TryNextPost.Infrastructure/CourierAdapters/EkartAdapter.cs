@@ -8,16 +8,20 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 {
     public sealed class EkartAdapter : CourierAdapterBase
     {
-        private readonly CourierProviderSettings _settings;
+        private readonly EkartSettings _settings;
 
         public EkartAdapter(IOptions<CourierSettings> options, ILogger<EkartAdapter> logger, IOrderRepository orderRepository)
             : base(logger, orderRepository)
         {
             _settings = options.Value.Ekart;
         }
+        public override string CourierCode =>CourierCodes.Ekart;
+        protected override bool IsConfigured =>
+    _settings.Enabled &&
+    !string.IsNullOrWhiteSpace(_settings.BaseUrl) &&
+    !string.IsNullOrWhiteSpace(_settings.ApiKey) &&
+    !string.IsNullOrWhiteSpace(_settings.ApiSecret);
 
-        public override string CourierCode => CourierCodes.Ekart;
 
-        protected override CourierProviderSettings Settings => _settings;
     }
 }

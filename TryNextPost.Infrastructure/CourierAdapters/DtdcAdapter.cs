@@ -8,7 +8,7 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 {
     public sealed class DtdcAdapter : CourierAdapterBase
     {
-        private readonly CourierProviderSettings _settings;
+        private readonly DtdcSettings _settings;
 
         public DtdcAdapter(
             IOptions<CourierSettings> options,
@@ -19,8 +19,12 @@ namespace TryNextPost.Infrastructure.CourierAdapters
             _settings = options.Value.Dtdc;
         }
 
-        public override string CourierCode => CourierCodes.Dtdc;
+        public override string CourierCode =>CourierCodes.Dtdc;
 
-        protected override CourierProviderSettings Settings => _settings;
+        protected override bool IsConfigured =>
+     _settings.Enabled &&
+     !string.IsNullOrWhiteSpace(_settings.BaseUrl) &&
+     !string.IsNullOrWhiteSpace(_settings.ApiKey) &&
+     !string.IsNullOrWhiteSpace(_settings.ApiSecret);
     }
 }

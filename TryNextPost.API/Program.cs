@@ -329,7 +329,7 @@ builder.Services.AddMemoryCache();
                 "Courier seed skipped. Apply migration AddCourierCode if missing.");
         }
     }
-#region Seeder (background — do not block Swagger / Kestrel startup)
+//#region Seeder (background — do not block Swagger / Kestrel startup)
 
 app.Lifetime.ApplicationStarted.Register(() =>
 {

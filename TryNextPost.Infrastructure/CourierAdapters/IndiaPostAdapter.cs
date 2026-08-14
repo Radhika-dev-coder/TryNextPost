@@ -8,7 +8,7 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 {
     public sealed class IndiaPostAdapter : CourierAdapterBase
     {
-        private readonly CourierProviderSettings _settings;
+        private readonly IndiaPostSettings _settings;
 
         public IndiaPostAdapter(
             IOptions<CourierSettings> options,
@@ -19,8 +19,12 @@ namespace TryNextPost.Infrastructure.CourierAdapters
             _settings = options.Value.IndiaPost;
         }
 
-        public override string CourierCode => CourierCodes.IndiaPost;
+        public override string CourierCode =>CourierCodes.IndiaPost;
 
-        protected override CourierProviderSettings Settings => _settings;
+        protected override bool IsConfigured =>
+    _settings.Enabled &&
+    !string.IsNullOrWhiteSpace(_settings.BaseUrl) &&
+    !string.IsNullOrWhiteSpace(_settings.ApiKey) &&
+    !string.IsNullOrWhiteSpace(_settings.ApiSecret);
     }
 }

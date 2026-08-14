@@ -20,7 +20,7 @@ namespace TryNextPost.Infrastructure.Seeder
             (CourierCodes.Ekart, "Ekart", true, true, 50m),
             (CourierCodes.IndiaPost, "India Post", true, true, 30m),
             (CourierCodes.Shadowfax, "Shadowfax", true, true, 50m),
-            (CourierCodes.Amazon, "Amazon Shipping", true, true, 50m)
+            (CourierCodes.Amazon, "Amazon", true, true, 50m)
         ];
 
         public static async Task SeedAsync(AppDbContext db, ILogger? logger = null)

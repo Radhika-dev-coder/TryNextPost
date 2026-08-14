@@ -3,10 +3,6 @@ using TryNextPost.Application.DTO.Courier.XpressBees;
 
 namespace TryNextPost.Application.IServices.Interface.Courier
 {
-    /// <summary>
-    /// Contract for a single courier provider (Delhivery, BlueDart, etc.).
-    /// Implementations live in Infrastructure/CourierAdapters.
-    /// </summary>
     public interface ICourierAdapter
     {
         string CourierCode { get; }

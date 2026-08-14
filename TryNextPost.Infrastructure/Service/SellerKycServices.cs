@@ -92,7 +92,7 @@ namespace TryNextPost.Infrastructure.Service
 
                 
                 var data1 = new SellerKYCDetails
-                var data1 = new SellerKYC
+               // var data1 = new SellerKYC
                 {
                     SellerId = sellerId,
                     //AadharLast4Digit = dto.AadhaarNumber.Substring(dto.AadhaarNumber.Length - 4),
@@ -187,8 +187,8 @@ namespace TryNextPost.Infrastructure.Service
                     response.Message = SystemMessage.AlreadyOTPSend;
                     return response;
                 }
-                var mobileNo = data.PhoneNumber;
-                var cacheKey = $"phone_otp_{mobileNo}";
+             //   var mobileNo = data.PhoneNumber;
+              //  var cacheKey = $"phone_otp_{mobileNo}";
                 if (_cache.TryGetValue(cacheKey, out _))
                 {
                     response.StatusCode = (int)ApiStatusCode.BadRequest;
