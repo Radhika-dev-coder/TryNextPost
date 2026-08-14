@@ -24,5 +24,6 @@ namespace TryNextPost.Domain.IRepository
 
         Task<List<Order>> GetOrdersFilteredAsync(long sellerId, OrderFilterCriteria filter, OrderStatus? statusFilter);
         Task<int> GetOrdersFilteredCountAsync(long sellerId, OrderFilterCriteria filter, OrderStatus? statusFilter);
+        Task<Order?> GetForShipmentAsync(long orderId, CancellationToken cancellationToken = default);
     }
 }

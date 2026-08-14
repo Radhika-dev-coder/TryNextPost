@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TryNextPost.Application.Common.Settings;
 using TryNextPost.Domain.Common;
+using TryNextPost.Domain.IRepository;
 
 namespace TryNextPost.Infrastructure.CourierAdapters
 {
@@ -9,8 +10,8 @@ namespace TryNextPost.Infrastructure.CourierAdapters
     {
         private readonly CourierProviderSettings _settings;
 
-        public BlueDartAdapter(IOptions<CourierSettings> options, ILogger<BlueDartAdapter> logger)
-            : base(logger)
+        public BlueDartAdapter(IOptions<CourierSettings> options, ILogger<BlueDartAdapter> logger, IOrderRepository orderRepository)
+            : base(logger, orderRepository)
         {
             _settings = options.Value.BlueDart;
         }

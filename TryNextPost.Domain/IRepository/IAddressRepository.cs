@@ -11,7 +11,7 @@ namespace TryNextPost.Domain.IRepository
     public interface IAddressRepository
     {
         Task AddAsync(Address address);
-        Task<Address> GetByIdAsync(long addressId);
+        Task<Address?> GetByIdAsync(long addressId, CancellationToken cancellationToken = default);
         Task<List<Address>> GetByUserIdAsync(string userId, AddressType type);
         Task UpdateAsync(Address address);
         Task SaveChangesAsync();

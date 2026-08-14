@@ -1,26 +1,29 @@
 using Microsoft.Extensions.Logging;
 using TryNextPost.Application.Common.Settings;
 using TryNextPost.Application.DTO.Courier;
+using TryNextPost.Application.DTO.Courier.XpressBees;
 using TryNextPost.Application.IServices.Class.RateCard;
 using TryNextPost.Application.IServices.Interface.Courier;
+using TryNextPost.Domain.IRepository;
 
 namespace TryNextPost.Infrastructure.CourierAdapters
 {
 
     public abstract class CourierAdapterBase : ICourierAdapter
     {
-        private readonly ILogger _logger;
-
-        protected CourierAdapterBase(ILogger logger)
+        protected readonly ILogger _logger;
+        protected readonly IOrderRepository _orderRepository;
+        protected CourierAdapterBase(ILogger logger,IOrderRepository orderRepository)
         {
             _logger = logger;
+            _orderRepository = orderRepository;
         }
 
         public abstract string CourierCode { get; }
 
         protected abstract CourierProviderSettings Settings { get; }
 
-        protected bool IsConfigured =>
+        protected virtual bool IsConfigured =>
             !string.IsNullOrWhiteSpace(Settings.BaseUrl)
             && !string.IsNullOrWhiteSpace(Settings.ApiKey);
 
@@ -35,13 +38,13 @@ namespace TryNextPost.Infrastructure.CourierAdapters
         }
 
         public virtual Task<CourierBookShipmentResponse> BookShipmentAsync(
-            CourierBookShipmentRequest request,
+            CourierShipmentRequest request,
             CancellationToken cancellationToken = default)
         {
             if (IsConfigured)
                 return BookShipmentInternalAsync(request, cancellationToken);
 
-            return Task.FromResult(CreateStubBooking(request));
+            return CreateStubBookingAsync(request, cancellationToken);
         }
 
         public virtual Task<CourierLabelResponse> GetLabelAsync(
@@ -85,7 +88,7 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 
         /// <summary>Override when wiring the real BookShipment API.</summary>
         protected virtual Task<CourierBookShipmentResponse> BookShipmentInternalAsync(
-            CourierBookShipmentRequest request,
+            CourierShipmentRequest request,
             CancellationToken cancellationToken)
         {
             EnsureApiReady(nameof(BookShipmentAsync));
@@ -173,15 +176,30 @@ namespace TryNextPost.Infrastructure.CourierAdapters
             };
         }
 
-        protected CourierBookShipmentResponse CreateStubBooking(CourierBookShipmentRequest request)
+        protected async Task<CourierBookShipmentResponse> CreateStubBookingAsync(
+    CourierShipmentRequest request,
+    CancellationToken cancellationToken)
         {
-            var stubAwb = $"STUB{CourierCode[..Math.Min(3, CourierCode.Length)]}{DateTime.UtcNow:yyMMddHHmmss}{Random.Shared.Next(100, 999)}";
+            var order = await _orderRepository.GetForShipmentAsync(
+                request.OrderId,
+                cancellationToken);
+
+            if (order == null)
+            {
+                throw new InvalidOperationException(
+                    $"Order not found for OrderId {request.OrderId}.");
+            }
+
+            var stubAwb =
+                $"STUB{CourierCode[..Math.Min(3, CourierCode.Length)]}" +
+                $"{DateTime.UtcNow:yyMMddHHmmss}" +
+                $"{Random.Shared.Next(100, 999)}";
 
             _logger.LogWarning(
                 "[STUB] {CourierCode} BookShipment — fake AWB {Awb} for OrderRef={OrderRef}",
                 CourierCode,
                 stubAwb,
-                request.OrderRef);
+                order.OrderRef);
 
             return new CourierBookShipmentResponse
             {
@@ -189,7 +207,7 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                 IsStub = true,
                 CourierCode = CourierCode,
                 AwbNumber = stubAwb,
-                CourierReference = $"STUB-REF-{request.OrderRef}",
+                CourierReference = $"STUB-REF-{order.OrderRef}",
                 LabelUrl = null,
                 Message = $"[STUB] Fake AWB from {CourierCode}. Do not use for real shipping."
             };

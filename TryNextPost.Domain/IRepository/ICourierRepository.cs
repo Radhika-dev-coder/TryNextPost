@@ -10,5 +10,6 @@ namespace TryNextPost.Domain.IRepository
         Task<Courier?> GetByIdIncludingInactiveAsync(long courierId);
         Task<Courier?> GetByCodeAsync(string courierCode);
         Task UpdateAsync(Courier courier);
+        Task<long?> GetCourierIdByCodeAsync(string courierCode,CancellationToken cancellationToken = default);
     }
 }

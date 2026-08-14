@@ -2,6 +2,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TryNextPost.Application.Common.Settings;
 using TryNextPost.Domain.Common;
+using TryNextPost.Domain.IRepository;
+using TryNextPost.Infrastructure.Repository;
 
 namespace TryNextPost.Infrastructure.CourierAdapters
 {
@@ -9,8 +11,11 @@ namespace TryNextPost.Infrastructure.CourierAdapters
     {
         private readonly CourierProviderSettings _settings;
 
-        public ShadowfaxAdapter(IOptions<CourierSettings> options, ILogger<ShadowfaxAdapter> logger)
-            : base(logger)
+        public ShadowfaxAdapter(
+            IOptions<CourierSettings> options,
+            ILogger<ShadowfaxAdapter> logger,
+            IOrderRepository orderRepository)
+            : base(logger, orderRepository)
         {
             _settings = options.Value.Shadowfax;
         }

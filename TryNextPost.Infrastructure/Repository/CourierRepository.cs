@@ -59,5 +59,15 @@ namespace TryNextPost.Infrastructure.Repository
             _context.Couriers.Update(courier);
             await _context.SaveChangesAsync();
         }
+        public async Task<long?> GetCourierIdByCodeAsync(
+    string courierCode,
+    CancellationToken cancellationToken = default)
+        {
+            
+            return await _context.Couriers
+                .Where(x => x.CourierCode == courierCode)
+                .Select(x => (long?)x.CourierId)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
     }
 }

@@ -490,7 +490,19 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.Property<bool>("SupportsCOD")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("SupportsCancelApi")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("SupportsManifestApi")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("SupportsPrepaid")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("SupportsRateApi")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("SupportsTrackingApi")
                         .HasColumnType("bit");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -505,6 +517,51 @@ namespace TryNextPost.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Couriers");
+                });
+
+            modelBuilder.Entity("TryNextPost.Domain.Entities.CourierPickupLocation", b =>
+                {
+                    b.Property<long>("CourierPickupLocationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("CourierPickupLocationId"));
+
+                    b.Property<long>("AddressId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("CourierId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LocationCode")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("CourierPickupLocationId");
+
+                    b.HasIndex("AddressId", "CourierId")
+                        .IsUnique();
+
+                    b.HasIndex("CourierId", "LocationCode")
+                        .IsUnique();
+
+                    b.ToTable("CourierPickupLocations");
                 });
 
             modelBuilder.Entity("TryNextPost.Domain.Entities.CourierRateCard", b =>
@@ -2923,6 +2980,25 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.Navigation("Shipment");
                 });
 
+            modelBuilder.Entity("TryNextPost.Domain.Entities.CourierPickupLocation", b =>
+                {
+                    b.HasOne("TryNextPost.Domain.Entities.Address", "Address")
+                        .WithMany("CourierPickupLocations")
+                        .HasForeignKey("AddressId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TryNextPost.Domain.Entities.Courier", "Courier")
+                        .WithMany("CourierPickupLocations")
+                        .HasForeignKey("CourierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Address");
+
+                    b.Navigation("Courier");
+                });
+
             modelBuilder.Entity("TryNextPost.Domain.Entities.CourierRateCard", b =>
                 {
                     b.HasOne("TryNextPost.Domain.Entities.Courier", "Courier")
@@ -3362,6 +3438,11 @@ namespace TryNextPost.Infrastructure.Migrations
                     b.Navigation("Shipment");
                 });
 
+            modelBuilder.Entity("TryNextPost.Domain.Entities.Address", b =>
+                {
+                    b.Navigation("CourierPickupLocations");
+                });
+
             modelBuilder.Entity("TryNextPost.Domain.Entities.CompanyInfo", b =>
                 {
                     b.Navigation("Addresses");
@@ -3371,6 +3452,8 @@ namespace TryNextPost.Infrastructure.Migrations
 
             modelBuilder.Entity("TryNextPost.Domain.Entities.Courier", b =>
                 {
+                    b.Navigation("CourierPickupLocations");
+
                     b.Navigation("PincodeZoneMappings");
 
                     b.Navigation("Serviceabilities");

@@ -18,12 +18,12 @@ namespace TryNextPost.Domain.Entities
         public AddressType AddressType { get; set; }
         public string? UserId { get; set; }
         public long? CompanyId { get; set; }
-        public CompanyInfo Company { get; set; }            // Company ka billing address
-        public string? WarehouseName { get; set; }      // 👈 NAYA
+        public CompanyInfo Company { get; set; }            
+        public string? WarehouseName { get; set; }    
         public string Name { get; set; } = string.Empty;
-        public string? Email { get; set; }                 // 👈 NAYA
+        public string? Email { get; set; }                 
         public string Mobile { get; set; } = string.Empty;
-        public string? GstNumber { get; set; }             // 👈 NAYA
+        public string? GstNumber { get; set; }             
 
         public string AddressLine1 { get; set; } = string.Empty;
         public string? AddressLine2 { get; set; }
@@ -31,6 +31,10 @@ namespace TryNextPost.Domain.Entities
         public string State { get; set; } = string.Empty;
         public string Pincode { get; set; } = string.Empty;
         public string Country { get; set; } = string.Empty;
+
+        public ICollection<CourierPickupLocation> CourierPickupLocations { get; set; } = new List<CourierPickupLocation>();
+
+        // public string? PickupVendorCode { get; set; }
 
 
     }

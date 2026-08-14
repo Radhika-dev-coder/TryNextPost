@@ -46,6 +46,7 @@ using TryNextPost.Domain.IRepository;
 using TryNextPost.Domain.IRepository.Report;
 using TryNextPost.Infrastructure.AppDbContexts;
 using TryNextPost.Infrastructure.CourierAdapters;
+using TryNextPost.Infrastructure.DI;
 using TryNextPost.Infrastructure.Identity;
 using TryNextPost.Infrastructure.Repository;
 using TryNextPost.Infrastructure.Repository.Report;
@@ -146,19 +147,17 @@ builder.Services.Configure<CourierSettings>(
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient(nameof(DelhiveryAdapter));
 
-builder.Services.AddScoped<ICourierAdapter, DelhiveryAdapter>();
-builder.Services.AddScoped<ICourierAdapter, BlueDartAdapter>();
-builder.Services.AddScoped<ICourierAdapter, XpressbeesAdapter>();
-builder.Services.AddScoped<ICourierAdapter, DtdcAdapter>();
-builder.Services.AddScoped<ICourierAdapter, EkartAdapter>();
-builder.Services.AddScoped<ICourierAdapter, IndiaPostAdapter>();
-builder.Services.AddScoped<ICourierAdapter, ShadowfaxAdapter>();
+
 builder.Services.AddScoped<ICourierAdapterFactory, CourierAdapterFactory>();
 
 builder.Services.AddScoped<ICreditNoteRepository, CreditNoteRepository>();
 builder.Services.AddScoped<ICreditNoteService, CreditNoteService>();
 builder.Services.AddScoped<ICodSettlementService, CodSettlementService>();
 builder.Services.AddHttpClient<IPincodeService, PincodeService>();
+builder.Services.AddInfrastructure();
+//builder.Services.AddScoped<XpressbeesAdapter>();
+builder.Services.AddScoped<ICourierPickupLocationService, CourierPickupLocationService>();
+builder.Services.AddScoped<ICourierPickupLocationRepository, CourierPickupLocationRepository>();
 
 #endregion
 

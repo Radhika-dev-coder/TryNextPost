@@ -23,7 +23,12 @@ namespace TryNextPost.Domain.Entities
         public string? ApiSecret { get; set; }    //  encrypt before storing
         public string? AccountCode { get; set; }
 
+        public bool SupportsRateApi { get; set; } = false;
+        public bool SupportsTrackingApi { get; set; }
 
+        public bool SupportsManifestApi { get; set; }
+
+        public bool SupportsCancelApi { get; set; }
         public string? ContactEmail { get; set; }
         public string? ContactPhone { get; set; }
 
@@ -39,5 +44,9 @@ namespace TryNextPost.Domain.Entities
         public ICollection<Shipment>? Shipments { get; set; }
         public ICollection<CourierServiceability>? Serviceabilities { get; set; }
         public ICollection<PincodeZoneMapping> PincodeZoneMappings { get; set; }
+
+        public ICollection<CourierPickupLocation> CourierPickupLocations { get; set; } = new List<CourierPickupLocation>();
+
+
     }
 }
