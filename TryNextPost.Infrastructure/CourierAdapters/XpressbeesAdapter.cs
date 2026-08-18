@@ -74,47 +74,20 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                 throw new InvalidOperationException(
                     $"Pickup address not found for AddressId {request.AddressId}.");
             }
-            // Step 1: Generate authentication token
             var token = await GenerateTokenAsync();
 
-
-            // Step 2: Check pickup serviceability
-            var pickupResponse = await CheckServiceabilityAsync(
-                token,
+            var isServiceable = await IsServiceableAsync(
+                pickupAddress.Pincode,
+                order.ShippingPincode,
                 order.OrderType,
-                true,
                 cancellationToken);
 
-
-            // Step 3: Check delivery serviceability
-            var deliveryResponse = await CheckServiceabilityAsync(
-                token,
-                 order.OrderType,
-                false,
-                cancellationToken);
-
-
-            // Step 4: Validate pickup and delivery pincodes
-            bool pickupOk = CourierValidationHelper.IsPincodeServiceable(
-                pickupResponse.ServicablePincodeDetails
-                    .Select(x => x.Pincode),
-                pickupAddress.Pincode);
-
-            bool deliveryOk = CourierValidationHelper.IsPincodeServiceable(
-                deliveryResponse.ServicablePincodeDetails
-                    .Select(x => x.Pincode),
-                order.ShippingPincode);
-
-            if (!pickupOk)
+            if (!isServiceable)
             {
                 throw new InvalidOperationException(
-                    $"Pickup pincode {pickupAddress.Pincode} is not serviceable.");
-            }
-
-            if (!deliveryOk)
-            {
-                throw new InvalidOperationException(
-                    $"Delivery pincode {order.ShippingPincode} is not serviceable.");
+                    $"XpressBees is not serviceable for " +
+                    $"pickup pincode {pickupAddress.Pincode} " +
+                    $"and delivery pincode {order.ShippingPincode}.");
             }
 
 
@@ -286,6 +259,37 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                 CourierReference = order.OrderRef,
                 Message = responseJson
             };
+        }
+
+        public override async Task<bool> IsServiceableAsync(
+    string pickupPincode,
+    string deliveryPincode,
+    OrderTypeEnum orderType,
+    CancellationToken cancellationToken = default)
+        {
+            var token = await GenerateTokenAsync();
+
+            var pickupResponse = await CheckServiceabilityAsync(
+                token,
+                orderType,
+                true,
+                cancellationToken);
+
+            var deliveryResponse = await CheckServiceabilityAsync(
+                token,
+                orderType,
+                false,
+                cancellationToken);
+
+            var pickupOk = CourierValidationHelper.IsPincodeServiceable(
+                pickupResponse.ServicablePincodeDetails.Select(x => x.Pincode),
+                pickupPincode);
+
+            var deliveryOk = CourierValidationHelper.IsPincodeServiceable(
+                deliveryResponse.ServicablePincodeDetails.Select(x => x.Pincode),
+                deliveryPincode);
+
+            return pickupOk && deliveryOk;
         }
 
 

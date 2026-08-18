@@ -29,6 +29,7 @@ namespace TryNextPost.Domain.Entities
         public bool SupportsManifestApi { get; set; }
 
         public bool SupportsCancelApi { get; set; }
+        public bool SupportsServiceabilityApi { get; set; }
         public string? ContactEmail { get; set; }
         public string? ContactPhone { get; set; }
 
@@ -47,6 +48,8 @@ namespace TryNextPost.Domain.Entities
 
         public ICollection<CourierPickupLocation> CourierPickupLocations { get; set; } = new List<CourierPickupLocation>();
 
+
+        public bool HasManualRateCard { get; set; }
 
     }
 }
