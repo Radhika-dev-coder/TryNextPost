@@ -186,6 +186,25 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             {
                 bool rateFetched = false;
 
+                // Courier-wise serviceability check
+                if (courier.SupportsServiceabilityApi)
+                {
+                    if (_courierAdapterFactory.TryResolve(
+                            courier.CourierCode,
+                            out var adapter)
+                        && adapter != null)
+                    {
+                        var isServiceable = await adapter.IsServiceableAsync(
+                            rateRequest.OriginPincode,
+                            rateRequest.DestinationPincode,
+                            order.OrderType,
+                            cancellationToken);
+
+                        if (!isServiceable)
+                            continue;
+                    }
+                }
+
                 // =========================================================
                 // LIVE API
                 // =========================================================
@@ -239,6 +258,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 if (rateFetched)
                     continue;
 
+
                 // RATE CARD
 
                 var rateCardQuotes = await _rateCalculationService.GetRatesForCourierAsync(
@@ -253,10 +273,16 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                     courier.CodChargeType,
                     courier.CodChargeValue,
                     rateRequest.CodAmount,
-                    courier.SupportsCOD);
+                    courier.SupportsCOD,
+                    courier.HasManualRateCard);
 
                 foreach (var quote in rateCardQuotes)
                 {
+                    var rateSource =
+                        quote.FromRateCard
+                            ? $"Rate Card ({quote.OriginZoneCode} → {quote.DestinationZoneCode})"
+                            : "Fixed Courier Rate";
+
                     rates.Add(CreateShipmentRateOption(
                         courier,
                         quote.ServiceName,
@@ -265,7 +291,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                         quote.CodCharge,
                         quote.EstimatedDays,
                         false,
-                        $"Rate Card ({quote.OriginZoneCode} → {quote.DestinationZoneCode})"));
+                        rateSource));
                 }
             }
 

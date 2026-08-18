@@ -18,7 +18,7 @@ namespace TryNextPost.Application.IServices.Interface.IRateCard
             CodChargeType codChargeType = CodChargeType.Flat,
             decimal codChargeValue = 0m,
             decimal? codAmount = null,
-            bool supportsCod = true);
+            bool supportsCod = true,bool HasManualRateCard = false);
 
         /// <summary>Same as GetRatesForCourierAsync but reuses pre-resolved zones (avoids N pincode lookups).</summary>
         Task<List<RateQuoteDto>> GetRatesForCourierZonesAsync(

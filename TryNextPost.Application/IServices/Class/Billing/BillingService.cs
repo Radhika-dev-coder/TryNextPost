@@ -626,11 +626,7 @@ namespace TryNextPost.Application.IServices.Class.Billing
             if (request.WeightGrams <= 0)
                 throw new InvalidOperationException(SystemMessage.PriceCalculatorWeightInvalid);
 
-            // Resolve zones once — not once per courier.
-            var originZone = await _zoneRepository.GetZoneByPincodeAsync(request.OriginPincode);
-            var destZone = await _zoneRepository.GetZoneByPincodeAsync(request.DestinationPincode);
-            if (originZone == null || destZone == null)
-                throw new InvalidOperationException(SystemMessage.PriceCalculatorNoRates);
+
 
             var couriers = await _courierRepository.GetActiveCouriersAsync();
             if (request.CourierId.HasValue)
@@ -640,6 +636,12 @@ namespace TryNextPost.Application.IServices.Class.Billing
             var options = new List<PriceCalculatorOptionDto>();
             foreach (var courier in couriers)
             {
+                // Resolve zones once — not once per courier.
+                var originZone = await _zoneRepository.GetZoneByPincodeAsync(courier.CourierId,request.OriginPincode);
+                var destZone = await _zoneRepository.GetZoneByPincodeAsync(courier.CourierId,request.DestinationPincode);
+                if (originZone == null || destZone == null)
+                    continue;
+
                 var quotes = await _rateCalculationService.GetRatesForCourierZonesAsync(
                     courier.CourierId,
                     courier.CourierCode,

@@ -4,6 +4,7 @@ using TryNextPost.Application.DTO.Courier;
 using TryNextPost.Application.DTO.Courier.XpressBees;
 using TryNextPost.Application.IServices.Class.RateCard;
 using TryNextPost.Application.IServices.Interface.Courier;
+using TryNextPost.Domain.Enums;
 using TryNextPost.Domain.IRepository;
 
 namespace TryNextPost.Infrastructure.CourierAdapters
@@ -279,6 +280,15 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                     }
                 ]
             };
+        }
+
+        public virtual Task<bool> IsServiceableAsync(
+            string pickupPincode,
+            string deliveryPincode,
+            OrderTypeEnum orderType,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(true);
         }
     }
 }

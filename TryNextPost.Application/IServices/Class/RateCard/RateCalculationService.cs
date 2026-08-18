@@ -34,25 +34,169 @@ namespace TryNextPost.Application.IServices.Class.RateCard
             CodChargeType codChargeType = CodChargeType.Flat,
             decimal codChargeValue = 0m,
             decimal? codAmount = null,
-            bool supportsCod = true)
+            bool supportsCod = true, bool HasManualRateCard = false)
         {
-            var originZone = await _zoneRepository.GetZoneByPincodeAsync(originPincode);
-            var destZone = await _zoneRepository.GetZoneByPincodeAsync(destinationPincode);
+            //var originZone = await _zoneRepository.GetZoneByPincodeAsync(courierId,originPincode);
+            //var destZone = await _zoneRepository.GetZoneByPincodeAsync(courierId,destinationPincode);
+            //return await GetRatesForCourierZonesAsync(
+            //    courierId,
+            //    courierCode,
+            //    courierName,
+            //    originZone,
+            //    destZone,
+            //    weightGrams,
+            //    volumetricWeightGrams,
+            //    isCod,
+            //    codChargeType,
+            //    codChargeValue,
+            //    codAmount,
+            //    supportsCod);
+
+            // =========================================================
+            // COURIER HAS NO MANUAL RATE CARD
+            // =========================================================
+            // Do NOT use Zone / PincodeZoneMapping.
+            if (!HasManualRateCard)
+            {
+                return BuildFixedCourierRates(
+                    courierCode,
+                    courierName,
+                    weightGrams,
+                    volumetricWeightGrams,
+                    isCod,
+                    codChargeType,
+                    codChargeValue,
+                    codAmount,
+                    supportsCod);
+            }
+            // =========================================================
+            // MANUAL RATE CARD COURIER
+            // =========================================================
+            var originZone =
+                await _zoneRepository.GetZoneByPincodeAsync(
+                    courierId,
+                    originPincode);
+
+            var destZone =
+                await _zoneRepository.GetZoneByPincodeAsync(
+                    courierId,
+                    destinationPincode);
             return await GetRatesForCourierZonesAsync(
-                courierId,
-                courierCode,
-                courierName,
-                originZone,
-                destZone,
-                weightGrams,
-                volumetricWeightGrams,
-                isCod,
-                codChargeType,
-                codChargeValue,
-                codAmount,
-                supportsCod);
+               courierId,
+               courierCode,
+               courierName,
+               originZone,
+               destZone,
+               weightGrams,
+               volumetricWeightGrams,
+               isCod,
+               codChargeType,
+               codChargeValue,
+               codAmount,
+               supportsCod);
+
         }
 
+        private List<RateQuoteDto> BuildFixedCourierRates(
+                string courierCode,
+                string courierName,
+                decimal weightGrams,
+                decimal? volumetricWeightGrams,
+                bool isCod,
+                CodChargeType codChargeType,
+                decimal codChargeValue,
+                decimal? codAmount,
+                bool supportsCod)
+        {
+            return courierCode.ToUpperInvariant() switch
+            {
+                "XPRESSBEES" => BuildXpressBeesFixedRates(
+                    courierCode,
+                    courierName,
+                    weightGrams,
+                    volumetricWeightGrams,
+                    isCod,
+                    codChargeType,
+                    codChargeValue,
+                    codAmount,
+                    supportsCod),
+
+
+                _ => []
+            };
+        }
+        private List<RateQuoteDto> BuildXpressBeesFixedRates(
+            string courierCode,
+            string courierName,
+            decimal weightGrams,
+            decimal? volumetricWeightGrams,
+            bool isCod,
+            CodChargeType codChargeType,
+            decimal codChargeValue,
+            decimal? codAmount,
+            bool supportsCod)
+        {
+            var chargeableWeight =
+                GetChargeableWeightGrams(
+                    weightGrams,
+                    volumetricWeightGrams);
+
+            var codCharge =
+                ResolveCodCharge(
+                    isCod,
+                    supportsCod,
+                    codChargeType,
+                    codChargeValue,
+                    codAmount);
+
+            var quotes = new List<RateQuoteDto>();
+
+            // XB Surface - 1 KG
+            if (chargeableWeight <= 1000)
+            {
+                const decimal sellerCharge = 84m;
+
+                quotes.Add(new RateQuoteDto
+                {
+                    ServiceCode = $"{courierCode}_SURFACE",
+                    ServiceName = "XB Surface 1 KG",
+                    SellerCharge = sellerCharge,
+                    CourierCost = sellerCharge,
+                    Margin = 0m,
+                    CodCharge = codCharge,
+                    TotalCharge = sellerCharge + codCharge,
+                    EstimatedDays = 4,
+                    FromRateCard = false,
+                    OriginZoneCode = null,
+                    DestinationZoneCode = null,
+                    ChargeableWeightGrams = chargeableWeight
+                });
+            }
+
+            // XB DS 500 - Stressed
+            if (chargeableWeight <= 500)
+            {
+                const decimal sellerCharge = 140m;
+
+                quotes.Add(new RateQuoteDto
+                {
+                    ServiceCode = $"{courierCode}_DS_STRESSED",
+                    ServiceName = "XB DS 500 Stressed",
+                    SellerCharge = sellerCharge,
+                    CourierCost = sellerCharge,
+                    Margin = 0m,
+                    CodCharge = codCharge,
+                    TotalCharge = sellerCharge + codCharge,
+                    EstimatedDays = 4,
+                    FromRateCard = false,
+                    OriginZoneCode = null,
+                    DestinationZoneCode = null,
+                    ChargeableWeightGrams = chargeableWeight
+                });
+            }
+
+            return quotes;
+        }
         public async Task<List<RateQuoteDto>> GetRatesForCourierZonesAsync(
             long courierId,
             string courierCode,

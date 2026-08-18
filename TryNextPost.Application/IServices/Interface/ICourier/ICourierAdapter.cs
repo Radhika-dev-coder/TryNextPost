@@ -1,5 +1,6 @@
 using TryNextPost.Application.DTO.Courier;
 using TryNextPost.Application.DTO.Courier.XpressBees;
+using TryNextPost.Domain.Enums;
 
 namespace TryNextPost.Application.IServices.Interface.Courier
 {
@@ -8,6 +9,8 @@ namespace TryNextPost.Application.IServices.Interface.Courier
         string CourierCode { get; }
 
         Task<CourierRateResponse> GetRatesAsync(CourierRateRequest request, CancellationToken cancellationToken = default);
+
+        Task<bool> IsServiceableAsync( string pickupPincode, string deliveryPincode, OrderTypeEnum orderType, CancellationToken cancellationToken = default);
 
         Task<CourierBookShipmentResponse> BookShipmentAsync(CourierShipmentRequest request, CancellationToken cancellationToken = default);
 

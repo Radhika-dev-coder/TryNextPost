@@ -21,7 +21,24 @@ namespace TryNextPost.Infrastructure.Repository
                 .OrderBy(z => z.ZoneCode)
                 .ToListAsync();
         }
+        public async Task<Zone?> GetZoneByPincodeAsync(long courierId, string pincode)
+        {
+            var prefix = GetPincodePrefix(pincode);
 
+            if (prefix == null)
+                return null;
+
+            var mapping = await _context.PincodeZoneMappings
+                .Include(m => m.Zone)
+                .FirstOrDefaultAsync(m =>
+                    m.CourierId == courierId &&
+                    m.PincodePrefix == prefix &&
+                    m.IsActive == true &&
+                    m.Zone != null &&
+                    m.Zone.IsActive == true);
+
+            return mapping?.Zone;
+        }
         public async Task<Zone?> GetZoneByPincodeAsync(string pincode)
         {
             var prefix = GetPincodePrefix(pincode);

@@ -43,9 +43,6 @@ namespace TryNextPost.API.Controllers.Shipment
             });
         }
 
-        /// <summary>
-        /// Get courier rate options for an order (stub adapters OK when credentials missing).
-        /// </summary>
         [HttpGet("rates/{orderId:long}")]
         public async Task<IActionResult> GetRates(long orderId, CancellationToken cancellationToken)
         {
@@ -63,9 +60,7 @@ namespace TryNextPost.API.Controllers.Shipment
             });
         }
 
-        /// <summary>
-        /// Confirm / book shipment with selected courier + rate charge (wallet debit).
-        /// </summary>
+
         [HttpPost("confirm")]
         public async Task<IActionResult> ConfirmShipment(
             [FromBody] ConfirmShipmentRequest request,
