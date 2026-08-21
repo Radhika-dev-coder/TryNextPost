@@ -153,6 +153,12 @@ namespace TryNextPost.Infrastructure.AppDbContexts
                 .HasForeignKey(s => s.CourierId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<Shipment>()
+                .HasOne(s => s.Order)
+                .WithMany(o => o.Shipments)
+                .HasForeignKey(s => s.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             // =========================
             // 🔥 SHIPMENT → PICKUP ADDRESS
             // =========================

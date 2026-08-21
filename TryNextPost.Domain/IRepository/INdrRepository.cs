@@ -25,5 +25,9 @@ namespace TryNextPost.Domain.IRepository
         Task AddAsync(NDR ndr);
         Task UpdateAsync(NDR ndr);
         Task SaveChangesAsync();
+
+        Task<NDR?> GetNdrWithShipmentAndCourierAsync(long ndrId, CancellationToken cancellationToken);
+        Task AddRtoAsync(RTO rto, CancellationToken cancellationToken);
+
     }
 }

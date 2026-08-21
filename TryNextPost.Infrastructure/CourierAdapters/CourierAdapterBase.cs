@@ -288,5 +288,9 @@ namespace TryNextPost.Infrastructure.CourierAdapters
         {
             return Task.FromResult(true);
         }
+
+        public abstract Task<bool> RequestNdrReAttemptAsync(string awbNumber,
+        string actionType,string remarks, CancellationToken cancellationToken);
+
     }
 }

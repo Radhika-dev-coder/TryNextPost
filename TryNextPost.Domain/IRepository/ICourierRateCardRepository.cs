@@ -6,8 +6,8 @@ namespace TryNextPost.Domain.IRepository
     {
         Task<CourierRateCard?> FindRateAsync(
             long courierId,
-            int fromZoneId,
-            int toZoneId,
+            int? fromZoneId,
+            int? toZoneId,
             decimal weightGrams,
             string? serviceCode = null);
 

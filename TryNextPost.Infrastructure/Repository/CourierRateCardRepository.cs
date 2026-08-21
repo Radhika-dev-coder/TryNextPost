@@ -16,16 +16,14 @@ namespace TryNextPost.Infrastructure.Repository
 
         public async Task<CourierRateCard?> FindRateAsync(
             long courierId,
-            int fromZoneId,
-            int toZoneId,
+            int? fromZoneId,
+            int? toZoneId,
             decimal weightGrams,
             string? serviceCode = null)
         {
             var query = _context.CourierRateCards
                 .Where(r =>
                     r.CourierId == courierId
-                    && r.FromZoneId == fromZoneId
-                    && r.ToZoneId == toZoneId
                     && r.WeightFromGrams <= weightGrams
                     && r.WeightToGrams >= weightGrams
                     && r.IsActive == true);
@@ -33,7 +31,23 @@ namespace TryNextPost.Infrastructure.Repository
             if (!string.IsNullOrWhiteSpace(serviceCode))
             {
                 var code = serviceCode.Trim().ToUpperInvariant();
+
                 query = query.Where(r => r.ServiceCode == code);
+            }
+
+            if (fromZoneId.HasValue && toZoneId.HasValue)
+            {
+                // Exact zone-based rate
+                query = query.Where(r =>
+                    r.FromZoneId == fromZoneId.Value &&
+                    r.ToZoneId == toZoneId.Value);
+            }
+            else
+            {
+                // Generic/non-zone rate
+                query = query.Where(r =>
+                    r.FromZoneId == null &&
+                    r.ToZoneId == null);
             }
 
             return await query

@@ -1,3 +1,4 @@
+using TryNextPost.Application.DTO.Ndr;
 using TryNextPost.Application.DTO.Shipment;
 
 namespace TryNextPost.Application.IServices.Interface.IShipment
@@ -19,5 +20,8 @@ namespace TryNextPost.Application.IServices.Interface.IShipment
         Task<ShipmentTrackResponse> TrackShipmentAsync(long shipmentId, string userId, CancellationToken cancellationToken = default);
 
         Task<ShipmentTrackingWebhookResponse> ProcessTrackingWebhookAsync(ShipmentTrackingWebhookRequest request, CancellationToken cancellationToken = default);
+
+        Task<NdrActionResponse> ProcessNdrActionAsync(NdrActionRequest request, string userId, CancellationToken cancellationToken = default);
+
     }
 }

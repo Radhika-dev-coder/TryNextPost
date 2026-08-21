@@ -182,7 +182,22 @@ namespace TryNextPost.Infrastructure.Repository
         public async Task<Order?> GetForShipmentAsync(long orderId, CancellationToken cancellationToken = default)
         {
             return await _context.Orders
-               .AsNoTracking().FirstOrDefaultAsync( o => o.OrderId == orderId && o.IsActive == true, cancellationToken);
+               .AsNoTracking().
+               Include(o => o.PickupAddress)
+               .Include(o => o.OrderItems).
+               FirstOrDefaultAsync( o => o.OrderId == orderId && o.IsActive == true, cancellationToken);
         }
+        public async Task<Order?> GetOrderWithItemsAndShipmentAsync(long orderId, string userId)
+        {
+            return await _context.Orders
+                .Include(o => o.PickupAddress) 
+                .Include(o => o.OrderItems)
+                .Include(o => o.Shipments!)
+                    .ThenInclude(s => s.Courier)
+                .FirstOrDefaultAsync(o => o.OrderId == orderId && o.IsActive == true);
+        }
+
+
+
     }
 }

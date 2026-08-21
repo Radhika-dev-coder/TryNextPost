@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using TryNextPost.Application.DTO.Common;
+using TryNextPost.Application.DTO.Ndr;
 using TryNextPost.Application.DTO.Shipment;
 using TryNextPost.Application.IServices.Interface;
 using TryNextPost.Application.IServices.Interface.IShipment;

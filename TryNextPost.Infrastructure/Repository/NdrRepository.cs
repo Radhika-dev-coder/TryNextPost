@@ -145,5 +145,19 @@ namespace TryNextPost.Infrastructure.Repository
 
             return query;
         }
+
+        public async Task<NDR?> GetNdrWithShipmentAndCourierAsync(long ndrId, CancellationToken cancellationToken)
+        {
+            return await _context.NDRS
+                .Include(n => n.Shipment)
+                    .ThenInclude(s => s!.Courier)
+                .FirstOrDefaultAsync(n => n.NdrId == ndrId, cancellationToken);
+        }
+
+        public async Task AddRtoAsync(RTO rto, CancellationToken cancellationToken)
+        {
+            await _context.RTOS.AddAsync(rto, cancellationToken);
+        }
+
     }
 }

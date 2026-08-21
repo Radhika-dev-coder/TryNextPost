@@ -168,5 +168,23 @@ namespace TryNextPost.API.Controllers.Order
                 StatusCode = ApiStatusCode.Success
             });
         }
+
+        [HttpGet("get-order-summary/{orderId:long}")]
+        public async Task<IActionResult> GetOrderSummary(long orderId)
+        {
+            var userId = GetUserId();
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(SystemMessage.Unauthorized);
+
+            var summaryDetailsResult = await _orderService.GetOrderSummaryDetailsAsync(orderId, userId);
+
+            return Ok(new ApiResponse<OrderSummaryDetailDto>
+            {
+                Success = true,
+                Message = "Order summary panel components compiled successfully.",
+                Data = summaryDetailsResult
+            });
+        }
+
     }
 }

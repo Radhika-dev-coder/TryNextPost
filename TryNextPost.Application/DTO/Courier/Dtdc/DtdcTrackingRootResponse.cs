@@ -1,0 +1,17 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Text.Json.Serialization;
+using System.Threading.Tasks;
+
+namespace TryNextPost.Application.DTO.Courier.Dtdc
+{
+    public sealed class DtdcTrackingRootResponse
+    {
+        [JsonPropertyName("success")] public bool Success { get; set; }
+        [JsonPropertyName("error_message")] public string? ErrorMessage { get; set; }
+        [JsonPropertyName("current_status")] public string? CurrentStatus { get; set; }
+        [JsonPropertyName("scans")] public List<DtdcScanDetail>? Scans { get; set; }
+    }
+}

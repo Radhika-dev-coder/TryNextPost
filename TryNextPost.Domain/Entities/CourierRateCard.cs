@@ -13,10 +13,10 @@ namespace TryNextPost.Domain.Entities
         public long CourierId { get; set; }
         public Courier? Courier { get; set; }
 
-        public int FromZoneId { get; set; }
+        public int? FromZoneId { get; set; }
         public Zone? FromZone { get; set; }
 
-        public int ToZoneId { get; set; }
+        public int? ToZoneId { get; set; }
         public Zone? ToZone { get; set; }
 
         [Column(TypeName = "decimal(18,2)")]
