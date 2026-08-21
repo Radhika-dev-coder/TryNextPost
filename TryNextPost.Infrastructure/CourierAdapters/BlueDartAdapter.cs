@@ -27,5 +27,12 @@ namespace TryNextPost.Infrastructure.CourierAdapters
             !string.IsNullOrWhiteSpace(_settings.BaseUrl) &&
             !string.IsNullOrWhiteSpace(_settings.ApiKey) &&
             !string.IsNullOrWhiteSpace(_settings.ApiSecret);
+
+
+        public override async Task<bool> RequestNdrReAttemptAsync(string awbNumber, string actionType, string remarks, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException("BlueDart NDR workflow not integrated yet.");
+        }
+
     }
 }

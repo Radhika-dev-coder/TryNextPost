@@ -118,5 +118,11 @@ namespace TryNextPost.Infrastructure.CourierAdapters
             }
             return client;
         }
+
+        public override async Task<bool> RequestNdrReAttemptAsync(string awbNumber, string actionType, string remarks, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException("Delhivery NDR workflow not integrated yet.");
+        }
+
     }
 }

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace TryNextPost.Application.DTO.Courier.XpressBees
+namespace TryNextPost.Application.DTO.Courier
 {
     public class CourierShipmentRequest
     {

@@ -20,6 +20,8 @@ namespace TryNextPost.Application.IServices.Interface.Courier
 
         Task<CourierTrackResponse> TrackAsync(CourierTrackRequest request, CancellationToken cancellationToken = default);
 
+        Task<bool> RequestNdrReAttemptAsync(string awbNumber,string actionType, string remarks,CancellationToken cancellationToken);
+
 
     }
 }

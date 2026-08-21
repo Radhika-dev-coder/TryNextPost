@@ -25,5 +25,7 @@ namespace TryNextPost.Application.IServices.Interface.IOrder
         Task<long> CreateReverseOrderAsync(CreateReverseOrderRequest request,string userId);
 
         Task<long> CreateReverseQCOrderAsync( CreateReverseQcOrderRequest request,string userId);
+        Task<OrderSummaryDetailDto> GetOrderSummaryDetailsAsync(long orderId, string userId);
+
     }
 }

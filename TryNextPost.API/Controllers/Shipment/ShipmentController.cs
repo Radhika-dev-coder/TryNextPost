@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using TryNextPost.Application.DTO.Common;
+using TryNextPost.Application.DTO.Ndr;
 using TryNextPost.Application.DTO.Shipment;
 using TryNextPost.Application.IServices.Interface;
 using TryNextPost.Application.IServices.Interface.IShipment;
@@ -167,5 +168,24 @@ namespace TryNextPost.API.Controllers.Shipment
                 StatusCode = ApiStatusCode.Success
             });
         }
+
+        [HttpPost("ndr/process-action")]
+        public async Task<IActionResult> ProcessNdrAction( [FromBody] NdrActionRequest request,CancellationToken cancellationToken)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(SystemMessage.InvalidToken);
+
+            var ndrExecutionOutput = await _shipmentService.ProcessNdrActionAsync(request, userId, cancellationToken);
+
+            return Ok(new ApiResponse<NdrActionResponse>
+            {
+                Success = ndrExecutionOutput.Success,
+                Message = ndrExecutionOutput.Message,
+                Data = ndrExecutionOutput,
+                StatusCode = ApiStatusCode.Success
+            });
+        }
+
     }
 }

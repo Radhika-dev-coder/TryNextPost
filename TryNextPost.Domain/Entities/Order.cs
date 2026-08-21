@@ -55,6 +55,9 @@ namespace TryNextPost.Domain.Entities
         public string ShippingPincode { get; set; } = string.Empty;
         public string ShippingCountry { get; set; } = string.Empty;
 
+        public virtual ICollection<Shipment>? Shipments { get; set; } = new List<Shipment>();
+
+
         //Billing 
 
         // Package Info 

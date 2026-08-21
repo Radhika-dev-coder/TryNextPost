@@ -12,6 +12,7 @@ namespace TryNextPost.Domain.Entities
 
         // 🔗 FK → Order
         public long OrderId { get; set; }
+        [ForeignKey(nameof(OrderId))]
         public Order? Order { get; set; }
 
         // 🔗 FK → Courier

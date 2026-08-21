@@ -3,7 +3,10 @@ namespace TryNextPost.Application.DTO.Ndr
     public class NdrActionRequest
     {
 
-        public string Action { get; set; } = "Reattempt";
+        public long NdrId { get; set; }
+
+        public string Action { get; set; } = string.Empty;
+        public string? ActionType => Action; // Safe backup mapper
 
         public string? Remarks { get; set; }
 

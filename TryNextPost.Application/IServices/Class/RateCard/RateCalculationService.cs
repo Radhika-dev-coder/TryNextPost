@@ -52,151 +52,41 @@ namespace TryNextPost.Application.IServices.Class.RateCard
             //    codAmount,
             //    supportsCod);
 
-            // =========================================================
-            // COURIER HAS NO MANUAL RATE CARD
-            // =========================================================
-            // Do NOT use Zone / PincodeZoneMapping.
-            if (!HasManualRateCard)
-            {
-                return BuildFixedCourierRates(
-                    courierCode,
-                    courierName,
-                    weightGrams,
-                    volumetricWeightGrams,
-                    isCod,
-                    codChargeType,
-                    codChargeValue,
-                    codAmount,
-                    supportsCod);
-            }
-            // =========================================================
-            // MANUAL RATE CARD COURIER
-            // =========================================================
-            var originZone =
-                await _zoneRepository.GetZoneByPincodeAsync(
-                    courierId,
-                    originPincode);
+            Zone? originZone = null;
+            Zone? destZone = null;
 
-            var destZone =
-                await _zoneRepository.GetZoneByPincodeAsync(
-                    courierId,
-                    destinationPincode);
+            // Zone mapping sirf zone-based/manual rate card
+            // wale courier ke liye chahiye.
+            if (HasManualRateCard)
+            {
+                originZone =
+                    await _zoneRepository.GetZoneByPincodeAsync(
+                        courierId,
+                        originPincode);
+
+                destZone =
+                    await _zoneRepository.GetZoneByPincodeAsync(
+                        courierId,
+                        destinationPincode);
+            }
+
             return await GetRatesForCourierZonesAsync(
-               courierId,
-               courierCode,
-               courierName,
-               originZone,
-               destZone,
-               weightGrams,
-               volumetricWeightGrams,
-               isCod,
-               codChargeType,
-               codChargeValue,
-               codAmount,
-               supportsCod);
-
+                courierId,
+                courierCode,
+                courierName,
+                originZone,
+                destZone,
+                weightGrams,
+                volumetricWeightGrams,
+                isCod,
+                codChargeType,
+                codChargeValue,
+                codAmount,
+                supportsCod);
         }
 
-        private List<RateQuoteDto> BuildFixedCourierRates(
-                string courierCode,
-                string courierName,
-                decimal weightGrams,
-                decimal? volumetricWeightGrams,
-                bool isCod,
-                CodChargeType codChargeType,
-                decimal codChargeValue,
-                decimal? codAmount,
-                bool supportsCod)
-        {
-            return courierCode.ToUpperInvariant() switch
-            {
-                "XPRESSBEES" => BuildXpressBeesFixedRates(
-                    courierCode,
-                    courierName,
-                    weightGrams,
-                    volumetricWeightGrams,
-                    isCod,
-                    codChargeType,
-                    codChargeValue,
-                    codAmount,
-                    supportsCod),
+    
 
-
-                _ => []
-            };
-        }
-        private List<RateQuoteDto> BuildXpressBeesFixedRates(
-            string courierCode,
-            string courierName,
-            decimal weightGrams,
-            decimal? volumetricWeightGrams,
-            bool isCod,
-            CodChargeType codChargeType,
-            decimal codChargeValue,
-            decimal? codAmount,
-            bool supportsCod)
-        {
-            var chargeableWeight =
-                GetChargeableWeightGrams(
-                    weightGrams,
-                    volumetricWeightGrams);
-
-            var codCharge =
-                ResolveCodCharge(
-                    isCod,
-                    supportsCod,
-                    codChargeType,
-                    codChargeValue,
-                    codAmount);
-
-            var quotes = new List<RateQuoteDto>();
-
-            // XB Surface - 1 KG
-            if (chargeableWeight <= 1000)
-            {
-                const decimal sellerCharge = 84m;
-
-                quotes.Add(new RateQuoteDto
-                {
-                    ServiceCode = $"{courierCode}_SURFACE",
-                    ServiceName = "XB Surface 1 KG",
-                    SellerCharge = sellerCharge,
-                    CourierCost = sellerCharge,
-                    Margin = 0m,
-                    CodCharge = codCharge,
-                    TotalCharge = sellerCharge + codCharge,
-                    EstimatedDays = 4,
-                    FromRateCard = false,
-                    OriginZoneCode = null,
-                    DestinationZoneCode = null,
-                    ChargeableWeightGrams = chargeableWeight
-                });
-            }
-
-            // XB DS 500 - Stressed
-            if (chargeableWeight <= 500)
-            {
-                const decimal sellerCharge = 140m;
-
-                quotes.Add(new RateQuoteDto
-                {
-                    ServiceCode = $"{courierCode}_DS_STRESSED",
-                    ServiceName = "XB DS 500 Stressed",
-                    SellerCharge = sellerCharge,
-                    CourierCost = sellerCharge,
-                    Margin = 0m,
-                    CodCharge = codCharge,
-                    TotalCharge = sellerCharge + codCharge,
-                    EstimatedDays = 4,
-                    FromRateCard = false,
-                    OriginZoneCode = null,
-                    DestinationZoneCode = null,
-                    ChargeableWeightGrams = chargeableWeight
-                });
-            }
-
-            return quotes;
-        }
         public async Task<List<RateQuoteDto>> GetRatesForCourierZonesAsync(
             long courierId,
             string courierCode,
@@ -211,48 +101,74 @@ namespace TryNextPost.Application.IServices.Class.RateCard
             decimal? codAmount = null,
             bool supportsCod = true)
         {
-            if (originZone == null || destZone == null)
-                return [];
+            //if (originZone == null || destZone == null)
+            //    return [];
 
             var chargeableWeight = GetChargeableWeightGrams(weightGrams, volumetricWeightGrams);
             var codCharge = ResolveCodCharge(isCod, supportsCod, codChargeType, codChargeValue, codAmount);
             var quotes = new List<RateQuoteDto>();
 
+
+            // Zone nullable hai.
+            // Zone available hone par exact zone filter lagega.
+            // Zone null hone par generic rate card milega.
+            int? fromZoneId = originZone?.ZoneId;
+            int? toZoneId = destZone?.ZoneId;
+            string? originZoneCode = originZone?.ZoneCode;
+            string? destinationZoneCode = destZone?.ZoneCode;
+
             var surfaceCard = await _rateCardRepository.FindRateAsync(
-                courierId, originZone.ZoneId, destZone.ZoneId, chargeableWeight, SurfaceServiceCode);
+                courierId,
+                   // originZone.ZoneId, destZone.ZoneId,
+                   fromZoneId,
+                   toZoneId,
+                chargeableWeight, SurfaceServiceCode);
+
 
             if (surfaceCard != null)
             {
-                quotes.Add(BuildQuote(surfaceCard, courierCode, codCharge, originZone.ZoneCode, destZone.ZoneCode, chargeableWeight));
+                quotes.Add(BuildQuote(surfaceCard, courierCode, codCharge,
+                                    //originZone.ZoneCode, destZone.ZoneCode, 
+                                    originZoneCode,
+                              destinationZoneCode,
+                    chargeableWeight));
             }
 
             var expressCard = await _rateCardRepository.FindRateAsync(
-                courierId, originZone.ZoneId, destZone.ZoneId, chargeableWeight, ExpressServiceCode);
+                courierId,
+                  //  originZone.ZoneId, destZone.ZoneId,
+                  fromZoneId,
+                toZoneId,
+                chargeableWeight, ExpressServiceCode);
 
             if (expressCard != null)
             {
-                quotes.Add(BuildQuote(expressCard, courierCode, codCharge, originZone.ZoneCode, destZone.ZoneCode, chargeableWeight));
+                quotes.Add(BuildQuote(expressCard, courierCode, codCharge,
+                                   // originZone.ZoneCode, destZone.ZoneCode, 
+                                   originZoneCode,
+                                   destinationZoneCode,
+                                   chargeableWeight));
             }
-            else if (surfaceCard != null)
-            {
-                var expressSeller = Math.Round(surfaceCard.SellerCharge * 1.35m, 2);
-                var expressCourier = Math.Round(surfaceCard.CourierCost * 1.35m, 2);
-                quotes.Add(new RateQuoteDto
-                {
-                    ServiceCode = $"{courierCode}_{ExpressServiceCode}",
-                    ServiceName = $"{courierName} Express",
-                    SellerCharge = expressSeller,
-                    CourierCost = expressCourier,
-                    Margin = expressSeller - expressCourier,
-                    CodCharge = codCharge,
-                    TotalCharge = expressSeller + codCharge,
-                    EstimatedDays = 2,
-                    FromRateCard = true,
-                    OriginZoneCode = originZone.ZoneCode,
-                    DestinationZoneCode = destZone.ZoneCode,
-                    ChargeableWeightGrams = chargeableWeight
-                });
-            }
+            //else if (surfaceCard != null)
+            //{
+            //    var expressSeller = Math.Round(surfaceCard.SellerCharge * 1.35m, 2);
+            //    var expressCourier = Math.Round(surfaceCard.CourierCost * 1.35m, 2);
+            //    quotes.Add(new RateQuoteDto
+            //    {
+            //        ServiceCode = $"{courierCode}_{ExpressServiceCode}",
+            //        ServiceName = $"{courierName} Express",
+            //        SellerCharge = expressSeller,
+            //        CourierCost = expressCourier,
+            //        Margin = expressSeller - expressCourier,
+            //        CodCharge = codCharge,
+            //        TotalCharge = expressSeller + codCharge,
+            //        EstimatedDays = 2,
+            //        FromRateCard = true,
+            //        OriginZoneCode = originZone.ZoneCode,
+            //        DestinationZoneCode = destZone.ZoneCode,
+            //        ChargeableWeightGrams = chargeableWeight
+            //    });
+            //}
 
             return quotes;
         }
@@ -336,8 +252,8 @@ namespace TryNextPost.Application.IServices.Class.RateCard
             CourierRateCard card,
             string courierCode,
             decimal codCharge,
-            string originZoneCode,
-            string destinationZoneCode,
+            string? originZoneCode,      
+            string? destinationZoneCode,  
             decimal chargeableWeightGrams)
         {
             var serviceCode = $"{courierCode}_{card.ServiceCode}";
@@ -352,11 +268,15 @@ namespace TryNextPost.Application.IServices.Class.RateCard
                 TotalCharge = card.SellerCharge + codCharge,
                 EstimatedDays = card.EstimatedDays,
                 FromRateCard = true,
-                OriginZoneCode = originZoneCode,
-                DestinationZoneCode = destinationZoneCode,
+
+                // Production Safe Fallback Mapping
+                OriginZoneCode = string.IsNullOrWhiteSpace(originZoneCode) ? "FLAT" : originZoneCode,
+                DestinationZoneCode = string.IsNullOrWhiteSpace(destinationZoneCode) ? "FLAT" : destinationZoneCode,
+
                 ChargeableWeightGrams = chargeableWeightGrams
             };
         }
+
 
         private static decimal GetChargeableWeightGrams(decimal weightGrams, decimal? volumetricWeightGrams)
         {

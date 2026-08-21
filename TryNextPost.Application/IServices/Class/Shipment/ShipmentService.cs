@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using TryNextPost.Application.DTO.Courier;
 using TryNextPost.Application.DTO.Courier.XpressBees;
+using TryNextPost.Application.DTO.Ndr;
 using TryNextPost.Application.DTO.Shipment;
 using TryNextPost.Application.Helpers;
 using TryNextPost.Application.IServices.Class.RateCard;
@@ -64,103 +65,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             _logger = logger;
         }
 
-        //public async Task<GetShipmentRatesResponse> GetRatesAsync(
-        //    long orderId,
-        //    string userId,
-        //    CancellationToken cancellationToken = default)
-        //{
-        //    await _sellerContextService.EnsurePermissionAsync(userId, EmployeePermissionCode.ShipmentsCreate);
-        //    var (order, seller) = await LoadOwnedOrderAsync(orderId, userId);
-        //    EnsureOrderShippable(order);
-        //    await ApplyWeightFreezeIfApplicableAsync(order);
 
-        //    var warehouse = await ResolveWarehouseAddressAsync(order, seller);
-        //    var rateRequest = BuildRateRequest(order, warehouse);
-        //    var couriers = await _courierRepository.GetActiveCouriersAsync();
-        //    var isCod = rateRequest.IsCod;
-
-        //    var rates = new List<ShipmentRateOptionDto>();
-
-        //    foreach (var courier in couriers)
-        //    {
-        //        var rateCardQuotes = await _rateCalculationService.GetRatesForCourierAsync(
-        //            courier.CourierId,
-        //            courier.CourierCode,
-        //            courier.CourierName,
-        //            rateRequest.OriginPincode,
-        //            rateRequest.DestinationPincode,
-        //            order.WeightGrams,
-        //            order.VolumetricWeightGrams,
-        //            isCod,
-        //            courier.CodChargeType,
-        //            courier.CodChargeValue,
-        //            rateRequest.CodAmount,
-        //            courier.SupportsCOD);
-
-        //        if (rateCardQuotes.Count > 0)
-        //        {
-        //            foreach (var quote in rateCardQuotes)
-        //            {
-        //                rates.Add(new ShipmentRateOptionDto
-        //                {
-        //                    CourierId = courier.CourierId,
-        //                    CourierCode = courier.CourierCode,
-        //                    CourierName = courier.CourierName,
-        //                    ServiceName = quote.ServiceName,
-        //                    ServiceCode = quote.ServiceCode,
-        //                    TotalCharge = quote.TotalCharge,
-        //                    CodCharge = quote.CodCharge,
-        //                    EstimatedDays = quote.EstimatedDays,
-        //                    IsStub = false,
-        //                    Message = $"Rate card ({quote.OriginZoneCode} → {quote.DestinationZoneCode})"
-        //                });
-        //            }
-
-        //            continue;
-        //        }
-
-        //        if (!_courierAdapterFactory.TryResolve(courier.CourierCode, out var adapter) || adapter is null)
-        //            continue;
-
-        //        try
-        //        {
-        //            var adapterRequest = BuildRateRequest(order, warehouse, courier);
-        //            var response = await adapter.GetRatesAsync(adapterRequest, cancellationToken);
-        //            if (response?.Rates == null || response.Rates.Count == 0)
-        //                continue;
-
-        //            foreach (var option in response.Rates)
-        //            {
-        //                rates.Add(new ShipmentRateOptionDto
-        //                {
-        //                    CourierId = courier.CourierId,
-        //                    CourierCode = courier.CourierCode,
-        //                    CourierName = courier.CourierName,
-        //                    ServiceName = option.ServiceName,
-        //                    ServiceCode = option.ServiceCode,
-        //                    TotalCharge = option.TotalCharge,
-        //                    CodCharge = option.CodCharge,
-        //                    EstimatedDays = option.EstimatedDays,
-        //                    IsStub = response.IsStub || option.IsStub,
-        //                    Message = response.Message
-        //                });
-        //            }
-        //        }
-        //        catch (NotImplementedException)
-        //        {
-        //            // Credentials configured but HTTP not wired yet — skip for rates list.
-        //        }
-        //    }
-
-        //    return new GetShipmentRatesResponse
-        //    {
-        //        OrderId = order.OrderId,
-        //        OrderRef = order.OrderRef,
-        //        OriginPincode = rateRequest.OriginPincode,
-        //        DestinationPincode = rateRequest.DestinationPincode,
-        //        Rates = rates.OrderBy(r => r.TotalCharge).ToList()
-        //    };
-        //}
 
         public async Task<GetShipmentRatesResponse> GetRatesAsync(long orderId,  string userId, CancellationToken cancellationToken = default)
         {
@@ -367,6 +272,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             }
             else
             {
+                _logger.LogWarning("Rate Quote entity lookup returned null for Courier {CourierCode}. Proceeding to direct request amount verification path.", courier.CourierCode);
                 await ValidateChargeAmountAsync(order, warehouse, courier, request, adapter, cancellationToken);
             }
 
@@ -1516,5 +1422,90 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 return order.VolumetricWeightGrams;
             return actual;
         }
+
+        // Layer Location: TryNextPost.Application / Services/ShipmentService.cs
+
+        public async Task<NdrActionResponse> ProcessNdrActionAsync(
+            NdrActionRequest request,
+            string userId,
+            CancellationToken cancellationToken = default)
+        {
+            // 1. Fetch data using pure Repository instead of direct DbContext
+            var ndrLog = await _ndrRepository.GetNdrWithShipmentAndCourierAsync(request.NdrId, cancellationToken);
+
+            if (ndrLog == null)
+                throw new KeyNotFoundException("The requested NDR record is missing from data nodes.");
+
+            var shipment = ndrLog.Shipment;
+            if (shipment == null || string.IsNullOrWhiteSpace(shipment.AwbNumber))
+                throw new InvalidOperationException("No valid shipment or AWB reference linked to this NDR.");
+
+            // 2. Resolve adapter factory pipeline to fire live action to the courier server
+            if (!_courierAdapterFactory.TryResolve(shipment.Courier?.CourierCode, out var adapter) || adapter == null)
+            {
+                throw new InvalidOperationException("Unable to resolve dynamic courier adapter for transmission.");
+            }
+
+            // Calling the courier adapter abstraction method
+            bool courierServerAcknowledged = await adapter.RequestNdrReAttemptAsync(
+                shipment.AwbNumber,
+                request.ActionType,
+                request.Remarks ?? "Action taken via Aggregator Seller Desk",
+                cancellationToken);
+
+            if (!courierServerAcknowledged)
+            {
+                return new NdrActionResponse
+                {
+                    Success = false,
+                    Message = "Courier partner server rejected or failed to process the NDR instruction callback."
+                };
+            }
+
+            // 3. Database State Synchronization using explicit repository commands
+            if (request.ActionType.Equals("RE-ATTEMPT", StringComparison.OrdinalIgnoreCase))
+            {
+                ndrLog.Status = NdrStatus.ActionRequested; // State 2
+                ndrLog.Action = "RE-ATTEMPT";
+                ndrLog.NextAttemptDate = request.NextAttemptDate?? DateTime.UtcNow.AddDays(1);
+                ndrLog.Attempts += 1;
+            }
+            else if (request.ActionType.Equals("RETURN_TO_ORIGIN", StringComparison.OrdinalIgnoreCase))
+            {
+                ndrLog.Status = NdrStatus.Rto; // State 4
+                ndrLog.Action = "RTO";
+
+                // Create an explicit fresh row track context entry into the RTO Master Table via NDR repository helper
+                var rtoEntry = new RTO
+                {
+                    ShipmentId = shipment.ShipmentId,
+                    Reason = ndrLog.Reason,
+                    Status = RtoStatus.Initiated, // State 1
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = userId
+                };
+                await _ndrRepository.AddRtoAsync(rtoEntry, cancellationToken);
+
+                // Update Shipment table root status to RTO state indicators
+                shipment.Status = ShipmentStatus.RTOInitiated;
+                await _shipmentRepository.UpdateAsync(shipment);
+            }
+
+            ndrLog.Remarks = request.Remarks;
+            ndrLog.UpdatedAt = DateTime.UtcNow;
+            ndrLog.UpdatedBy = userId;
+
+            // Use concrete repositories definitions instead of raw DbContext actions
+            await _ndrRepository.UpdateAsync(ndrLog);
+            await _shipmentRepository.SaveChangesAsync(); // Unit of Work trigger via shipment repository saving node
+
+            return new NdrActionResponse
+            {
+                Success = true,
+                Message = $"NDR instruction '{request.ActionType}' synchronized and saved permanently.",
+                UpdatedStatusName = ndrLog.Status.ToString()
+            };
+        }
+
     }
 }

@@ -10,10 +10,18 @@ namespace TryNextPost.Application.Common.Settings
     {
         public string? BaseUrl { get; set; }
 
+        public string? BookingUrl { get; set; }
+
         public string? ApiKey { get; set; }
 
         public string? ApiSecret { get; set; }
 
-        public bool Enabled { get; set; } = true;
+        public string? AccountCode { get; set; }
+
+        public bool Enabled { get; set; }
+        public string? PincodeUrl { get; set; }
+        public string? TrackingUsername { get; set; }
+        public string? TrackingToken { get; set; }
+        public string? ServiceTypeId { get; set; }
     }
 }

@@ -553,5 +553,86 @@ namespace TryNextPost.Application.IServices.Class.Order
         {
             return CreateOrderInternalAsync(request, userId, OrderTypeEnum.ReverseQC, "QC-", OrderCategoryEnum.B2C);
         }
+
+
+
+        public async Task<OrderSummaryDetailDto> GetOrderSummaryDetailsAsync(long orderId, string userId)
+        {
+            var order = await _orderRepository.GetOrderWithItemsAndShipmentAsync(orderId, userId);
+
+            if (order == null)
+                throw new KeyNotFoundException("The requested order profile is missing from system nodes.");
+
+            // Extracting the single active valid booking shipment element row if available
+            var activeShipment = order.Shipments?
+                .FirstOrDefault(s => s.IsActive == true && s.Status != ShipmentStatus.Cancelled);
+
+            // Build Shipping string
+            var completeShipping = string.Join(", ", new[] {
+        order.ShippingAddressLine1, order.ShippingAddressLine2,
+        order.ShippingCity, order.ShippingState, order.ShippingPincode
+    }.Where(x => !string.IsNullOrWhiteSpace(x)));
+
+            // Build Billing string
+            var completeBilling = string.Join(", ", new[] {
+        order.BillingAddressLine1, order.BillingAddressLine2,
+        order.BillingCity, order.BillingState, order.BillingPincode
+    }.Where(x => !string.IsNullOrWhiteSpace(x)));
+
+            // Build Warehouse/Pickup string
+            var warehouseAddress = string.Empty;
+            if (order.PickupAddress != null)
+            {
+                warehouseAddress = string.Join(", ", new[] {
+            order.PickupAddress.AddressLine1, order.PickupAddress.AddressLine2,
+            order.PickupAddress.City, order.PickupAddress.State, order.PickupAddress.Pincode
+        }.Where(x => !string.IsNullOrWhiteSpace(x)));
+            }
+
+            return new OrderSummaryDetailDto
+            {
+                OrderId = order.OrderId,
+                OrderRef = order.OrderRef,
+                OrderDate = order.OrderDate,
+                StatusName = order.Status.ToString(),
+                PaymentModeName = order.PaymentMode.ToString(),
+                FinalPayableAmount = order.FinalPayableAmount,
+                CollectableAmount = order.CollectableAmount,
+
+                // Customer Shipping
+                CustomerName = order.CustomerName,
+                CustomerMobile = order.CustomerMobile,
+                CompleteShippingAddress = completeShipping,
+
+                // Billing Details
+                BillingDetailsText = $"{order.BillingFirstName} {order.BillingLastName}, {completeBilling}",
+
+                // Warehouse Details
+                WarehouseName = order.PickupAddress?.Name ?? "Main Warehouse",
+                WarehouseMobile = order.PickupAddress?.Mobile ?? string.Empty,
+                WarehouseCompleteAddress = warehouseAddress,
+
+                // Package Weights Info
+                PackageWeightKg = order.WeightGrams / 1000m,
+                VolumetricWeightGrams = order.VolumetricWeightGrams,
+                DimensionsText = $"{order.LengthCm:0.##} x {order.BreadthCm:0.##} x {order.HeightCm:0.##} CM",
+
+                // Courier
+                ActiveAwbNumber = activeShipment?.AwbNumber ?? "N/A - Not Shipped Yet",
+                AllocatedCourierName = activeShipment?.Courier?.CourierName ?? "Unassigned",
+                ShippingCharges = order.ShippingCharges,
+
+                LineItems = order.OrderItems.Select(item => new OrderSummaryItemDto
+                {
+                    ProductName = item.ProductName,
+                    Quantity = item.Qty,
+                    UnitPrice = item.Price,
+                    SkuCode = item.Sku,
+                    TotalItemPrice = item.Qty * item.Price
+                }).ToList()
+            };
+        }
+
+
     }
 }

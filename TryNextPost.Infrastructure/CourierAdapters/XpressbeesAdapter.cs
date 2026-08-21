@@ -584,12 +584,22 @@ namespace TryNextPost.Infrastructure.CourierAdapters
             return result;
         }
 
+        // Layer Location: TryNextPost.Infrastructure / CourierAdapters/XpressbeesAdapter.cs
+
         private XpressBeesManifestRequest BuildManifestRequest(
-            Order order,
-            Address pickupAddress,
-            string awb,
-            string pickupLocationCode)
+                    Order order,
+                    Address pickupAddress,
+                    string awb,
+                    string pickupLocationCode)
         {
+            // =========================================================================
+            // DYNAMIC PIECES CALCULATION
+            // Industry rule check: Sum up exact quantities from database line items collection
+            // =========================================================================
+            int totalItemsCount = order.OrderItems != null && order.OrderItems.Any()
+                ? order.OrderItems.Sum(x => x.Qty)
+                : 1;
+
             return new XpressBeesManifestRequest
             {
                 // AWB
@@ -614,13 +624,15 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 
                 // Shipment
                 PickupType = "Vendor",
-                Quantity = "1",
+
+                // FIXED: Dynamically fetching values directly from database instead of hardcoded "1"
+                Quantity = totalItemsCount.ToString(),
+
                 ServiceType = "SD",
 
                 // =====================================================
                 // DELIVERY = CUSTOMER
                 // =====================================================
-
                 DropDetails = new XpressBeesDropDetails
                 {
                     Addresses =
@@ -637,9 +649,7 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                     City = order.ShippingCity,
                     State = order.ShippingState,
                     PinCode = order.ShippingPincode,
-
                     Name = order.CustomerName,
-
                     Type = "Primary"
                 }
             },
@@ -657,7 +667,6 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                 // =====================================================
                 // PICKUP = SELLER / WAREHOUSE
                 // =====================================================
-
                 PickupDetails = new XpressBeesPickupDetails
                 {
                     Addresses =
@@ -674,9 +683,7 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                     City = pickupAddress.City,
                     State = pickupAddress.State,
                     PinCode = pickupAddress.Pincode,
-
                     Name = pickupAddress.Name,
-
                     Type = "Primary"
                 }
             },
@@ -696,7 +703,6 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                 // =====================================================
                 // RTO = PICKUP / SELLER ADDRESS
                 // =====================================================
-
                 RTODetails = new XpressBeesRtoDetails
                 {
                     Addresses =
@@ -713,9 +719,7 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                     City = pickupAddress.City,
                     State = pickupAddress.State,
                     PinCode = pickupAddress.Pincode,
-
                     Name = pickupAddress.Name,
-
                     Type = "Primary"
                 }
             },
@@ -739,7 +743,6 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                 // =====================================================
                 // PACKAGE DETAILS
                 // =====================================================
-
                 PackageDetails = new XpressBeesPackageDetails
                 {
                     Dimensions = new XpressBeesDimensions
@@ -751,17 +754,22 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 
                     Weight = new XpressBeesWeight
                     {
-                        BillableWeight =
-                            (order.WeightGrams / 1000m).ToString("0.##"),
-
-                        PhyWeight =
-                            (order.WeightGrams / 1000m).ToString("0.##"),
-
-                        VolWeight =
-                            (order.VolumetricWeightGrams / 1000m).ToString("0.##")
+                        BillableWeight = (order.WeightGrams / 1000m).ToString("0.##"),
+                        PhyWeight = (order.WeightGrams / 1000m).ToString("0.##"),
+                        VolWeight = (order.VolumetricWeightGrams / 1000m).ToString("0.##")
                     }
                 }
+
+
             };
+
         }
+
+
+        public override async Task<bool> RequestNdrReAttemptAsync(string awbNumber, string actionType, string remarks, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException("XpressBees NDR workflow not integrated yet.");
+        }
+
     }
 }
