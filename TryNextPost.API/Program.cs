@@ -53,6 +53,9 @@ using TryNextPost.Infrastructure.Identity;
 using TryNextPost.Infrastructure.Repository;
 using TryNextPost.Infrastructure.Seeder;
 using TryNextPost.Infrastructure.Service;
+using TryNextPost.Application.IServices.Interface.IWeight;
+using TryNextPost.Infrastructure.Repository.Report;
+using TryNextPost.Application.IServices.Interface.SellerKYC;
 
 var builder = WebApplication.CreateBuilder(args);
 
