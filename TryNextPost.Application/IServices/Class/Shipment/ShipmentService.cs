@@ -78,6 +78,8 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                             CourierName = courier.CourierName,
                             ServiceName = option.ServiceName,
                             ServiceCode = option.ServiceCode,
+                            RateId = option.RateId,
+                            RequestToken = option.RequestToken,
                             TotalCharge = option.TotalCharge,
                             CodCharge = option.CodCharge,
                             EstimatedDays = option.EstimatedDays,

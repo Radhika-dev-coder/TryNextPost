@@ -26,13 +26,9 @@ namespace TryNextPost.Infrastructure.CourierAdapters
         /// <summary>
         /// True when appsettings has BaseUrl and ApiKey for this courier.
         /// </summary>
-        protected bool IsConfigured =>
-            !string.IsNullOrWhiteSpace(Settings.BaseUrl)
-            && !string.IsNullOrWhiteSpace(Settings.ApiKey);
+        protected bool IsConfigured => !string.IsNullOrWhiteSpace(Settings.BaseUrl)  && !string.IsNullOrWhiteSpace(Settings.ApiKey);
 
-        public virtual Task<CourierRateResponse> GetRatesAsync(
-            CourierRateRequest request,
-            CancellationToken cancellationToken = default)
+        public virtual Task<CourierRateResponse> GetRatesAsync(  CourierRateRequest request,     CancellationToken cancellationToken = default)
         {
             if (IsConfigured)
                 return GetRatesInternalAsync(request, cancellationToken);

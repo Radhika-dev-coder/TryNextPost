@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using TryNextPost.API.Middlewares;
+using TryNextPost.Application.Common;
 using TryNextPost.Application.Common.Settings;
 using TryNextPost.Application.IServices;
 using TryNextPost.Application.IServices.Class;
@@ -14,20 +15,20 @@ using TryNextPost.Application.IServices.Class.Order;
 using TryNextPost.Application.IServices.Class.Shipment;
 using TryNextPost.Application.IServices.Class.Wallet;
 using TryNextPost.Application.IServices.Interface;
+using TryNextPost.Application.IServices.Interface.Courier;
 using TryNextPost.Application.IServices.Interface.Default;
-using TryNextPost.Application.IServices.Interface.IOrder;
-using TryNextPost.Application.IServices.Interface.IShipment;
 using TryNextPost.Application.IServices.Interface.IEmployee;
-using TryNextPost.Application.IServices.Interface.IWallet;
+using TryNextPost.Application.IServices.Interface.IOrder;
 using TryNextPost.Application.IServices.Interface.IPayment;
+using TryNextPost.Application.IServices.Interface.IShipment;
+using TryNextPost.Application.IServices.Interface.IWallet;
 using TryNextPost.Application.Services.Interface;
 using TryNextPost.Application.Validators.Order;
 using TryNextPost.Domain.IRepository;
 using TryNextPost.Infrastructure.AppDbContexts;
+using TryNextPost.Infrastructure.CourierAdapters;
 using TryNextPost.Infrastructure.Identity;
 using TryNextPost.Infrastructure.Repository;
-using TryNextPost.Application.IServices.Interface.Courier;
-using TryNextPost.Infrastructure.CourierAdapters;
 using TryNextPost.Infrastructure.Seeder;
 using TryNextPost.Infrastructure.Service;
 
@@ -109,7 +110,10 @@ builder.Services.AddScoped<ICourierAdapter, EkartAdapter>();
 builder.Services.AddScoped<ICourierAdapter, IndiaPostAdapter>();
 builder.Services.AddScoped<ICourierAdapter, ShadowfaxAdapter>();
 builder.Services.AddScoped<ICourierAdapterFactory, CourierAdapterFactory>();
-
+builder.Services.AddScoped<ICourierAdapter, AmazonShippingAdapter>();
+builder.Services.Configure<AmazonShippingSettings>(builder.Configuration.GetSection("AmazonShipping"));
+builder.Services.AddHttpClient<IAmazonAuthService, AmazonAuthService>();
+builder.Services.AddHttpClient<IAmazonShippingService, AmazonShippingService>();
 #endregion
 
 #region JWT
