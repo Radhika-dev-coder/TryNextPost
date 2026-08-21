@@ -7,6 +7,7 @@ using TryNextPost.Application.DTO.AmazonDto;
 using TryNextPost.Application.DTO.Courier;
 using TryNextPost.Application.IServices.Interface;
 using TryNextPost.Application.IServices.Interface.Courier;
+using TryNextPost.Domain.Enums;
 
 namespace TryNextPost.Infrastructure.CourierAdapters
 {
@@ -514,6 +515,21 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                 Events = events,
                 Message = "Amazon shipment tracking fetched successfully."
             };
+        }
+
+        public Task<bool> IsServiceableAsync(string pickupPincode, string deliveryPincode, OrderTypeEnum orderType, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<CourierBookShipmentResponse> BookShipmentAsync(CourierShipmentRequest request, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<bool> RequestNdrReAttemptAsync(string awbNumber, string actionType, string remarks, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
         }
     }
 }
