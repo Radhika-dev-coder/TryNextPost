@@ -31,9 +31,7 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 
         protected abstract bool IsConfigured { get; }
 
-        public virtual Task<CourierRateResponse> GetRatesAsync(
-            CourierRateRequest request,
-            CancellationToken cancellationToken = default)
+        public virtual Task<CourierRateResponse> GetRatesAsync(  CourierRateRequest request,     CancellationToken cancellationToken = default)
         {
             if (IsConfigured)
                 return GetRatesInternalAsync(request, cancellationToken);

@@ -12,6 +12,7 @@ namespace TryNextPost.Domain.Common
         public const string Ekart = "EKART";
         public const string IndiaPost = "INDIAPOST";
         public const string Shadowfax = "SHADOWFAX";
+        public const string Amazon = "Amazon";
         public const string Amazon = "AMAZON";
     }
 }
