@@ -9,6 +9,9 @@ namespace TryNextPost.Application.DTO.Shipment
 
         /// <summary>Alternative: resolve by code (e.g. DELHIVERY).</summary>
         public string? CourierCode { get; set; }
+        public string? RateId { get; set; }
+
+        public string? RequestToken { get; set; }
 
         /// <summary>Service code from the selected rate option.</summary>
         public string? ServiceCode { get; set; }

@@ -12,5 +12,7 @@ namespace TryNextPost.Application.DTO.Shipment
         public int EstimatedDays { get; set; }
         public bool IsStub { get; set; }
         public string? Message { get; set; }
+        public string? RateId { get; set; }
+        public string? RequestToken { get; set; }
     }
 }
