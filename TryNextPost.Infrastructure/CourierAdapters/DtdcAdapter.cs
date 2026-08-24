@@ -447,8 +447,8 @@ namespace TryNextPost.Infrastructure.CourierAdapters
         {
             try
             {
-                // 1. Production API endpoint parsing matching Page 3 blueprint
-                var trackUrl = "https://blktracksvc.dtdc.com/dtdc";
+                
+                var trackUrl = "https://blktracksvc.dtdc.com/dtdc-api/rest/JSONCnTrk/getTrackDetails";
 
                 // Page 3 exact request payload layout building
                 var trackingRequestBody = new
