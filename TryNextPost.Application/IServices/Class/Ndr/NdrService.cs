@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Logging;
+using System.Runtime.Intrinsics.X86;
 using TryNextPost.Application.DTO.Ndr;
 using TryNextPost.Application.Helpers;
 using TryNextPost.Application.IServices.Interface;
+using TryNextPost.Application.IServices.Interface.Courier; // Dynamic factory mapping interfaces layer assembly
 using TryNextPost.Application.IServices.Interface.INdr;
 using TryNextPost.Domain.Common;
 using TryNextPost.Domain.Entities;
@@ -16,6 +18,8 @@ namespace TryNextPost.Application.IServices.Class.Ndr
         private readonly IRtoRepository _rtoRepository;
         private readonly IShipmentRepository _shipmentRepository;
         private readonly ISellerContextService _sellerContextService;
+        private readonly ICourierAdapter _courierAdapter;
+        private readonly ICourierAdapterFactory _courierAdapterFactory; // Perfectly maintained your dynamic factory contract identifier
         private readonly ILogger<NdrService> _logger;
 
         public NdrService(
@@ -23,12 +27,16 @@ namespace TryNextPost.Application.IServices.Class.Ndr
             IRtoRepository rtoRepository,
             IShipmentRepository shipmentRepository,
             ISellerContextService sellerContextService,
+            ICourierAdapter courierAdapter,
+            ICourierAdapterFactory courierAdapterFactory, // Safely injected at runtime application boundaries
             ILogger<NdrService> logger)
         {
             _ndrRepository = ndrRepository;
             _rtoRepository = rtoRepository;
             _shipmentRepository = shipmentRepository;
             _sellerContextService = sellerContextService;
+            _courierAdapter = courierAdapter;
+            _courierAdapterFactory = courierAdapterFactory;
             _logger = logger;
         }
 
@@ -119,16 +127,36 @@ namespace TryNextPost.Application.IServices.Class.Ndr
             return Map(ndr);
         }
 
-        private async Task ApplyReattemptAsync(string userId, NDR ndr, NdrActionRequest request)
+        private async Task ApplyReattemptAsync(
+            string userId,
+            NDR ndr,
+            NdrActionRequest request)
         {
-            ndr.Action = "Reattempt";
+            _logger.LogInformation("Processing dynamic multi-courier reattempt routine loop for NdrId: {NdrId}", ndr.NdrId);
+
+            if (ndr.Shipment == null || ndr.Shipment.Courier == null)
+            {
+                throw new InvalidOperationException("Shipment or active Courier relation stream missing for the selected NDR context identifier.");
+            }
+            var dynamicAdapter = _courierAdapterFactory.Resolve(ndr.Shipment.Courier.CourierCode);
+            bool isCourierAcknowledged = await dynamicAdapter.RequestNdrReAttemptAsync(
+                ndr.Shipment.AwbNumber ?? string.Empty,
+                string.IsNullOrWhiteSpace(request.Action) ? "Reattempt" : request.Action.Trim(),
+                request.Remarks ?? "Seller requested reattempt cycle via dashboard panel.",
+                CancellationToken.None);
+
+            if (!isCourierAcknowledged)
+            {
+                throw new InvalidOperationException($"{ndr.Shipment.Courier.CourierName} physical network gateway rejected the NDR reattempt parameters.");
+            }
+
             ndr.Status = NdrStatus.ActionRequested;
-            ndr.Remarks = request.Remarks?.Trim();
-            ndr.NextAttemptDate = request.NextAttemptDate;
+            ndr.UpdatedAt = DateTime.UtcNow;
+            ndr.Action = "Reattempt";
+            ndr.Remarks = request.Remarks?.Trim() ?? "Action submitted successfully via seller dashboard loop.";
             ndr.UpdatedAt = DateTime.UtcNow;
             ndr.UpdatedBy = userId;
 
-            // Local-only: move shipment back toward delivery attempt (no courier API).
             if (!ShipmentStatusTransitions.IsRtoStatus(ndr.Shipment.Status)
                 && ShipmentStatusTransitions.CanTransition(ndr.Shipment.Status, ShipmentStatus.OutForDelivery))
             {
@@ -137,15 +165,36 @@ namespace TryNextPost.Application.IServices.Class.Ndr
                 ndr.Shipment.UpdatedBy = userId;
                 await _shipmentRepository.UpdateAsync(ndr.Shipment);
             }
-
-            _logger.LogInformation(
-                "NDR {NdrId} Reattempt applied locally (courier push skipped). ShipmentId={ShipmentId}",
-                ndr.NdrId,
-                ndr.ShipmentId);
         }
 
-        private async Task ApplyRtoAsync(string userId, NDR ndr, NdrActionRequest request)
+
+        private async Task ApplyRtoAsync(
+            string userId,
+            NDR ndr,
+            NdrActionRequest request)
         {
+            _logger.LogInformation("Processing dynamic multi-courier RTO dispatch loop for NdrId: {NdrId}", ndr.NdrId);
+
+            if (ndr.Shipment == null || ndr.Shipment.Courier == null)
+            {
+                throw new InvalidOperationException("Shipment or active Courier relation stream missing for the selected NDR context identifier.");
+            }
+
+            var dynamicAdapter = _courierAdapterFactory.Resolve(ndr.Shipment.Courier.CourierCode);
+            string targetRtoActionCode = string.Equals(ndr.Shipment.Courier.CourierCode, "DTDC", StringComparison.OrdinalIgnoreCase)
+                ? "2"
+                : (string.IsNullOrWhiteSpace(request.Action) ? "Rto" : request.Action.Trim());
+
+            bool isCourierAcknowledged = await dynamicAdapter.RequestNdrReAttemptAsync(
+                ndr.Shipment.AwbNumber ?? string.Empty,
+                targetRtoActionCode,
+                request.Remarks ?? "Seller initiated order RTO return transition route.",
+                CancellationToken.None);
+
+            if (!isCourierAcknowledged)
+            {
+                throw new InvalidOperationException($"{ndr.Shipment.Courier.CourierName} integration gateway rejected the RTO request parameters.");
+            }
             var reason = !string.IsNullOrWhiteSpace(request.Remarks)
                 ? request.Remarks.Trim()
                 : (!string.IsNullOrWhiteSpace(ndr.Reason) ? ndr.Reason : "Seller marked RTO");
@@ -171,8 +220,7 @@ namespace TryNextPost.Application.IServices.Class.Ndr
                 });
             }
 
-            // Local-only: update shipment to RTO when status machine allows (no courier API).
-            if (ndr.Shipment!.Status != ShipmentStatus.RTOInitiated
+            if (ndr.Shipment.Status != ShipmentStatus.RTOInitiated
                 && ShipmentStatusTransitions.CanTransition(ndr.Shipment.Status, ShipmentStatus.RTOInitiated))
             {
                 ndr.Shipment.Status = ShipmentStatus.RTOInitiated;
@@ -188,100 +236,28 @@ namespace TryNextPost.Application.IServices.Class.Ndr
                     ndr.ShipmentId,
                     ndr.Shipment.Status);
             }
-
-            _logger.LogInformation(
-                "NDR {NdrId} MarkRto applied locally (courier RTO push skipped). ShipmentId={ShipmentId}",
-                ndr.NdrId,
-                ndr.ShipmentId);
         }
 
-        private static bool IsReattemptAction(string action) =>
-            action.Equals("Reattempt", StringComparison.OrdinalIgnoreCase);
 
+        private static bool IsReattemptAction(string action)
+            => action.Equals("Reattempt", StringComparison.OrdinalIgnoreCase); 
         private static bool IsRtoAction(string action)
         {
             var key = action.Replace(" ", "", StringComparison.Ordinal).Replace("_", "", StringComparison.Ordinal);
-            return key.Equals("Rto", StringComparison.OrdinalIgnoreCase)
-                || key.Equals("MarkRto", StringComparison.OrdinalIgnoreCase);
+            return key.Equals("Rto", StringComparison.OrdinalIgnoreCase) || key.Equals("MarkRto", StringComparison.OrdinalIgnoreCase); 
         }
-
         private static NdrStatus? ParseStatusTab(string? statusTab)
-        {
-            if (string.IsNullOrWhiteSpace(statusTab) || statusTab.Equals("all", StringComparison.OrdinalIgnoreCase))
-                return null;
-
-            var key = statusTab.Trim().ToLowerInvariant().Replace(" ", "").Replace("_", "").Replace("-", "");
-
-            return key switch
-            {
-                "actionrequired" or "pending" => NdrStatus.ActionRequired,
-                "actionrequested" or "reattemptscheduled" or "reattempt" => NdrStatus.ActionRequested,
-                "delivered" => NdrStatus.Delivered,
-                "rto" or "cancelled" or "canceled" => NdrStatus.Rto,
-                _ => throw new InvalidOperationException(SystemMessage.InvalidNdrStatusTab)
-            };
+        { 
+            if (string.IsNullOrWhiteSpace(statusTab) || statusTab.Equals("all", StringComparison.OrdinalIgnoreCase)) 
+            return null; var key = statusTab.Trim().ToLowerInvariant().Replace(" ", "").Replace("_", "").Replace("-", "");
+            return key switch 
+            { "actionrequired" or "pending" => NdrStatus.ActionRequired,
+              "actionrequested" or "reattemptscheduled" or "reattempt" => NdrStatus.ActionRequested, 
+              "delivered" => NdrStatus.Delivered, "rto" or "cancelled" or "canceled" => NdrStatus.Rto, _ =>
+              throw new InvalidOperationException(SystemMessage.InvalidNdrStatusTab) };
         }
-
-        private static NdrListItemResponse Map(NDR ndr)
-        {
-            var shipment = ndr.Shipment;
-            var order = shipment?.Order;
-            var product = order?.OrderItems?.FirstOrDefault()?.ProductName ?? string.Empty;
-            var address = BuildAddress(shipment);
-
-            return new NdrListItemResponse
-            {
-                NdrId = ndr.NdrId,
-                ShipmentId = ndr.ShipmentId,
-                OrderId = order?.OrderId ?? 0,
-                Channel = order?.Channel ?? "Manual",
-                NdrDate = ndr.CreatedAt,
-                OrderRef = order?.OrderRef ?? string.Empty,
-                Product = product,
-                Payment = order?.PaymentMode.ToString() ?? string.Empty,
-                Customer = order?.CustomerName
-                    ?? shipment?.DeliveryCustomerName
-                    ?? string.Empty,
-                Phone = order?.CustomerMobile
-                    ?? shipment?.DeliveryMobile
-                    ?? string.Empty,
-                Address = address,
-                Carrier = shipment?.Courier?.CourierName ?? string.Empty,
-                Awb = shipment?.AwbNumber,
-                Status = (int)ndr.Status,
-                StatusName = ToDisplayStatus(ndr.Status),
-                Action = ndr.Action,
-                Reason = ndr.Reason,
-                Remarks = ndr.Remarks,
-                Attempts = ndr.Attempts,
-                NextAttemptDate = ndr.NextAttemptDate
-            };
-        }
-
-        private static string BuildAddress(TryNextPost.Domain.Entities.Shipment? shipment)
-        {
-            if (shipment == null)
-                return string.Empty;
-
-            var parts = new[]
-            {
-                shipment.DeliveryAddressLine1,
-                shipment.DeliveryAddressLine2,
-                shipment.DeliveryCity,
-                shipment.DeliveryState,
-                shipment.DeliveryPincode
-            }.Where(p => !string.IsNullOrWhiteSpace(p));
-
-            return string.Join(", ", parts);
-        }
-
-        private static string ToDisplayStatus(NdrStatus status) => status switch
-        {
-            NdrStatus.ActionRequired => "Action Required",
-            NdrStatus.ActionRequested => "Action Requested",
-            NdrStatus.Delivered => "Delivered",
-            NdrStatus.Rto => "RTO",
-            _ => status.ToString()
-        };
+        private static NdrListItemResponse Map(NDR ndr) { var shipment = ndr.Shipment; var order = shipment?.Order; var product = order?.OrderItems?.FirstOrDefault()?.ProductName ?? string.Empty; var address = BuildAddress(shipment); return new NdrListItemResponse { NdrId = ndr.NdrId, ShipmentId = ndr.ShipmentId, OrderId = order?.OrderId ?? 0, Channel = order?.Channel ?? "Manual", NdrDate = ndr.CreatedAt, OrderRef = order?.OrderRef ?? string.Empty, Product = product, Payment = order?.PaymentMode.ToString() ?? string.Empty, Customer = order?.CustomerName ?? shipment?.DeliveryCustomerName ?? string.Empty, Phone = order?.CustomerMobile ?? shipment?.DeliveryMobile ?? string.Empty, Address = address, Carrier = shipment?.Courier?.CourierName ?? string.Empty, Awb = shipment?.AwbNumber, Status = (int)ndr.Status, StatusName = ToDisplayStatus(ndr.Status), Action = ndr.Action, Reason = ndr.Reason, Remarks = ndr.Remarks, Attempts = ndr.Attempts, NextAttemptDate = ndr.NextAttemptDate }; }
+        private static string BuildAddress(TryNextPost.Domain.Entities.Shipment? shipment) { if (shipment == null) return string.Empty; var parts = new[] { shipment.DeliveryAddressLine1, shipment.DeliveryAddressLine2, shipment.DeliveryCity, shipment.DeliveryState, shipment.DeliveryPincode }.Where(p => !string.IsNullOrWhiteSpace(p)); return string.Join(", ", parts); }
+        private static string ToDisplayStatus(NdrStatus status) => status switch { NdrStatus.ActionRequired => "Action Required", NdrStatus.ActionRequested => "Action Requested", NdrStatus.Delivered => "Delivered", NdrStatus.Rto => "RTO", _ => status.ToString() };
     }
 }

@@ -36,21 +36,6 @@ namespace TryNextPost.Application.IServices.Class.RateCard
             decimal? codAmount = null,
             bool supportsCod = true, bool HasManualRateCard = false)
         {
-            //var originZone = await _zoneRepository.GetZoneByPincodeAsync(courierId,originPincode);
-            //var destZone = await _zoneRepository.GetZoneByPincodeAsync(courierId,destinationPincode);
-            //return await GetRatesForCourierZonesAsync(
-            //    courierId,
-            //    courierCode,
-            //    courierName,
-            //    originZone,
-            //    destZone,
-            //    weightGrams,
-            //    volumetricWeightGrams,
-            //    isCod,
-            //    codChargeType,
-            //    codChargeValue,
-            //    codAmount,
-            //    supportsCod);
 
             Zone? originZone = null;
             Zone? destZone = null;

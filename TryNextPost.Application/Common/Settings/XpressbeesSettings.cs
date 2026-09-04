@@ -20,6 +20,10 @@ namespace TryNextPost.Application.Common.Settings
         public string? AccountCode { get; set; }
         public bool Enabled { get; set; } = true;
         public string? TokenUrl { get; set; }
+        public string TrackingUrl { get; set; } = string.Empty;
+        public string CancellationUrl { get; set; } = string.Empty;
         public string? ForwardUrl { get; set; }
+        public string NdrUpdateUrl { get; set; } = string.Empty;
+
     }
 }

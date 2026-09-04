@@ -169,6 +169,29 @@ namespace TryNextPost.API.Controllers.Shipment
             });
         }
 
+        /// <summary>
+        /// Process NDR instructions and synchronize local tables with courier actions.
+        /// </summary>
+        [HttpPost("ndr/process-action")]
+        public async Task<IActionResult> ProcessNdrAction(
+            [FromBody] NdrActionRequest request,
+            CancellationToken cancellationToken)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { message = SystemMessage.InvalidToken });
+
+            var ndrExecutionOutput = await _shipmentService.ProcessNdrActionAsync(request, userId, cancellationToken);
+
+            return Ok(new ApiResponse<NdrActionResponse>
+            {
+                Success = ndrExecutionOutput.Success,
+                Message = ndrExecutionOutput.Message,
+                Data = ndrExecutionOutput,
+                StatusCode = ApiStatusCode.Success
+            });
+        }
+
 
 
     }

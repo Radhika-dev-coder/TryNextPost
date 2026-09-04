@@ -113,33 +113,33 @@ namespace TryNextPost.API.Controllers
 
         // Layer Location: TryNextPost.API / Controllers/CourierTestController.cs
 
-        [HttpPost("test-dtdc-serviceability")]
-        [AllowAnonymous]
-        public async Task<IActionResult> TestDtdcServiceability(
-            [FromQuery] string pickupPincode,
-            [FromQuery] string deliveryPincode,
-            CancellationToken cancellationToken)
-        {
-            if (!_adapterFactory.TryResolve("Dtdc", out var adapter) || adapter == null)
-            {
-                return BadRequest(new { Message = "Unable to resolve DTDC Adapter from factory framework." });
-            }
+        //[HttpPost("test-dtdc-serviceability")]
+        //[AllowAnonymous]
+        //public async Task<IActionResult> TestDtdcServiceability(
+        //    [FromQuery] string pickupPincode,
+        //    [FromQuery] string deliveryPincode,
+        //    CancellationToken cancellationToken)
+        //{
+        //    if (!_adapterFactory.TryResolve("Dtdc", out var adapter) || adapter == null)
+        //    {
+        //        return BadRequest(new { Message = "Unable to resolve DTDC Adapter from factory framework." });
+        //    }
 
-            // Direct safe cast to access the descriptive split parameters engine
-            var dtdcAdapterInstance = (TryNextPost.Infrastructure.CourierAdapters.DtdcAdapter)adapter;
+        //    // Direct safe cast to access the descriptive split parameters engine
+        //    var dtdcAdapterInstance = (TryNextPost.Infrastructure.CourierAdapters.DtdcAdapter)adapter;
 
-            var detailedResult = await dtdcAdapterInstance.CheckDetailedServiceabilityAsync(
-                pickupPincode,
-                deliveryPincode,
-                cancellationToken);
+        //    var detailedResult = await dtdcAdapterInstance.CheckDetailedServiceabilityAsync(
+        //        pickupPincode,
+        //        deliveryPincode,
+        //        cancellationToken);
 
-            return Ok(new
-            {
-                Message = "DTDC Live Split Parameter Verification Completed.",
-                InputData = new { Pickup = pickupPincode, Delivery = deliveryPincode },
-                ServiceabilityDetails = detailedResult
-            });
-        }
+        //    return Ok(new
+        //    {
+        //        Message = "DTDC Live Split Parameter Verification Completed.",
+        //        InputData = new { Pickup = pickupPincode, Delivery = deliveryPincode },
+        //        ServiceabilityDetails = detailedResult
+        //    });
+        //}
 
 
 

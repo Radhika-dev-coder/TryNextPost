@@ -13,6 +13,8 @@ namespace TryNextPost.Application.DTO.Courier.XpressBees
         public string OrderNo { get; set; } = string.Empty;
         public string? SubOrderNo { get; set; }
 
+
+        public string OrderDate { get; set; } = string.Empty;
         public string OrderType { get; set; } = string.Empty;
         public string CollectibleAmount { get; set; } = string.Empty;
         public string DeclaredValue { get; set; } = string.Empty;
@@ -20,6 +22,8 @@ namespace TryNextPost.Application.DTO.Courier.XpressBees
         public string PickupType { get; set; } = string.Empty;
         public string Quantity { get; set; } = string.Empty;
         public string ServiceType { get; set; } = string.Empty;
+
+        public string ProductDescription { get; set; } = string.Empty;
 
         public XpressBeesDropDetails DropDetails { get; set; } = new();
         public XpressBeesPickupDetails PickupDetails { get; set; } = new();

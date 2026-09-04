@@ -37,11 +37,11 @@ namespace TryNextPost.Infrastructure.CourierAdapters
             !string.IsNullOrWhiteSpace(_settings.ApiKey) &&
             !string.IsNullOrWhiteSpace(_settings.AccountCode);
 
-        
+
 
         protected override async Task<CourierBookShipmentResponse> BookShipmentInternalAsync(
-            CourierShipmentRequest request,
-            CancellationToken cancellationToken)
+           CourierShipmentRequest request,
+           CancellationToken cancellationToken)
         {
             var order = await _orderRepository.GetForShipmentAsync(request.OrderId, cancellationToken);
 
@@ -56,16 +56,42 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 
             string currentWeightKg = (order.WeightGrams / 1000m).ToString("0.00");
 
-            
-            var singlePieceElement = new DtdcPiecesDetail
+
+            int totalItemsCount = order.OrderItems != null && order.OrderItems.Any()
+                ? order.OrderItems.Sum(x => x.Qty)
+                : 1;
+
+            var dtdcPiecesList = new List<DtdcPiecesDetail>();
+
+            if (order.OrderItems != null && order.OrderItems.Any())
             {
-                Description = "General Goods Shipment Package",
-                DeclaredValue = order.FinalPayableAmount.ToString("0.00"),
-                Weight = currentWeightKg,
-                Length = order.LengthCm.ToString("0.0"),
-                Width = order.BreadthCm.ToString("0.0"),
-                Height = order.HeightCm.ToString("0.0")
-            };
+                foreach (var item in order.OrderItems)
+                {
+                    dtdcPiecesList.Add(new DtdcPiecesDetail
+                    {
+                        Description = !string.IsNullOrWhiteSpace(item.ProductName) ? item.ProductName : "E-Commerce Package Items",
+                        DeclaredValue = (item.Price * item.Qty).ToString("0.00"),
+                        Weight = (order.WeightGrams / 1000m / totalItemsCount).ToString("0.00"), // Distributed item average load weight
+                        Length = order.LengthCm.ToString("0.0"),
+                        Width = order.BreadthCm.ToString("0.0"),
+                        Height = order.HeightCm.ToString("0.0")
+                    });
+                }
+            }
+            else
+            {
+                dtdcPiecesList.Add(new DtdcPiecesDetail
+                {
+                    Description = "General Goods Shipment Package",
+                    DeclaredValue = order.FinalPayableAmount.ToString("0.00"),
+                    Weight = currentWeightKg,
+                    Length = order.LengthCm.ToString("0.0"),
+                    Width = order.BreadthCm.ToString("0.0"),
+                    Height = order.HeightCm.ToString("0.0")
+                });
+            }
+
+            // REMOVED: var singlePieceElement is completely deleted from here to avoid duplicate bugs!
 
             var dtdcRequest = new DtdcBookingRequest
             {
@@ -74,23 +100,24 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                     new DtdcConsignment
                     {
                         CustomerCode = _settings.AccountCode,
-                        
-                     
                         ServiceTypeId = "B2C PRIORITY",
-
                         LoadType = "NON-DOCUMENT",
                         ConsignmentType = "Forward",
-                        DimensionUnit = "cm", 
-                        
+                        DimensionUnit = "cm",
+
                         Length = order.LengthCm.ToString("0.0"),
                         Width = order.BreadthCm.ToString("0.0"),
                         Height = order.HeightCm.ToString("0.0"),
 
                         WeightUnit = "kg",
                         Weight = currentWeightKg,
-                        NumPieces = "1",
 
-                        PiecesDetail = new List<DtdcPiecesDetail> { singlePieceElement },
+                        // =========================================================================
+                        // 2. FIXED: Dynamically mapped fields from real calculated system parameters
+                        // =========================================================================
+                        NumPieces = totalItemsCount.ToString(),
+                        PiecesDetail = dtdcPiecesList, // Linked the real items collection list loops!
+
                         CustomerReferenceNumber = order.OrderRef,
                         DeclaredValue = order.FinalPayableAmount.ToString("0.00"),
                         IsRiskSurchargeApplicable = "false",
@@ -173,6 +200,7 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 
 
 
+
         private async Task<DtdcBookingResponse> CreateShipmentAsync(
     DtdcBookingRequest request,
     CancellationToken cancellationToken)
@@ -223,40 +251,28 @@ namespace TryNextPost.Infrastructure.CourierAdapters
         }
 
 
+
+
         public override async Task<bool> IsServiceableAsync(
             string pickupPincode,
             string deliveryPincode,
             OrderTypeEnum orderType,
             CancellationToken cancellationToken = default)
         {
-            var detailedResult = await CheckDetailedServiceabilityAsync(pickupPincode, deliveryPincode, cancellationToken);
-            return detailedResult.IsOverallServiceable;
-        }
-
-        // Production Layer Extension: Custom detailed trace method for split verification
-        public async Task<DtdcServiceabilityDetailsResult> CheckDetailedServiceabilityAsync(
-            string pickupPincode,
-            string deliveryPincode,
-            CancellationToken cancellationToken = default)
-        {
-            var traceResult = new DtdcServiceabilityDetailsResult();
-
-            // Local Length Validations Check
-            bool isPickupFormatValid = !string.IsNullOrWhiteSpace(pickupPincode) && pickupPincode.Length == 6 && pickupPincode.All(char.IsDigit);
-            bool isDeliveryFormatValid = !string.IsNullOrWhiteSpace(deliveryPincode) && deliveryPincode.Length == 6 && deliveryPincode.All(char.IsDigit);
-
-            if (!isPickupFormatValid || !isDeliveryFormatValid)
-            {
-                traceResult.IsPickupServiceable = isPickupFormatValid;
-                traceResult.IsDeliveryServiceable = isDeliveryFormatValid;
-                traceResult.IsOverallServiceable = false;
-                traceResult.Message = "Local validation failed. Pincodes must be exactly 6 digits numeric strings.";
-                return traceResult;
-            }
-
             try
             {
-                var pincodeRequest = new DtdcPincodeRequest { OrgPincode = pickupPincode, DesPincode = deliveryPincode };
+                if (string.IsNullOrWhiteSpace(pickupPincode) || pickupPincode.Length != 6 ||
+                    string.IsNullOrWhiteSpace(deliveryPincode) || deliveryPincode.Length != 6)
+                {
+                    return false;
+                }
+
+                var pincodeRequest = new DtdcPincodeRequest
+                {
+                    OrgPincode = pickupPincode,
+                    DesPincode = deliveryPincode
+                };
+
                 var json = JsonSerializer.Serialize(pincodeRequest);
                 using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -267,40 +283,31 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                 var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
                 if (!response.IsSuccessStatusCode)
                 {
-                    traceResult.Message = $"DTDC Server HTTP Error: {(int)response.StatusCode}";
-                    return traceResult;
+                    _logger.LogWarning("DTDC Pincode API returned error status: {StatusCode}", response.StatusCode);
+                    return false;
                 }
 
                 var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
                 var result = JsonSerializer.Deserialize<DtdcPincodeResponse>(responseBody);
 
-                if (result == null || result.ZipcodeResp == null || !result.ZipcodeResp.Any())
+                if (result != null && result.ZipcodeResp != null && result.ZipcodeResp.Any())
                 {
-                    traceResult.Message = "DTDC Server returned no matrix rows for these locations.";
-                    return traceResult;
+                    var matrix = result.ZipcodeResp.First();
+                    bool isRouteOk = matrix.ServFlag?.ToUpper() == "Y";
+                    bool isPickupOk = matrix.OrgPin == pickupPincode;
+                    bool isDeliveryOk = matrix.DestPin == deliveryPincode;
+
+                    return isRouteOk && isPickupOk && isDeliveryOk;
                 }
 
-                var matrix = result.ZipcodeResp.First();
-
-                // Dynamic explicit evaluation from real production response body
-                bool serverBaseOk = matrix.ServFlag?.ToUpper() == "Y";
-
-                // Splitting logical state boundaries based on data echoes from server matrix
-                traceResult.IsPickupServiceable = matrix.OrgPin == pickupPincode && serverBaseOk;
-                traceResult.IsDeliveryServiceable = matrix.DestPin == deliveryPincode && serverBaseOk;
-                traceResult.IsOverallServiceable = traceResult.IsPickupServiceable && traceResult.IsDeliveryServiceable;
-                traceResult.Message = traceResult.IsOverallServiceable ? "Both pincodes are fully active and serviceable." : "Service constraint flagged by DTDC database rules.";
-
-                return traceResult;
+                return false;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Detailed serviceability engine crash caught.");
-                traceResult.Message = $"Internal processing exception: {ex.Message}";
-                return traceResult;
+                _logger.LogError(ex, "Exception caught during DTDC simple serviceability check.");
+                return false; 
             }
         }
-
 
 
 
@@ -312,8 +319,11 @@ namespace TryNextPost.Infrastructure.CourierAdapters
         {
             try
             {
-                var labelUrl = $"{_settings.BookingUrl?.Replace("/consignment/softdata", "/consignment/shippinglabel/stream")}" +
-                               $"?reference_number={request.AwbNumber.Trim()}&label_code=SHIP_LABEL_4X6&label_format=base64";
+                //var labelUrl = $"{_settings.BookingUrl?.Replace("/consignment/softdata", "/consignment/shippinglabel/stream")}" +
+                //               $"?reference_number={request.AwbNumber.Trim()}&label_code=SHIP_LABEL_4X6&label_format=base64";
+
+                var labelBaseUrl = _settings.LabelUrl;
+                var labelUrl = $"{labelBaseUrl}?reference_number={request.AwbNumber.Trim()}&label_code=SHIP_LABEL_4X6&label_format=base64";
 
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Get, labelUrl);
                 httpRequest.Headers.Add("api-key", _settings.ApiKey);
@@ -359,7 +369,7 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 
 
 
-        // Layer Location: TryNextPost.Infrastructure / CourierAdapters/DtdcAdapter.cs
+ 
 
         public override async Task<CourierCancelResponse> CancelAsync(
             CourierCancelRequest request,
@@ -378,7 +388,7 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                 using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
                 // Note: DTDC tracking cancel channel routing path sync
-                var cancelUrl = $"{_settings.BookingUrl?.Replace("/consignment/softdata", "/consignment/cancel")}";
+                var cancelUrl = _settings.CancellationUrl;
 
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, cancelUrl);
                 httpRequest.Headers.Add("api-key", _settings.ApiKey);
@@ -447,8 +457,8 @@ namespace TryNextPost.Infrastructure.CourierAdapters
         {
             try
             {
-                
-                var trackUrl = "https://blktracksvc.dtdc.com/dtdc-api/rest/JSONCnTrk/getTrackDetails";
+
+                var trackUrl = _settings.TrackingUrl;
 
                 // Page 3 exact request payload layout building
                 var trackingRequestBody = new
@@ -547,14 +557,176 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 
 
 
-        public override async Task<bool> RequestNdrReAttemptAsync(string awbNumber, string actionType, string remarks, CancellationToken cancellationToken)
+        public override async Task<bool> RequestNdrReAttemptAsync(
+            string awbNumber,
+            string actionType,
+            string remarks,
+            CancellationToken cancellationToken)
         {
-           
-            return await Task.FromResult(true);
+            try
+            {
+                _logger.LogInformation("Dispatched DTDC NDR Instruction Payload for AWB: {Awb}", awbNumber);
+
+                // 1. ASSEMBLE ARRAY PAYLOAD PRECISELY MATCHING PAGE 2 JSON STRUCTURE
+                var ndrPayloadItem = new
+                {
+                    consgNumber = awbNumber.Trim(),
+                    custCode = _settings.AccountCode, // e.g., GL19990
+                    rtoAction = "1", // Action Code "1" represents strictly 'Re-attempt' as per Page 3
+                    remarks = !string.IsNullOrWhiteSpace(remarks) ? remarks.Trim() : "Seller requested reattempt cycle."
+                };
+
+                // DTDC API strictly expects an explicit JSON Array format wrapper [...]
+                var payloadCollection = new[] { ndrPayloadItem };
+                var json = JsonSerializer.Serialize(payloadCollection);
+
+                using var content = new StringContent(json, Encoding.UTF8, "application/json");
+                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.NdrUpdateUrl);
+
+                // 2. INJECT BASIC AUTHENTICATION HEADERS SPECIFIED ON PAGE 2
+                var authBytes = Encoding.ASCII.GetBytes($"{_settings.NdrUsername}:{_settings.NdrPassword}");
+                httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Convert.ToBase64String(authBytes));
+                httpRequest.Content = content;
+
+                var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+                var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("DTDC NDR API HTTP Fault. Status Code: {StatusCode}", response.StatusCode);
+                    return false;
+                }
+
+                using var doc = JsonDocument.Parse(responseBody);
+                var root = doc.RootElement;
+
+                // Success Response Validation as per Page 4 Schema ("status": "OK")
+                if (root.TryGetProperty("status", out var statusElement) &&
+                    string.Equals(statusElement.GetString(), "OK", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogInformation("DTDC live NDR instruction accepted successfully by remote routers.");
+                    return true;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fatal error caught inside DtdcAdapter.RequestNdrReAttemptAsync processing thread.");
+                return false;
+            }
         }
 
+        public override async Task<CourierRateResponse> GetRatesAsync(
+            CourierRateRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                _logger.LogInformation("Dispatched DTDC live dynamic Rate Calculator payload for Account: {Code}", _settings.AccountCode);
+
+                var rateUrl = _settings.RateCalculatorUrl;
+                if (string.IsNullOrWhiteSpace(rateUrl))
+                {
+                    throw new InvalidOperationException("DTDC Rate Calculator API url context reference missing in configuration matrix settings.");
+                }
+                var rateRequest = new
+                {
+                    originPincode = request.OriginPincode.Trim(),
+                    destPincode = request.DestinationPincode.Trim(),
+                    weight = Convert.ToDecimal(request.WeightKg > 0 ? request.WeightKg : 0.5m),
+                    expectedBookingDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                    invoiceValue = Convert.ToDecimal(request.CodAmount > 0 ? request.CodAmount : 100.0m),
+                    mode = "SURFACE",
+                    pieces = (request.TotalQuantity > 0 ? request.TotalQuantity : 1).ToString(),
+                    documentType = "N",
+                    insured = "N",
+                    insuredBy = "",
+                    codAmount = request.IsCod ? (request.CodAmount ?? 0m).ToString("0") : "0",
+                    customerCode = !string.IsNullOrWhiteSpace(_settings.AccountCode) ? _settings.AccountCode : "GL19990"
+                };
+
+                var json = JsonSerializer.Serialize(rateRequest);
+                using var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, rateUrl);
+                httpRequest.Headers.Add("x-access-token", _settings.ApiKey);
+                httpRequest.Content = content;
 
 
+                var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+                var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("DTDC Rate API returned explicit server network fault string: {StatusCode}", response.StatusCode);
+
+                    return new CourierRateResponse
+                    {
+                        Success = false,
+                        Message = $"DTDC remote server gateway execution exception path. HTTP Status: {response.StatusCode}"
+                    };
+                }
+                using var doc = JsonDocument.Parse(responseBody);
+                var root = doc.RootElement;
+
+                bool isApiSuccess = root.TryGetProperty("status", out var statusElement) && statusElement.GetBoolean();
+                if (!isApiSuccess)
+                {
+                    string runtimeErrorMessage = root.TryGetProperty("errorMessage", out var errMsgElement)
+                        ? errMsgElement.GetString() ?? "Validation failure"
+                        : "DTDC core gateway declined query constraints.";
+
+                    _logger.LogWarning("DTDC Rate Calculator calculation declined: {Message}", runtimeErrorMessage);
+                    return new CourierRateResponse { Success = false, Message = runtimeErrorMessage };
+                }
+
+                var parsedServiceRatesList = new List<TryNextPost.Application.DTO.Courier.CourierRateOption>();
+
+                if (root.TryGetProperty("serviceCode", out var serviceListElement) && serviceListElement.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var serviceItem in serviceListElement.EnumerateArray())
+                    {
+                        decimal totalAmountPayable = 0m;
+                        if (serviceItem.TryGetProperty("totalAmount", out var amtElement))
+                        {
+                            if (amtElement.ValueKind == JsonValueKind.Number)
+                                totalAmountPayable = amtElement.GetDecimal();
+                            else if (amtElement.ValueKind == JsonValueKind.String && decimal.TryParse(amtElement.GetString(), out var parsedAmt))
+                                totalAmountPayable = parsedAmt;
+                        }
+
+                        if (totalAmountPayable <= 0.0m) continue;
+
+                        string targetServiceCode = serviceItem.TryGetProperty("serviceCode", out var codeElement) ? codeElement.GetString() ?? "" : "";
+                        string readableServiceName = serviceItem.TryGetProperty("serviceName", out var nameElement) ? nameElement.GetString() ?? "DTDC Cargo Service" : "DTDC Cargo Service";
+                        int estimatedTransitDays = serviceItem.TryGetProperty("tat", out var tatElement) ? tatElement.GetInt32() : 3;
+
+                        parsedServiceRatesList.Add(new TryNextPost.Application.DTO.Courier.CourierRateOption
+                        {
+                            ServiceName = readableServiceName,
+                            ServiceCode = targetServiceCode,
+                            TotalCharge = totalAmountPayable,
+                            CodCharge = request.IsCod ? (request.CodChargeValue > 0 ? request.CodChargeValue : 30.0m) : 0.0m,
+                            EstimatedDays = estimatedTransitDays,
+                            IsStub = false
+                        });
+                    }
+                }
+                return new CourierRateResponse
+                {
+                    Success = parsedServiceRatesList.Any(),
+                    CourierCode = CourierCode,
+                    Rates = parsedServiceRatesList,
+                    Message = "DTDC live dynamic rates extracted successfully."
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fatal crash inside DtdcAdapter.GetRatesAsync processing pipeline threads boundary.");
+                return new CourierRateResponse { Success = false, Message = $"Internal Exception Gateway Fault: {ex.Message}" };
+            }
+        }
 
     }
 }

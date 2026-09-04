@@ -91,19 +91,25 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             {
                 bool rateFetched = false;
 
-                // Courier-wise serviceability check
                 if (courier.SupportsServiceabilityApi)
                 {
-                    if (_courierAdapterFactory.TryResolve(
-                            courier.CourierCode,
-                            out var adapter)
-                        && adapter != null)
+                    if (_courierAdapterFactory.TryResolve(courier.CourierCode, out var adapter) && adapter != null)
                     {
-                        var isServiceable = await adapter.IsServiceableAsync(
-                            rateRequest.OriginPincode,
-                            rateRequest.DestinationPincode,
-                            order.OrderType,
-                            cancellationToken);
+                        bool isServiceable = false;
+
+                        try
+                        {
+                            isServiceable = await adapter.IsServiceableAsync(
+                                rateRequest.OriginPincode,
+                                rateRequest.DestinationPincode,
+                                order.OrderType,
+                                cancellationToken);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Live serviceability check crashed for courier {CourierCode}. Falling back to default routing.", courier.CourierCode);
+                            isServiceable = true;
+                        }
 
                         if (!isServiceable)
                             continue;
@@ -154,6 +160,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                         {
                            
                             _logger.LogError(ex, "Live rate fetch failed");
+                            throw;
                         }
                     }
                 }
@@ -195,7 +202,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                         quote.TotalCharge,
                         quote.CodCharge,
                         quote.EstimatedDays,
-                        false,
+                        quote.FromRateCard,
                         rateSource));
                 }
             }
@@ -1077,6 +1084,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                 PaymentMode = order.PaymentMode.ToString(),
                 CodChargeType = courier?.CodChargeType ?? CodChargeType.Flat,
                 CodChargeValue = courier?.CodChargeValue ?? 0m,
+                TotalQuantity = order.OrderItems != null ? order.OrderItems.Sum(x => x.Qty) : 1,
                 SupportsCod = courier?.SupportsCOD ?? true
             };
         }
