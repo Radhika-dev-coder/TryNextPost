@@ -18,10 +18,21 @@ namespace TryNextPost.Application.Common.Settings
 
         public string? AccountCode { get; set; }
 
+        public string TrackingUrl { get; set; } = string.Empty;
+        public string CancellationUrl { get; set; } = string.Empty;
+
+        public string LabelUrl { get; set; } = string.Empty;
+
         public bool Enabled { get; set; }
         public string? PincodeUrl { get; set; }
         public string? TrackingUsername { get; set; }
         public string? TrackingToken { get; set; }
         public string? ServiceTypeId { get; set; }
+        public string NdrUpdateUrl { get; set; } = string.Empty;
+        public string NdrUsername { get; set; } = string.Empty;
+        public string NdrPassword { get; set; } = string.Empty;
+
+        public string RateCalculatorUrl { get; set; } = string.Empty;
+
     }
 }

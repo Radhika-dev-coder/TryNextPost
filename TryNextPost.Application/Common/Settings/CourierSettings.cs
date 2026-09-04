@@ -19,6 +19,8 @@ namespace TryNextPost.Application.Common.Settings
 
         public ShadowfaxSettings Shadowfax { get; set; } = new();
 
+        public AmazonSettings AmazonShipping { get; set; } = new AmazonSettings();
+
 
     }
 
