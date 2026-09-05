@@ -1280,7 +1280,8 @@ namespace TryNextPost.Application.IServices.Class.Shipment
             var matched = string.IsNullOrWhiteSpace(request.ServiceCode)
                 ? rateResponse.Rates.OrderBy(r => r.TotalCharge).FirstOrDefault()
                 : rateResponse.Rates.FirstOrDefault(r =>
-                    string.Equals(r.ServiceCode, request.ServiceCode, StringComparison.OrdinalIgnoreCase));
+                    string.Equals(r.ServiceCode?.Trim(), request.ServiceCode?.Trim(), StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(r.RateId?.Trim(), request.RateId?.Trim(), StringComparison.OrdinalIgnoreCase));
 
             if (matched == null)
                 throw new InvalidOperationException(SystemMessage.ChargeAmountMismatch);
