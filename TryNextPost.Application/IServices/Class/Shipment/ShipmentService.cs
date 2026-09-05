@@ -146,7 +146,9 @@ namespace TryNextPost.Application.IServices.Class.Shipment
                                         option.CodCharge,
                                         option.EstimatedDays,
                                         response.IsStub || option.IsStub,
-                                        response.Message));
+                                        response.Message,
+                                        option.RateId,
+                                        option.RequestToken));
                                 }
 
                                 rateFetched = true;
@@ -218,7 +220,7 @@ namespace TryNextPost.Application.IServices.Class.Shipment
         }
 
         private static ShipmentRateOptionDto CreateShipmentRateOption(Courier courier, string serviceName, string? serviceCode,
-            decimal totalCharge, decimal? codCharge, int estimatedDays, bool isStub, string? message)
+            decimal totalCharge, decimal? codCharge, int estimatedDays, bool isStub, string? message,string rateId = null,string requestToken = null)
         {
             return new ShipmentRateOptionDto
             {
@@ -236,7 +238,9 @@ namespace TryNextPost.Application.IServices.Class.Shipment
 
                 IsStub = isStub,
 
-                Message = message
+                Message = message,
+                RateId = !string.IsNullOrWhiteSpace(rateId) ? rateId : serviceCode,
+                RequestToken = requestToken
             };
         }
         public async Task<ConfirmShipmentResponse> ConfirmShipmentAsync(
