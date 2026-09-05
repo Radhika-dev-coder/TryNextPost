@@ -14,6 +14,8 @@ namespace TryNextPost.Application.Common.Settings
 
         public string? ApiKey { get; set; }
 
+        public string? RateToken { get; set; }
+
         public string? ApiSecret { get; set; }
 
         public string? AccountCode { get; set; }

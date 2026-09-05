@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Headers;
 using System.Text;
@@ -216,7 +216,13 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                 HttpMethod.Post,
                 _settings.BookingUrl);
 
-            httpRequest.Headers.Add("api-key", _settings.ApiKey);
+            //      httpRequest.Headers.Add("api-key", _settings.ApiKey);
+            if (!string.IsNullOrWhiteSpace(_settings.ApiKey))
+            {
+                httpRequest.Headers.Add("api-key", _settings.ApiKey);
+                httpRequest.Headers.Add("x-access-token", _settings.ApiKey);
+            }
+
             httpRequest.Content = content;
 
             var response = await _httpClient.SendAsync(
@@ -313,26 +319,38 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 
 
 
+
+
         public override async Task<CourierLabelResponse> GetLabelAsync(
             CourierLabelRequest request,
             CancellationToken cancellationToken = default)
         {
             try
             {
-                //var labelUrl = $"{_settings.BookingUrl?.Replace("/consignment/softdata", "/consignment/shippinglabel/stream")}" +
-                //               $"?reference_number={request.AwbNumber.Trim()}&label_code=SHIP_LABEL_4X6&label_format=base64";
+                _logger.LogInformation("Streaming real-time verified production label from DTDC infrastructure for AWB: {Awb}", request.AwbNumber);
 
-                var labelBaseUrl = _settings.LabelUrl;
-                var labelUrl = $"{labelBaseUrl}?reference_number={request.AwbNumber.Trim()}&label_code=SHIP_LABEL_4X6&label_format=base64";
+                if (string.IsNullOrWhiteSpace(request.AwbNumber))
+                {
+                    return new CourierLabelResponse { Success = false, Message = "Tracking identifier identifier parameter boundary state null." };
+                }
+
+
+                var labelUrl = $"{_settings.BookingUrl?.Replace("/consignment/softdata", "/consignment/shippinglabel/stream")}" +
+                               $"?reference_number={request.AwbNumber.Trim()}&label_code=SHIP_LABEL_4X6&label_format=base64";
 
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Get, labelUrl);
-                httpRequest.Headers.Add("api-key", _settings.ApiKey);
+
+                if (!string.IsNullOrWhiteSpace(_settings.ApiKey))
+                {
+                    httpRequest.Headers.Add("api-key", _settings.ApiKey);
+                    httpRequest.Headers.Add("x-access-token", _settings.ApiKey);
+                }
 
                 var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning("DTDC Shipping Label API failed. Status: {StatusCode}", response.StatusCode);
-                    return new CourierLabelResponse { Success = false, Message = "DTDC Server failed to stream the requested label." };
+                    _logger.LogWarning("DTDC Shipping Label API stream failed. Status: {StatusCode}", response.StatusCode);
+                    return new CourierLabelResponse { Success = false, Message = $"DTDC Server failed to stream the requested label. Status: {response.StatusCode}" };
                 }
 
                 var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -341,23 +359,20 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                 if (doc.RootElement.TryGetProperty("label", out var labelElement))
                 {
                     var base64String = labelElement.GetString() ?? string.Empty;
-
-                    // Converting the streamed Base64 string directly into bytes array for your exact service architecture
                     byte[] rawPdfBytes = Convert.FromBase64String(base64String);
 
-                    // FIXED: Matching all property parameters mapping expected by ShipmentService
                     return new CourierLabelResponse
                     {
                         Success = true,
-                        LabelUrl = "", // Keeping empty if direct raw storage endpoint link is not built yet
-                        LabelContent = rawPdfBytes, // Mapped parameter array bytes 
+                        LabelUrl = "",
+                        LabelContent = rawPdfBytes, 
                         ContentType = "application/pdf",
-                        IsStub = false,
+                        IsStub = false, 
                         Message = "DTDC dynamic thermal label streamed successfully."
                     };
                 }
 
-                return new CourierLabelResponse { Success = false, Message = "Label token missing from JSON response." };
+                return new CourierLabelResponse { Success = false, Message = "Label token missing from JSON response structure." };
             }
             catch (Exception ex)
             {
@@ -369,81 +384,64 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 
 
 
- 
+
+
+
 
         public override async Task<CourierCancelResponse> CancelAsync(
             CourierCancelRequest request,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken = default)
         {
+            if (string.IsNullOrWhiteSpace(request.AwbNumber))
+            {
+                return new CourierCancelResponse { Success = false, CourierCode = CourierCode, Message = "AWB number cannot be null." };
+            }
+
             try
             {
-                var dtdcRequest = new DtdcCancelRequest
+                _logger.LogInformation("Dispatching official production cancellation request to DTDC for AWB: {Awb}", request.AwbNumber);
+
+                using (var client = new HttpClient())
                 {
-                    // Clean mapping parameters
-                    AwbNumber = request.AwbNumber.Trim(),
-                    CancelReason = !string.IsNullOrWhiteSpace(request.Reason) ? request.Reason : "Cancelled from Seller Dashboard"
-                };
-
-                var json = JsonSerializer.Serialize(dtdcRequest);
-                using var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                // Note: DTDC tracking cancel channel routing path sync
-                var cancelUrl = _settings.CancellationUrl;
-
-                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, cancelUrl);
-                httpRequest.Headers.Add("api-key", _settings.ApiKey);
-                httpRequest.Content = content;
-
-                var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
-                var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-
-                // =========================================================================
-                // PRODUCTION STANDARD FALLBACK: Handled status validation bypass
-                // =========================================================================
-                if (!response.IsSuccessStatusCode)
-                {
-                    _logger.LogWarning("DTDC Live Cancel API flagged constraint code: {StatusCode}. Activating fallback aggregator mode to prevent wallet freeze.", response.StatusCode);
-
-                    // Allows system rollback database layers successfully without disrupting wallet debit records
-                    return new CourierCancelResponse
+                    var cancelPayload = new
                     {
-                        Success = true, // Force true locally to enable client safe data release state
-                        IsStub = true,  // Mark as local fallback action indicator
-                        CourierCode = CourierCode,
-                        Message = $"Local cancel acknowledged. (Courier Server Status Trace: {response.StatusCode})"
+                        AWBNo = new List<string> { request.AwbNumber.Trim() },
+                        customerCode = _settings.AccountCode 
                     };
-                }
 
-                var result = JsonSerializer.Deserialize<DtdcCancelResponse>(responseBody);
-                if (result == null)
-                {
-                    return new CourierCancelResponse
+                    var jsonContent = JsonSerializer.Serialize(cancelPayload);
+                    var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+                    var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.CancellationUrl);
+                    if (!string.IsNullOrWhiteSpace(_settings.ApiKey))
                     {
-                        Success = true, // Fallback safety guard
-                        IsStub = true,
-                        CourierCode = CourierCode,
-                        Message = "Local cancel fallback triggered: Malformed server tracking validation array response."
-                    };
-                }
+                        httpRequest.Headers.Add("api-key", _settings.ApiKey);
+                    }
 
-                return new CourierCancelResponse
-                {
-                    Success = result.Success,
-                    IsStub = false,
-                    CourierCode = CourierCode,
-                    Message = result.Message ?? "Cancellation request completed successfully via DTDC pipeline."
-                };
+                    httpRequest.Content = content;
+
+                    var response = await client.SendAsync(httpRequest, cancellationToken);
+                    var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        return new CourierCancelResponse
+                        {
+                            Success = true,
+                            IsStub = false, 
+                            CourierCode = CourierCode,
+                            Message = "Shipment canceled successfully on DTDC production servers."
+                        };
+                    }
+
+                    _logger.LogWarning("DTDC Live Cancellation API rejected payload. Status: {Status}, Body: {Body}", response.StatusCode, responseBody);
+                    return new CourierCancelResponse { Success = false, CourierCode = CourierCode, Message = $"DTDC Core Rejection: {responseBody}" };
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Fatal crash caught during DTDC shipment cancellation routine execution.");
-                return new CourierCancelResponse
-                {
-                    Success = true, // Global exception backup lock
-                    IsStub = true,
-                    CourierCode = CourierCode,
-                    Message = $"Local fallback release active. Processing trace details error logs: {ex.Message}"
-                };
+                _logger.LogError(ex, "Fatal crash caught inside DtdcAdapter.CancelAsync pipeline.");
+                return new CourierCancelResponse { Success = false, CourierCode = CourierCode, Message = $"Internal Exception: {ex.Message}" };
             }
         }
 
@@ -460,7 +458,6 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 
                 var trackUrl = _settings.TrackingUrl;
 
-                // Page 3 exact request payload layout building
                 var trackingRequestBody = new
                 {
                     trkType = "cnno",
@@ -472,7 +469,7 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                 using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, trackUrl);
-                httpRequest.Headers.Add("x-access-token", _settings.TrackingToken); // Authentication Token Header
+                httpRequest.Headers.Add("x-access-token", _settings.TrackingToken);
                 httpRequest.Content = content;
 
                 var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
@@ -487,7 +484,6 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                 using var doc = JsonDocument.Parse(responseBody);
                 var root = doc.RootElement;
 
-                // Page 4 validation guard check: status flag
                 if (root.TryGetProperty("statusFlag", out var flagElement) && !flagElement.GetBoolean())
                 {
                     return new CourierTrackResponse { Success = false, Message = "No real data found for this AWB number on DTDC network." };
@@ -499,18 +495,17 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 
                 var dynamicEventList = new List<CourierTrackEvent>();
 
-                // 3. Extracting timelines from Page 8 trackDetails array
                 if (root.TryGetProperty("trackDetails", out var detailsElement) && detailsElement.ValueKind == JsonValueKind.Array)
                 {
                     foreach (var scan in detailsElement.EnumerateArray())
                     {
                         string actionCode = scan.GetProperty("strCode").GetString() ?? "";
                         string actionName = scan.GetProperty("strAction").GetString() ?? "";
-                        string actionDateStr = scan.GetProperty("strActionDate").GetString() ?? ""; // Format: DDMMYYYY
-                        string actionTimeStr = scan.GetProperty("strActionTime").GetString() ?? ""; // Format: HHMM
+                        string actionDateStr = scan.GetProperty("strActionDate").GetString() ?? "";
+                        string actionTimeStr = scan.GetProperty("strActionTime").GetString() ?? ""; 
                         string remarks = scan.GetProperty("sTrRemarks").GetString() ?? "";
 
-                        // Parsing the custom custom DDMMYYYY text format to standard DateTime
+                        
                         DateTime eventDateTime = DateTime.UtcNow;
                         if (actionDateStr.Length == 8)
                         {
@@ -519,8 +514,6 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                             int year = int.Parse(actionDateStr.Substring(4, 4));
                             eventDateTime = new DateTime(year, month, day);
                         }
-
-                        // PRODUCTION CROSS-MAPPING: Mapping DTDC custom codes directly to TryNextPost definitions
                         string sysStatusCode = "IN-TRANSIT";
                         if (actionCode == "BKD") sysStatusCode = "BOOKED";
                         else if (actionCode == "DLV") sysStatusCode = "DELIVERED";
@@ -567,23 +560,20 @@ namespace TryNextPost.Infrastructure.CourierAdapters
             {
                 _logger.LogInformation("Dispatched DTDC NDR Instruction Payload for AWB: {Awb}", awbNumber);
 
-                // 1. ASSEMBLE ARRAY PAYLOAD PRECISELY MATCHING PAGE 2 JSON STRUCTURE
                 var ndrPayloadItem = new
                 {
                     consgNumber = awbNumber.Trim(),
-                    custCode = _settings.AccountCode, // e.g., GL19990
-                    rtoAction = "1", // Action Code "1" represents strictly 'Re-attempt' as per Page 3
+                    custCode = _settings.AccountCode,
+                    rtoAction = "1", 
                     remarks = !string.IsNullOrWhiteSpace(remarks) ? remarks.Trim() : "Seller requested reattempt cycle."
                 };
 
-                // DTDC API strictly expects an explicit JSON Array format wrapper [...]
                 var payloadCollection = new[] { ndrPayloadItem };
                 var json = JsonSerializer.Serialize(payloadCollection);
 
                 using var content = new StringContent(json, Encoding.UTF8, "application/json");
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, _settings.NdrUpdateUrl);
 
-                // 2. INJECT BASIC AUTHENTICATION HEADERS SPECIFIED ON PAGE 2
                 var authBytes = Encoding.ASCII.GetBytes($"{_settings.NdrUsername}:{_settings.NdrPassword}");
                 httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Convert.ToBase64String(authBytes));
                 httpRequest.Content = content;
@@ -599,8 +589,6 @@ namespace TryNextPost.Infrastructure.CourierAdapters
 
                 using var doc = JsonDocument.Parse(responseBody);
                 var root = doc.RootElement;
-
-                // Success Response Validation as per Page 4 Schema ("status": "OK")
                 if (root.TryGetProperty("status", out var statusElement) &&
                     string.Equals(statusElement.GetString(), "OK", StringComparison.OrdinalIgnoreCase))
                 {
@@ -650,7 +638,7 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                 using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, rateUrl);
-                httpRequest.Headers.Add("x-access-token", _settings.ApiKey);
+                httpRequest.Headers.Add("x-access-token", _settings.RateToken);
                 httpRequest.Content = content;
 
 
@@ -709,7 +697,9 @@ namespace TryNextPost.Infrastructure.CourierAdapters
                             TotalCharge = totalAmountPayable,
                             CodCharge = request.IsCod ? (request.CodChargeValue > 0 ? request.CodChargeValue : 30.0m) : 0.0m,
                             EstimatedDays = estimatedTransitDays,
-                            IsStub = false
+                            IsStub = false,
+                            RateId = targetServiceCode,
+                            RequestToken = _settings.AccountCode ?? "DTDC_TOKEN"
                         });
                     }
                 }
